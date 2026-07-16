@@ -291,18 +291,6 @@ internal class MarkerMotionController(
         val effectivePredictionAgeMs = (fixAgeMs - PREDICTION_START_DELAY_MS).coerceAtLeast(0L)
         val predictedDistanceM =
             fix.speedMps * PREDICTION_SPEED_SCALE * (effectivePredictionAgeMs / 1000f)
-        if (predictedDistanceM < MIN_PREDICTION_DISTANCE_M) {
-            MarkerMotionTelemetry.recordPredictionBlocked(
-                reason = "too_close",
-                nowElapsedMs = nowElapsedMs,
-                fixAgeMs = fixAgeMs,
-                accuracyM = fix.accuracyM,
-                speedMps = fix.speedMps,
-                bearingDeg = bearingDeg,
-            )
-            return currentDisplayed
-        }
-
         val predicted =
             moveLatLong(
                 start = fix.latLong,
@@ -317,9 +305,6 @@ internal class MarkerMotionController(
             bearingDeg = bearingDeg,
             predictedDistanceM = predictedDistanceM,
         )
-        if (distanceMeters(currentDisplayed, predicted) < PREDICTION_RENDER_EPSILON_M) {
-            return currentDisplayed
-        }
         state.displayedLatLong = predicted
         return predicted
     }
@@ -570,10 +555,11 @@ private class MarkerMotionGpsFixProcessor(
             state.smoothedSpeedMps <= 0f || fixIntervalMs <= 0L -> resolvedSpeedMps
             else -> {
                 val timeConstantMs =
-                    if (isBikeActivityProfile) {
-                        BIKE_SPEED_SMOOTHING_TIME_CONSTANT_MS
-                    } else {
-                        WALK_SPEED_SMOOTHING_TIME_CONSTANT_MS
+                    when {
+                        isBikeActivityProfile -> BIKE_SPEED_SMOOTHING_TIME_CONSTANT_MS
+                        resolvedSpeedMps > state.smoothedSpeedMps ->
+                            WALK_ACCELERATION_SMOOTHING_TIME_CONSTANT_MS
+                        else -> WALK_DECELERATION_SMOOTHING_TIME_CONSTANT_MS
                     }
                 val alpha =
                     (1.0 - exp(-fixIntervalMs.toDouble() / timeConstantMs.toDouble()))
@@ -1267,8 +1253,7 @@ private val movingCorrectionTarget: (CorrectionBlend, Long) -> LatLong = { blend
     val predictedDistanceM = blend.speedMps * PREDICTION_SPEED_SCALE * (predictionAgeMs / 1000f)
     if (
         bearingDeg != null &&
-        blend.speedMps >= DEFAULT_MIN_PREDICTION_SPEED_MPS &&
-        predictedDistanceM >= MIN_PREDICTION_DISTANCE_M
+        blend.speedMps >= DEFAULT_MIN_PREDICTION_SPEED_MPS
     ) {
         moveLatLong(
             start = blend.to,
@@ -1340,10 +1325,8 @@ private const val DEFAULT_CORRECTION_BLEND_DURATION_MS = 350L
 private const val DEFAULT_PREDICTION_TICK_MS = 250L
 private const val DEFAULT_CORRECTION_BLEND_TICK_MS = 100L
 private const val IDLE_PREDICTION_TICK_MS = 30_000L
-private const val PREDICTION_START_DELAY_MS = 150L
+private const val PREDICTION_START_DELAY_MS = 50L
 private const val PREDICTION_SPEED_SCALE = 0.9f
-private const val MIN_PREDICTION_DISTANCE_M = 0.35f
-private const val PREDICTION_RENDER_EPSILON_M = 0.25f
 private const val DUPLICATE_FIX_TIME_EPSILON_MS = 250L
 private const val DUPLICATE_FIX_DISTANCE_EPSILON_M = 0.25f
 private const val DUPLICATE_FIX_ACCURACY_EPSILON_M = 0.1f
@@ -1354,7 +1337,8 @@ private const val WATCH_GPS_CATCH_UP_MAX_ACCURACY_M = 25f
 private const val AUTO_FUSED_CATCH_UP_MIN_LAG_M = 35f
 private const val AUTO_FUSED_CATCH_UP_MIN_SPEED_MPS = 0.8f
 private const val AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M = 12f
-private const val WALK_SPEED_SMOOTHING_TIME_CONSTANT_MS = 7_000L
+private const val WALK_ACCELERATION_SMOOTHING_TIME_CONSTANT_MS = 3_500L
+private const val WALK_DECELERATION_SMOOTHING_TIME_CONSTANT_MS = 7_000L
 private const val BIKE_SPEED_SMOOTHING_TIME_CONSTANT_MS = 4_000L
 private const val GPS_BEARING_MIN_SPEED_MPS = 0.45f
 private const val MAX_TRUSTED_SPEED_ACCURACY_MPS = 1.5f

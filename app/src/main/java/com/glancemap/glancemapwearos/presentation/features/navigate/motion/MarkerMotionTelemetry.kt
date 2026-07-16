@@ -28,6 +28,12 @@ internal data class MarkerMotionSummary(
     val fixGapSamples: Int = 0,
     val fixGapMeanMs: Long? = null,
     val fixGapMaxMs: Long? = null,
+    val firstRenderDelaySamples: Int = 0,
+    val firstRenderDelayMeanMs: Long? = null,
+    val firstRenderDelayMaxMs: Long? = null,
+    val activeRenderIntervalSamples: Int = 0,
+    val activeRenderIntervalMeanMs: Long? = null,
+    val activeRenderIntervalMaxMs: Long? = null,
 ) {
     fun summaryLabel(): String =
         buildString {
@@ -38,6 +44,8 @@ internal data class MarkerMotionSummary(
             append(" blend=$blendStarts")
             append(" clamp=$clampedCorrections")
             append(" drop=$outlierDrops")
+            firstRenderDelayMeanMs?.let { append(" firstRender=${it}ms") }
+            activeRenderIntervalMeanMs?.let { append(" renderGap=${it}ms") }
         }
 }
 
@@ -111,6 +119,14 @@ internal object MarkerMotionTelemetry {
     private var fixGapSamples: Int = 0
     private var fixGapTotalMs: Long = 0L
     private var fixGapMaxMs: Long = 0L
+    private var firstRenderDelaySamples: Int = 0
+    private var firstRenderDelayTotalMs: Long = 0L
+    private var firstRenderDelayMaxMs: Long = 0L
+    private var activeRenderIntervalSamples: Int = 0
+    private var activeRenderIntervalTotalMs: Long = 0L
+    private var activeRenderIntervalMaxMs: Long = 0L
+    private var pendingFirstRenderFixAtElapsedMs: Long? = null
+    private var lastMotionRenderedAtElapsedMs: Long? = null
     private val blockedReasonCounts = linkedMapOf<String, Int>()
     private var lastLoggedStateSignature: String? = null
 
@@ -130,6 +146,14 @@ internal object MarkerMotionTelemetry {
             fixGapSamples = 0
             fixGapTotalMs = 0L
             fixGapMaxMs = 0L
+            firstRenderDelaySamples = 0
+            firstRenderDelayTotalMs = 0L
+            firstRenderDelayMaxMs = 0L
+            activeRenderIntervalSamples = 0
+            activeRenderIntervalTotalMs = 0L
+            activeRenderIntervalMaxMs = 0L
+            pendingFirstRenderFixAtElapsedMs = null
+            lastMotionRenderedAtElapsedMs = null
             blockedReasonCounts.clear()
             lastLoggedStateSignature = null
         }
@@ -166,6 +190,23 @@ internal object MarkerMotionTelemetry {
                 fixGapSamples = fixGapSamples,
                 fixGapMeanMs = if (fixGapSamples > 0) fixGapTotalMs / fixGapSamples else null,
                 fixGapMaxMs = fixGapMaxMs.takeIf { fixGapSamples > 0 },
+                firstRenderDelaySamples = firstRenderDelaySamples,
+                firstRenderDelayMeanMs =
+                    if (firstRenderDelaySamples > 0) {
+                        firstRenderDelayTotalMs / firstRenderDelaySamples
+                    } else {
+                        null
+                    },
+                firstRenderDelayMaxMs = firstRenderDelayMaxMs.takeIf { firstRenderDelaySamples > 0 },
+                activeRenderIntervalSamples = activeRenderIntervalSamples,
+                activeRenderIntervalMeanMs =
+                    if (activeRenderIntervalSamples > 0) {
+                        activeRenderIntervalTotalMs / activeRenderIntervalSamples
+                    } else {
+                        null
+                    },
+                activeRenderIntervalMaxMs =
+                    activeRenderIntervalMaxMs.takeIf { activeRenderIntervalSamples > 0 },
             )
         }
 
@@ -175,6 +216,10 @@ internal object MarkerMotionTelemetry {
         nowElapsedMs: Long,
         reason: String,
     ) {
+        synchronized(lock) {
+            pendingFirstRenderFixAtElapsedMs = null
+            lastMotionRenderedAtElapsedMs = null
+        }
         recordStateTransition(
             snapshot =
                 MarkerMotionSnapshot(
@@ -428,9 +473,32 @@ internal object MarkerMotionTelemetry {
         }
     }
 
-    fun recordMotionRendered() {
+    fun recordFixAwaitingFirstRender(nowElapsedMs: Long) {
+        synchronized(lock) {
+            pendingFirstRenderFixAtElapsedMs = nowElapsedMs.coerceAtLeast(0L)
+        }
+    }
+
+    fun recordMotionRendered(nowElapsedMs: Long) {
         synchronized(lock) {
             renderedMotionUpdates += 1
+            val renderedAtElapsedMs = nowElapsedMs.coerceAtLeast(0L)
+            pendingFirstRenderFixAtElapsedMs?.let { fixAtElapsedMs ->
+                val delayMs = (renderedAtElapsedMs - fixAtElapsedMs).coerceAtLeast(0L)
+                firstRenderDelaySamples += 1
+                firstRenderDelayTotalMs += delayMs
+                firstRenderDelayMaxMs = maxOf(firstRenderDelayMaxMs, delayMs)
+                pendingFirstRenderFixAtElapsedMs = null
+            }
+            lastMotionRenderedAtElapsedMs?.let { previousRenderAtElapsedMs ->
+                val intervalMs = renderedAtElapsedMs - previousRenderAtElapsedMs
+                if (intervalMs in 1..MAX_ACTIVE_RENDER_INTERVAL_SAMPLE_MS) {
+                    activeRenderIntervalSamples += 1
+                    activeRenderIntervalTotalMs += intervalMs
+                    activeRenderIntervalMaxMs = maxOf(activeRenderIntervalMaxMs, intervalMs)
+                }
+            }
+            lastMotionRenderedAtElapsedMs = renderedAtElapsedMs
         }
     }
 
@@ -465,6 +533,8 @@ internal object MarkerMotionTelemetry {
             append(snapshot.reason.orEmpty())
         }
 }
+
+private const val MAX_ACTIVE_RENDER_INTERVAL_SAMPLE_MS = 10_000L
 
 private fun reasonLabel(reason: String?): String? =
     when (reason) {

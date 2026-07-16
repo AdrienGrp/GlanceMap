@@ -34,6 +34,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.shouldRenderMarkerMotion
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
 import com.glancemap.glancemapwearos.presentation.features.navigate.resolveMapCenterForNavigationMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.setCenterForNavigationMarker
@@ -634,7 +635,16 @@ internal fun rememberNavigateLocationUiState(
                 // mutating Mapsforge state or requesting an invisible redraw. The interactive
                 // wake path restores the latest cached anchor before requesting a fresh fix.
                 if (!shouldRenderLocationVisualUpdate(latestScreenState.value)) return@collect
+                if (motionUpdate.fixAccepted) {
+                    MarkerMotionTelemetry.recordFixAwaitingFirstRender(receivedAtElapsedMs)
+                }
 
+                val previousRenderedMarkerLatLong = lastRenderedMarkerLatLong
+                val renderedMotion =
+                    shouldRenderMarkerMotion(
+                        previous = previousRenderedMarkerLatLong,
+                        candidate = displayLatLong,
+                    )
                 if (locationMarker == null) {
                     removeAllRotatableMarkers(mapView)
                     locationMarker =
@@ -649,9 +659,11 @@ internal fun rememberNavigateLocationUiState(
                 } else {
                     locationMarker?.latLong = displayLatLong
                 }
-                val previousRenderedMarkerLatLong = lastRenderedMarkerLatLong
                 lastRenderedMarkerLatLong = displayLatLong
                 lastMarkerVisualUpdateAtElapsedMs = receivedAtElapsedMs
+                if (renderedMotion) {
+                    MarkerMotionTelemetry.recordMotionRendered(receivedAtElapsedMs)
+                }
                 if (
                     previousRenderedMarkerLatLong == null ||
                     shouldCenterOnRenderedMarker(
@@ -750,13 +762,9 @@ internal fun rememberNavigateLocationUiState(
                 ) ?: continue
             val marker = locationMarker ?: continue
 
-            lastRenderedMarkerLatLong?.let { last ->
-                val dLat = predicted.latitude - last.latitude
-                val dLon = predicted.longitude - last.longitude
-                if ((dLat * dLat + dLon * dLon) < MARKER_UPDATE_EPSILON_DEG2) continue
-            }
+            if (!shouldRenderMarkerMotion(lastRenderedMarkerLatLong, predicted)) continue
             lastRenderedMarkerLatLong = predicted
-            MarkerMotionTelemetry.recordMotionRendered()
+            MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs)
             lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
             lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
 
@@ -844,7 +852,6 @@ internal fun rememberNavigateLocationUiState(
     )
 }
 
-private const val MARKER_UPDATE_EPSILON_DEG2 = 1e-11
 private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
 private const val POST_WAKE_PREDICTION_GRACE_MS = 700L
@@ -913,10 +920,10 @@ internal fun shouldCenterOnRenderedMarker(
     currentCenter: LatLong?,
 ): Boolean {
     if (!shouldFollowPosition) return false
-    val center = currentCenter ?: return true
-    val dLat = target.latitude - center.latitude
-    val dLon = target.longitude - center.longitude
-    return (dLat * dLat + dLon * dLon) >= MARKER_UPDATE_EPSILON_DEG2
+    return shouldRenderMarkerMotion(
+        previous = currentCenter,
+        candidate = target,
+    )
 }
 
 private fun shouldCenterOnNavigationMarker(

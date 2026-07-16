@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.navigate.motion
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.moveLatLong
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
@@ -13,6 +14,128 @@ import kotlin.math.sqrt
 
 @Suppress("LargeClass")
 class MarkerMotionControllerTest {
+    @Test
+    fun predictionCanRenderOnFirstRegularTickAfterFix() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+
+        val guarded =
+            controller.predict(
+                nowElapsedMs = 10_050L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+        val firstRegularTick =
+            controller.predict(
+                nowElapsedMs = 10_250L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(base, guarded) < 0.01f)
+        assertTrue(distanceMeters(base, firstRegularTick) > 0.15f)
+        assertTrue(shouldRenderMarkerMotion(base, firstRegularTick))
+    }
+
+    @Test
+    fun renderThresholdIsDirectionIndependent() {
+        val base = LatLong(48.8566, 2.3522)
+
+        assertFalse(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 0.11f),
+            ),
+        )
+        assertFalse(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 90f, distanceMeters = 0.11f),
+            ),
+        )
+        assertTrue(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 0.13f),
+            ),
+        )
+        assertTrue(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 90f, distanceMeters = 0.13f),
+            ),
+        )
+    }
+
+    @Test
+    fun walkingSpeedAcceleratesFasterThanItDecelerates() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 11_000L,
+            fixElapsedMs = 11_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 2f,
+            rawBearingDeg = 90f,
+        )
+        val acceleratedSpeed = MarkerMotionTelemetry.latestSnapshot().speedMps ?: 0f
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 12_000L,
+            fixElapsedMs = 12_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+        val deceleratedSpeed = MarkerMotionTelemetry.latestSnapshot().speedMps ?: 0f
+
+        assertTrue(acceleratedSpeed in 1.20f..1.30f)
+        assertTrue(deceleratedSpeed > 1.20f)
+        assertTrue(deceleratedSpeed < acceleratedSpeed)
+    }
+
+    @Test
+    fun telemetryAggregatesFirstRenderDelayAndActiveRenderIntervals() {
+        MarkerMotionTelemetry.clear()
+
+        MarkerMotionTelemetry.recordFixAwaitingFirstRender(nowElapsedMs = 10_000L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_250L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_500L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_750L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 30_000L)
+
+        val summary = MarkerMotionTelemetry.summary()
+        assertEquals(1, summary.firstRenderDelaySamples)
+        assertEquals(250L, summary.firstRenderDelayMeanMs)
+        assertEquals(250L, summary.firstRenderDelayMaxMs)
+        assertEquals(2, summary.activeRenderIntervalSamples)
+        assertEquals(250L, summary.activeRenderIntervalMeanMs)
+        assertEquals(250L, summary.activeRenderIntervalMaxMs)
+        assertEquals(4, summary.renderedMotionUpdates)
+    }
+
     @Test
     fun predictionTickSlowsUntilFreshMotionCanMoveTheMarker() {
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
@@ -55,7 +178,7 @@ class MarkerMotionControllerTest {
         )
 
         assertEquals(
-            250L,
+            100L,
             controller.suggestedPredictionTickMs(
                 nowElapsedMs = 23_100L,
                 serviceFreshnessMaxAgeMs = 4_500L,
