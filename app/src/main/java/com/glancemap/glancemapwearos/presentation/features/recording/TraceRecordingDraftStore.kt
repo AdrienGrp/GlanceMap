@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.recording
 
 import android.content.Context
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -56,6 +57,10 @@ class TraceRecordingDraftStore(
                     paused = json.optBoolean("paused", false),
                     autoPaused = json.optBoolean("autoPaused", false),
                     activityProfile = json.optionalString("activityProfile"),
+                    trackSmoothingMode =
+                        json
+                            .optionalString("trackSmoothingMode")
+                            .toRecordingTrackSmoothingMode(),
                     startedAtMillis = json.optLong("startedAtMillis", 0L).takeIf { it > 0L },
                     pausedAtMillis = json.optLong("pausedAtMillis", 0L).takeIf { it > 0L },
                     accumulatedPausedMillis = json.optLong("accumulatedPausedMillis", 0L).coerceAtLeast(0L),
@@ -86,6 +91,7 @@ class TraceRecordingDraftStore(
                 .put("paused", state.paused)
                 .put("autoPaused", state.autoPaused)
                 .put("activityProfile", state.activityProfile)
+                .put("trackSmoothingMode", state.trackSmoothingMode)
                 .put("startedAtMillis", state.startedAtMillis ?: 0L)
                 .put("pausedAtMillis", state.pausedAtMillis ?: 0L)
                 .put("accumulatedPausedMillis", state.accumulatedPausedMillis)
@@ -135,6 +141,7 @@ data class TraceRecordingDraft(
     val paused: Boolean,
     val autoPaused: Boolean,
     val activityProfile: String?,
+    val trackSmoothingMode: String,
     val startedAtMillis: Long?,
     val pausedAtMillis: Long?,
     val accumulatedPausedMillis: Long,
@@ -187,6 +194,13 @@ private fun JSONObject.optionalLong(key: String): Long? =
         null
     } else {
         optLong(key).takeIf { it >= 0L }
+    }
+
+internal fun String?.toRecordingTrackSmoothingMode(): String =
+    when (this) {
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF -> this
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG -> this
+        else -> SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE
     }
 
 private fun JSONObject.optionalString(key: String): String? =

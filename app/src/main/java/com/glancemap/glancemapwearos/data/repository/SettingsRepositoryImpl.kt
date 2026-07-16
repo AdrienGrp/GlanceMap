@@ -64,6 +64,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_AUTO_PAUSE_MODE = stringPreferencesKey("recording_auto_pause_mode")
         val RECORDING_AUTO_PAUSE_MODE_HIKE = stringPreferencesKey("recording_auto_pause_mode_hike")
         val RECORDING_AUTO_PAUSE_MODE_BIKE = stringPreferencesKey("recording_auto_pause_mode_bike")
+        val RECORDING_TRACK_SMOOTHING_MODE_HIKE = stringPreferencesKey("recording_track_smoothing_mode_hike")
+        val RECORDING_TRACK_SMOOTHING_MODE_BIKE = stringPreferencesKey("recording_track_smoothing_mode_bike")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_HEART_RATE_SOURCE = stringPreferencesKey("recording_heart_rate_source")
         val RECORDING_CADENCE_SOURCE = stringPreferencesKey("recording_cadence_source")
@@ -301,6 +303,19 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit {
             val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
             it[autoPauseModeKeyFor(profile)] = sanitizeRecordingAutoPauseMode(mode)
+        }
+    }
+
+    override val recordingTrackSmoothingMode: Flow<String> =
+        context.dataStore.data.map {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeRecordingTrackSmoothingMode(it[recordingTrackSmoothingModeKeyFor(profile)])
+        }
+
+    override suspend fun setRecordingTrackSmoothingMode(mode: String) {
+        context.dataStore.edit {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            it[recordingTrackSmoothingModeKeyFor(profile)] = sanitizeRecordingTrackSmoothingMode(mode)
         }
     }
 
@@ -1818,6 +1833,12 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_AUTO_PAUSE_OFF,
                 SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS,
             )
+        private val allowedRecordingTrackSmoothingModes =
+            setOf(
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF,
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG,
+            )
         private val allowedPoiIconSizesPx =
             setOf(
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX,
@@ -2064,6 +2085,18 @@ class SettingsRepositoryImpl private constructor(
                 PrefKeys.RECORDING_AUTO_PAUSE_MODE_BIKE
             } else {
                 PrefKeys.RECORDING_AUTO_PAUSE_MODE_HIKE
+            }
+
+        private fun sanitizeRecordingTrackSmoothingMode(mode: String?): String =
+            mode
+                ?.takeIf { it in allowedRecordingTrackSmoothingModes }
+                ?: SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE
+
+        private fun recordingTrackSmoothingModeKeyFor(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.RECORDING_TRACK_SMOOTHING_MODE_BIKE
+            } else {
+                PrefKeys.RECORDING_TRACK_SMOOTHING_MODE_HIKE
             }
 
         private fun sanitizeTurnByTurnScreenOffGpsIntervalSeconds(preferences: Preferences): Int {

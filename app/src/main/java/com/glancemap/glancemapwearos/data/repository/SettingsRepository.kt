@@ -25,6 +25,10 @@ interface SettingsRepository {
         const val RECORDING_AUTO_PAUSE_BIKE_ONLY = "BIKE_ONLY"
         const val RECORDING_AUTO_PAUSE_ALWAYS = "ALWAYS"
         const val DEFAULT_RECORDING_AUTO_PAUSE_MODE = RECORDING_AUTO_PAUSE_OFF
+        const val RECORDING_TRACK_SMOOTHING_OFF = "OFF"
+        const val RECORDING_TRACK_SMOOTHING_ADAPTIVE = "ADAPTIVE"
+        const val RECORDING_TRACK_SMOOTHING_STRONG = "STRONG"
+        const val DEFAULT_RECORDING_TRACK_SMOOTHING_MODE = RECORDING_TRACK_SMOOTHING_ADAPTIVE
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_TOTAL_TIME = "total_time"
         const val RECORDING_METRIC_DURATION = "duration"
@@ -297,6 +301,10 @@ interface SettingsRepository {
     val recordingAutoPauseMode: Flow<String>
 
     suspend fun setRecordingAutoPauseMode(mode: String)
+
+    val recordingTrackSmoothingMode: Flow<String>
+
+    suspend fun setRecordingTrackSmoothingMode(mode: String)
 
     val recordingElevationSource: Flow<String>
 

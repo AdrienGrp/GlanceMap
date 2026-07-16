@@ -93,6 +93,8 @@ data class RecordedTraceSummary(
     val averagePowerWatts: Int?,
     val maxPowerWatts: Int?,
     val barometricPressureHpa: Double?,
+    val recordingTrackSmoothingMode: String? = null,
+    val recordingTrackFilterVersion: Int? = null,
 )
 
 private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceSummary) {
@@ -104,6 +106,12 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
 private fun StringWriter.writeRecordingMotionSummary(summary: RecordedTraceSummary) {
     summary.activityProfile?.takeIf { it.isNotBlank() }?.let {
         textTag("gmap:activityProfile", it)
+    }
+    summary.recordingTrackSmoothingMode?.takeIf { it.isNotBlank() }?.let {
+        textTag("gmap:recordingTrackSmoothingMode", it)
+    }
+    summary.recordingTrackFilterVersion?.takeIf { it > 0 }?.let {
+        textTag("gmap:recordingTrackFilterVersion", it.toString())
     }
     textTag("gmap:durationSeconds", formatDouble(summary.durationSeconds))
     textTag("gmap:totalDurationSeconds", formatDouble(summary.totalDurationSeconds))

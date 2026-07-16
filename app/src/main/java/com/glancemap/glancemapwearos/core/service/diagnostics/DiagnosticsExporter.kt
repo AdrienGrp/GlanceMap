@@ -54,6 +54,7 @@ data class DiagnosticsSettingsSnapshot(
     val recordingSampleIntervalSeconds: Int = 0,
     val recordingScreenOffSampleIntervalSeconds: Int = SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
     val recordingAutoPauseMode: String = SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE,
+    val recordingTrackSmoothingMode: String = SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE,
     val recordingElevationSource: String = "na",
     val recordingHeartRateSource: String = "na",
     val recordingCadenceSource: String = "na",
@@ -105,6 +106,17 @@ object DiagnosticsExporter {
         val unknownScreenAvgMs: Long? = null,
         val unknownScreenMaxMs: Long = 0L,
         val delayedCount: Int = 0,
+    )
+
+    internal data class RecordingTrackFilterInsights(
+        val smoothingMode: String? = null,
+        val filterVersion: Int? = null,
+        val qualityHeldFixCount: Int? = null,
+        val qualityRejectedFixCount: Int? = null,
+        val qualityRelocationCount: Int? = null,
+        val smoothedPointCount: Int? = null,
+        val smoothedAdjustmentMeters: String? = null,
+        val maxSmoothedAdjustmentMeters: String? = null,
     )
 
     internal data class TelemetryInsights(
@@ -354,6 +366,7 @@ object DiagnosticsExporter {
         var turnByTurnTurnAlertFilteredCount: Int = 0
         var turnByTurnTurnAlertOffRouteCount: Int = 0
         var turnByTurnTurnAlertMissedWindowCount: Int = 0
+        var recordingTrackFilter: RecordingTrackFilterInsights = RecordingTrackFilterInsights()
     }
 
     internal data class CompassTelemetryInsights(
@@ -695,6 +708,7 @@ object DiagnosticsExporter {
                 "recordingScreenOffSampleIntervalSeconds=${settings.recordingScreenOffSampleIntervalSeconds}",
             )
             writer.appendLine("recordingAutoPauseMode=${settings.recordingAutoPauseMode}")
+            writer.appendLine("recordingTrackSmoothingMode=${settings.recordingTrackSmoothingMode}")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("recordingHeartRateSource=${settings.recordingHeartRateSource}")
             writer.appendLine("recordingCadenceSource=${settings.recordingCadenceSource}")
@@ -825,6 +839,25 @@ object DiagnosticsExporter {
             writer.appendLine("markerMotionAcceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("markerMotionPredictionUpdates=${markerMotionSummary.predictionUpdates}")
             writer.appendLine("markerMotionRenderedUpdates=${markerMotionSummary.renderedMotionUpdates}")
+            writer.appendLine("markerMotionFirstRenderDelaySamples=${markerMotionSummary.firstRenderDelaySamples}")
+            writer.appendLine(
+                "markerMotionFirstRenderDelayMeanMs=${markerMotionSummary.firstRenderDelayMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "markerMotionFirstRenderDelayMaxMs=${markerMotionSummary.firstRenderDelayMaxMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalSamples=" +
+                    markerMotionSummary.activeRenderIntervalSamples,
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalMeanMs=" +
+                    (markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalMaxMs=" +
+                    (markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"),
+            )
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
@@ -1446,6 +1479,44 @@ object DiagnosticsExporter {
                 }",
             )
             writer.appendLine(
+                "recordingTrackSmoothingMode=${telemetryInsights.recordingTrackFilter.smoothingMode ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingTrackFilterVersion=${
+                    telemetryInsights.recordingTrackFilter.filterVersion?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityHeldFixCount=${
+                    telemetryInsights.recordingTrackFilter.qualityHeldFixCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityRejectedFixCount=${
+                    telemetryInsights.recordingTrackFilter.qualityRejectedFixCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityRelocationCount=${
+                    telemetryInsights.recordingTrackFilter.qualityRelocationCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSmoothedPointCount=${
+                    telemetryInsights.recordingTrackFilter.smoothedPointCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSmoothedAdjustmentMeters=${
+                    telemetryInsights.recordingTrackFilter.smoothedAdjustmentMeters ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingMaxSmoothedAdjustmentMeters=${
+                    telemetryInsights.recordingTrackFilter.maxSmoothedAdjustmentMeters ?: "na"
+                }",
+            )
+            writer.appendLine(
                 "recordingLastSkippedIntervalElapsedMs=${
                     telemetryInsights.recordingLastSkippedIntervalElapsedMs?.toString() ?: "na"
                 }",
@@ -1830,6 +1901,20 @@ object DiagnosticsExporter {
             writer.appendLine("outlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("predictionUpdates=${markerMotionSummary.predictionUpdates}")
             writer.appendLine("renderedMotionUpdates=${markerMotionSummary.renderedMotionUpdates}")
+            writer.appendLine("firstRenderDelaySamples=${markerMotionSummary.firstRenderDelaySamples}")
+            writer.appendLine(
+                "firstRenderDelayMeanMs=${markerMotionSummary.firstRenderDelayMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "firstRenderDelayMaxMs=${markerMotionSummary.firstRenderDelayMaxMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("activeRenderIntervalSamples=${markerMotionSummary.activeRenderIntervalSamples}")
+            writer.appendLine(
+                "activeRenderIntervalMeanMs=${markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "activeRenderIntervalMaxMs=${markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"}",
+            )
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")

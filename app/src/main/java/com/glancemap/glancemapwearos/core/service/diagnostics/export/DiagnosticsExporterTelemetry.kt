@@ -6,6 +6,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporte
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.FixGapBuckets
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.GnssInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.ObservedFixQualitySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.RecordingTrackFilterInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.TelemetryInsights
 import java.io.BufferedWriter
 import java.time.LocalDateTime
@@ -208,6 +209,14 @@ internal fun deriveTelemetryInsights(
     var recordingLastPointAgeMs: Long? = null
     var recordingForcedAcceptCount: Int? = null
     var recordingGapRecoveryAcceptCount: Int? = null
+    var recordingTrackSmoothingMode: String? = null
+    var recordingTrackFilterVersion: Int? = null
+    var recordingQualityHeldFixCount: Int? = null
+    var recordingQualityRejectedFixCount: Int? = null
+    var recordingQualityRelocationCount: Int? = null
+    var recordingSmoothedPointCount: Int? = null
+    var recordingSmoothedAdjustmentMeters: String? = null
+    var recordingMaxSmoothedAdjustmentMeters: String? = null
     var recordingLastSkippedIntervalElapsedMs: Long? = null
     var recordingMaxSkippedIntervalElapsedMs: Long? = null
     var recordingLastLiveProvider: String? = null
@@ -617,6 +626,40 @@ internal fun deriveTelemetryInsights(
             }
             parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
                 recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+            }
+            extractTokenValue(line, "trackSmoothingMode=")?.takeIf { it.isNotBlank() }?.let {
+                recordingTrackSmoothingMode = it
+            }
+            parseIntToken(line, "trackFilterVersion=")?.takeIf { it > 0 }?.let {
+                recordingTrackFilterVersion = it
+            }
+            (
+                parseIntToken(line, "qualityHeldFixCount=")
+                    ?: parseIntToken(line, "qualityHeld=")
+                    ?: parseIntToken(line, "held=")
+            )?.let { count ->
+                recordingQualityHeldFixCount = maxOf(recordingQualityHeldFixCount ?: count, count)
+            }
+            (
+                parseIntToken(line, "qualityRejectedFixCount=")
+                    ?: parseIntToken(line, "qualityRejected=")
+                    ?: parseIntToken(line, "rejected=")
+            )?.let { count ->
+                recordingQualityRejectedFixCount = maxOf(recordingQualityRejectedFixCount ?: count, count)
+            }
+            (parseIntToken(line, "qualityRelocationCount=") ?: parseIntToken(line, "qualityRelocations="))
+                ?.let { count ->
+                    recordingQualityRelocationCount = maxOf(recordingQualityRelocationCount ?: count, count)
+                }
+            (parseIntToken(line, "smoothedPointCount=") ?: parseIntToken(line, "smoothedPoints="))
+                ?.let { count ->
+                    recordingSmoothedPointCount = maxOf(recordingSmoothedPointCount ?: count, count)
+                }
+            extractTokenValue(line, "smoothedAdjustmentMeters=")?.let {
+                recordingSmoothedAdjustmentMeters = it
+            }
+            extractTokenValue(line, "maxSmoothedAdjustmentMeters=")?.let {
+                recordingMaxSmoothedAdjustmentMeters = it
             }
             parseLongToken(line, "lastSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
                 recordingLastSkippedIntervalElapsedMs = elapsed
@@ -1286,6 +1329,17 @@ internal fun deriveTelemetryInsights(
         insights.turnByTurnTurnAlertFilteredCount = turnByTurnTurnAlertFilteredCount
         insights.turnByTurnTurnAlertOffRouteCount = turnByTurnTurnAlertOffRouteCount
         insights.turnByTurnTurnAlertMissedWindowCount = turnByTurnTurnAlertMissedWindowCount
+        insights.recordingTrackFilter =
+            RecordingTrackFilterInsights(
+                smoothingMode = recordingTrackSmoothingMode,
+                filterVersion = recordingTrackFilterVersion,
+                qualityHeldFixCount = recordingQualityHeldFixCount,
+                qualityRejectedFixCount = recordingQualityRejectedFixCount,
+                qualityRelocationCount = recordingQualityRelocationCount,
+                smoothedPointCount = recordingSmoothedPointCount,
+                smoothedAdjustmentMeters = recordingSmoothedAdjustmentMeters,
+                maxSmoothedAdjustmentMeters = recordingMaxSmoothedAdjustmentMeters,
+            )
     }
 }
 

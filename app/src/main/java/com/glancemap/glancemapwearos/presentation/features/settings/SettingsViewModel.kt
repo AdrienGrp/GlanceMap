@@ -134,6 +134,19 @@ class SettingsViewModel(
             settingsRepository.setRecordingAutoPauseMode(mode)
         }
 
+    val recordingTrackSmoothingMode: StateFlow<String> =
+        settingsRepository.recordingTrackSmoothingMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE,
+            )
+
+    fun setRecordingTrackSmoothingMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingTrackSmoothingMode(mode)
+        }
+
     val recordingElevationSource: StateFlow<String> =
         settingsRepository.recordingElevationSource
             .stateIn(

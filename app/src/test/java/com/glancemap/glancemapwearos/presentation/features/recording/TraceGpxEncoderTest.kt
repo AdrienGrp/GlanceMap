@@ -144,12 +144,16 @@ class TraceGpxEncoderTest {
                         averagePowerWatts = null,
                         maxPowerWatts = null,
                         barometricPressureHpa = null,
+                        recordingTrackSmoothingMode = "ADAPTIVE",
+                        recordingTrackFilterVersion = 1,
                     ),
             )
 
         val xml = bytes.toString(Charsets.UTF_8)
 
         assertTrue(xml.contains("<gmap:activityProfile>BIKE</gmap:activityProfile>"))
+        assertTrue(xml.contains("<gmap:recordingTrackSmoothingMode>ADAPTIVE</gmap:recordingTrackSmoothingMode>"))
+        assertTrue(xml.contains("<gmap:recordingTrackFilterVersion>1</gmap:recordingTrackFilterVersion>"))
         assertTrue(xml.contains("<gmap:calorieModel>cycling_physics_fallback_v1</gmap:calorieModel>"))
         assertTrue(xml.contains("<gmap:cyclingMechanicalKj>202.40</gmap:cyclingMechanicalKj>"))
         assertFalse(xml.contains("<gmap:cyclingPowerSampleSegments>"))

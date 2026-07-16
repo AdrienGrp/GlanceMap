@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
@@ -20,6 +21,7 @@ fun RecordingSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
+    val trackSmoothingMode by viewModel.recordingTrackSmoothingMode.collectAsState()
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -52,6 +54,15 @@ fun RecordingSettingsScreen(
             )
         }
         item {
+            SettingsOptionPickerRow(
+                label = "Track smoothing",
+                selectedValue = trackSmoothingMode,
+                options = RECORDING_TRACK_SMOOTHING_OPTIONS.map { it to recordingTrackSmoothingLabel(it) },
+                secondaryLabel = recordingTrackSmoothingLabel(trackSmoothingMode),
+                onSelect = viewModel::setRecordingTrackSmoothingMode,
+            )
+        }
+        item {
             RecordingDashboardSettingsFolder(onClick = onOpenDashboardSettings)
         }
         item {
@@ -73,11 +84,27 @@ fun RecordingSettingsScreen(
                 "Use the crown or swipe vertically to change dashboard pages.",
                 "Long press a dashboard measure to replace it.",
                 "Set REC GPS timing in GPS settings. Shorter timing gives a more detailed track but uses more battery.",
+                "Adaptive track smoothing reduces GPS noise while preserving confirmed turns. " +
+                    "Strong creates a cleaner track but may shorten tight corners or switchbacks.",
                 "Pausing creates a break in the saved track, so stopped time is not joined by a straight line.",
             ),
         onDismiss = { showInfoDialog = false },
     )
 }
+
+private val RECORDING_TRACK_SMOOTHING_OPTIONS =
+    listOf(
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF,
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG,
+    )
+
+private fun recordingTrackSmoothingLabel(mode: String): String =
+    when (mode) {
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF -> "Off · quality checks only"
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG -> "Strong · cleaner track"
+        else -> "Adaptive · recommended"
+    }
 
 @Composable
 private fun RecordingSourceSettingsFolder(

@@ -204,6 +204,38 @@ class DiagnosticsExporterTelemetryTest {
     }
 
     @Test
+    fun recordingTrackFilterTelemetryIsSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [TraceRecording] event=start " +
+                    "trackSmoothingMode=ADAPTIVE trackFilterVersion=1",
+                "2026-04-20 20:07:15.000 [TraceRecording] event=fix_quality_held " +
+                    "reason=implausible_jump held=1 rejected=0",
+                "2026-04-20 20:07:18.000 [TraceRecording] event=point points=5 " +
+                    "qualityHeld=1 qualityRejected=0 qualityRelocations=0 smoothedPoints=2",
+                "2026-04-20 20:07:20.000 [TraceRecording] event=pause points=6 " +
+                    "trackSmoothingMode=ADAPTIVE trackFilterVersion=1 " +
+                    "qualityHeldFixCount=1 qualityRejectedFixCount=0 qualityRelocationCount=0 " +
+                    "smoothedPointCount=3 smoothedAdjustmentMeters=2.4 maxSmoothedAdjustmentMeters=1.1",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:29"),
+            )
+
+        assertEquals("ADAPTIVE", insights.recordingTrackFilter.smoothingMode)
+        assertEquals(1, insights.recordingTrackFilter.filterVersion)
+        assertEquals(1, insights.recordingTrackFilter.qualityHeldFixCount)
+        assertEquals(0, insights.recordingTrackFilter.qualityRejectedFixCount)
+        assertEquals(0, insights.recordingTrackFilter.qualityRelocationCount)
+        assertEquals(3, insights.recordingTrackFilter.smoothedPointCount)
+        assertEquals("2.4", insights.recordingTrackFilter.smoothedAdjustmentMeters)
+        assertEquals("1.1", insights.recordingTrackFilter.maxSmoothedAdjustmentMeters)
+    }
+
+    @Test
     fun turnAlertOutcomesAreSummarizedSeparately() {
         val lines =
             listOf(

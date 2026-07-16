@@ -131,6 +131,7 @@ fun DebuggingSettingsScreen(
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingScreenOffSampleIntervalSeconds by viewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
     val recordingAutoPauseMode by viewModel.recordingAutoPauseMode.collectAsState()
+    val recordingTrackSmoothingMode by viewModel.recordingTrackSmoothingMode.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
     val recordingHeartRateSource by viewModel.recordingHeartRateSource.collectAsState()
     val recordingCadenceSource by viewModel.recordingCadenceSource.collectAsState()
@@ -494,6 +495,7 @@ fun DebuggingSettingsScreen(
                                                 recordingScreenOffSampleIntervalSeconds =
                                                 recordingScreenOffSampleIntervalSeconds,
                                                 recordingAutoPauseMode = recordingAutoPauseMode,
+                                                recordingTrackSmoothingMode = recordingTrackSmoothingMode,
                                                 recordingElevationSource = recordingElevationSource,
                                                 recordingHeartRateSource = recordingHeartRateSource,
                                                 recordingCadenceSource = recordingCadenceSource,
