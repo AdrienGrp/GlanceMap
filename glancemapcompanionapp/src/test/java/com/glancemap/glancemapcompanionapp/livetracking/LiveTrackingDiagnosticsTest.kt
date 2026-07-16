@@ -1,5 +1,6 @@
 package com.glancemap.glancemapcompanionapp.livetracking
 
+import com.glancemap.glancemapcompanionapp.diagnostics.PhoneDebugCapture
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -9,6 +10,7 @@ class LiveTrackingDiagnosticsTest {
     @After
     fun clearDiagnostics() {
         LiveTrackingDiagnostics.clear()
+        PhoneDebugCapture.stop()
     }
 
     @Test
@@ -59,5 +61,34 @@ class LiveTrackingDiagnosticsTest {
         assertEquals(100, events.size)
         assertEquals(5L, events.first().durationMs)
         assertEquals(104L, events.last().durationMs)
+    }
+
+    @Test
+    fun writesRedactedEventsToActivePhoneCapture() {
+        PhoneDebugCapture.start()
+
+        LiveTrackingDiagnostics.record(
+            request =
+                LiveTrackingDiagnosticRequest(
+                    operation = LiveTrackingDiagnosticOperation.LOCATION_UPDATE,
+                    alarmMinutes = 10,
+                    notificationEmailCount = 1,
+                    alertEmailCount = 1,
+                    alertSmsCount = 1,
+                    includesRecipientSummary = true,
+                    start = true,
+                ),
+            result = LiveTrackingDiagnosticResult.SUCCESS,
+            httpCode = 200,
+            timestampEpochMs = 0L,
+            durationMs = 125L,
+        )
+
+        val capturedLine = PhoneDebugCapture.snapshot().single()
+        assertTrue(capturedLine.contains("[LiveTracking]"))
+        assertTrue(capturedLine.contains("GPS update"))
+        assertTrue(capturedLine.contains("alarm 10m"))
+        assertTrue(capturedLine.contains("alerts 1 email/1 SMS"))
+        assertTrue(capturedLine.contains("start"))
     }
 }

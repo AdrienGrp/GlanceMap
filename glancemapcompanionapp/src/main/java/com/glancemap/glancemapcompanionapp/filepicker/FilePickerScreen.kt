@@ -566,6 +566,8 @@ fun FilePickerScreen(
                 CompanionHomeArea.HOME -> {
                     CompanionHomeScreen(
                         adaptive = adaptive,
+                        debugCaptureActive = debugCaptureState.active,
+                        onOpenDebugCapture = { showDebugDialog = true },
                         onOpenSendToWatch = { activeHomeArea = CompanionHomeArea.SEND_TO_WATCH },
                         onOpenLiveTracking = { activeHomeArea = CompanionHomeArea.LIVE_TRACKING },
                         onOpenMapLegend = { activeHomeArea = CompanionHomeArea.MAP_LEGEND },
@@ -625,36 +627,6 @@ fun FilePickerScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back to home",
-                                modifier = Modifier.size(adaptive.helpIconSize),
-                            )
-                        }
-                        FilledTonalIconButton(
-                            onClick = { showDebugDialog = true },
-                            modifier = Modifier.size(adaptive.helpIconButtonSize),
-                            colors =
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor =
-                                        if (debugCaptureState.active) {
-                                            MaterialTheme.colorScheme.errorContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        },
-                                    contentColor =
-                                        if (debugCaptureState.active) {
-                                            MaterialTheme.colorScheme.onErrorContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        },
-                                ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.BugReport,
-                                contentDescription =
-                                    if (debugCaptureState.active) {
-                                        "Stop phone debug capture"
-                                    } else {
-                                        "Start phone debug capture"
-                                    },
                                 modifier = Modifier.size(adaptive.helpIconSize),
                             )
                         }
@@ -1066,6 +1038,8 @@ private fun SelectedFilesCompactSummary(
 @Composable
 private fun CompanionHomeScreen(
     adaptive: CompanionAdaptiveSpec,
+    debugCaptureActive: Boolean,
+    onOpenDebugCapture: () -> Unit,
     onOpenSendToWatch: () -> Unit,
     onOpenLiveTracking: () -> Unit,
     onOpenMapLegend: () -> Unit,
@@ -1087,7 +1061,36 @@ private fun CompanionHomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
+            FilledTonalIconButton(
+                onClick = onOpenDebugCapture,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors =
+                    IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor =
+                            if (debugCaptureActive) {
+                                MaterialTheme.colorScheme.errorContainer
+                            } else {
+                                MaterialTheme.colorScheme.primaryContainer
+                            },
+                        contentColor =
+                            if (debugCaptureActive) {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            } else {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            },
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription =
+                        if (debugCaptureActive) {
+                            "Stop phone debug capture"
+                        } else {
+                            "Start phone debug capture"
+                        },
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
             Text(
                 text = "GlanceMap Companion",
                 style =

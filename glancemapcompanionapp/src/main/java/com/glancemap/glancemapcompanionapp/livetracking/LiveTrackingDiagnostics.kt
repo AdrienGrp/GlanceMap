@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapcompanionapp.BuildConfig
+import com.glancemap.glancemapcompanionapp.diagnostics.PhoneDebugCapture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -85,7 +86,6 @@ internal object LiveTrackingDiagnostics {
         timestampEpochMs: Long = System.currentTimeMillis(),
         durationMs: Long,
     ) {
-        if (!BuildConfig.DEBUG) return
         val event =
             LiveTrackingDiagnosticEvent(
                 timestampEpochMs = timestampEpochMs,
@@ -94,7 +94,12 @@ internal object LiveTrackingDiagnostics {
                 httpCode = httpCode,
                 durationMs = durationMs.coerceAtLeast(0),
             )
-        mutableEvents.update { current -> (current + event).takeLast(MAX_EVENTS) }
+        if (BuildConfig.DEBUG) {
+            mutableEvents.update { current -> (current + event).takeLast(MAX_EVENTS) }
+        }
+        if (PhoneDebugCapture.isActive()) {
+            PhoneDebugCapture.log(LIVE_TRACKING_CAPTURE_TAG, event.toDisplayText())
+        }
     }
 
     fun clear() {
@@ -192,3 +197,4 @@ private fun LiveTrackingDiagnosticResult.toDisplayText(httpCode: Int?): String =
     }
 
 private const val MAX_VISIBLE_EVENTS = 30
+private const val LIVE_TRACKING_CAPTURE_TAG = "LiveTracking"
