@@ -261,18 +261,18 @@ internal fun ColumnScope.MainTrackingContent(
                 Spacer(modifier = Modifier.size(8.dp))
                 Text("Select GPX")
             }
-            Text(
-                text = "Selected GPX",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = selectedGpxName.ifBlank { "No GPX selected" },
+                    text =
+                        if (hasSelectedGpx) {
+                            "GPX name: ${selectedGpxName.ifBlank { "Selected GPX" }}"
+                        } else {
+                            "No GPX selected"
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
