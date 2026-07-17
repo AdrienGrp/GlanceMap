@@ -160,7 +160,7 @@ internal class ArkluzLiveTrackingClient(
         }
     }
 
-    suspend fun registerOrJoinGroup(settings: LiveTrackingSettings): ArkluzServerResult =
+    suspend fun registerGroup(settings: LiveTrackingSettings): ArkluzServerResult =
         withContext(Dispatchers.IO) {
             val url =
                 settings.trackingUrl

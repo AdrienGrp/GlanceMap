@@ -122,7 +122,7 @@ internal fun ColumnScope.SettingsContent(
             }
         }
 
-        TrackingPanel(title = "Participant") {
+        TrackingPanel(title = "Participant:") {
             OutlinedTextField(
                 value = userName,
                 onValueChange = onUserNameChange,
@@ -146,7 +146,7 @@ internal fun ColumnScope.SettingsContent(
                 onSelected = onUpdateIntervalSecondsChange,
             )
             EmailAddressInput(
-                label = "Send tracking notifications & alerts",
+                label = "Send tracking notifications & safety alerts to:",
                 input = notificationEmailInput,
                 onInputChange = onNotificationEmailInputChange,
                 addresses = notificationEmailAddresses,
@@ -155,7 +155,7 @@ internal fun ColumnScope.SettingsContent(
                 onPickFromContacts = onPickNotificationEmailFromContacts,
             )
             AlertRecipientInput(
-                label = "Send only alerts to",
+                label = "Also send safety alerts to:",
                 input = alertRecipientInput,
                 onInputChange = onAlertRecipientInputChange,
                 recipients = alertRecipients,
@@ -288,7 +288,7 @@ private fun NoMovementAlertInput(
             )
         }
         Text(
-            text = "Send alert email when no movement for",
+            text = "Send safety alert when no movement for:",
             style = MaterialTheme.typography.labelMedium,
             color =
                 if (isDisabled) {

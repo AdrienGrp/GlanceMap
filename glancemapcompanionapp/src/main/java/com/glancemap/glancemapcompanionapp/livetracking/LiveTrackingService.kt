@@ -111,7 +111,7 @@ class LiveTrackingService : Service() {
                         LiveTrackingControlQueue.clear(this)
                         LiveTrackingSessionStore.setStarting()
                         startForegroundNotification("Starting live tracking")
-                        startTracking(parsedSettings)
+                        startTracking()
                         START_STICKY
                     }
                 }
@@ -150,7 +150,7 @@ class LiveTrackingService : Service() {
         return START_STICKY
     }
 
-    private fun startTracking(settings: LiveTrackingSettings) {
+    private fun startTracking() {
         if (!hasLocationPermission()) {
             LiveTrackingSessionStore.setStopped("Location permission is required")
             stopSelf()
@@ -158,24 +158,6 @@ class LiveTrackingService : Service() {
         }
 
         serviceScope.launch {
-            LiveTrackingSessionStore.setStatus("Checking group")
-            updateNotification("Checking group")
-            val groupReady =
-                runCatching { arkluzClient.registerOrJoinGroup(settings) }
-                    .onFailure { error ->
-                        LiveTrackingSessionStore.setStoppedWithError(
-                            status = "Start failed",
-                            message = error.message ?: "Unable to check group",
-                        )
-                        updateNotification("Live tracking error")
-                        ServiceCompat.stopForeground(
-                            this@LiveTrackingService,
-                            ServiceCompat.STOP_FOREGROUND_REMOVE,
-                        )
-                        stopSelf()
-                    }.isSuccess
-            if (!groupReady) return@launch
-
             runCatching {
                 LiveTrackingSessionStore.setStatus("Waiting for GPS fix")
                 updateNotification("Waiting for GPS fix")

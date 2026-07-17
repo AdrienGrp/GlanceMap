@@ -657,22 +657,6 @@ fun LiveTrackingScreen(
             coroutineScope.launch {
                 runCatching {
                     val client = ArkluzLiveTrackingClient(context)
-                    client
-                        .registerOrJoinGroup(settings)
-                        .viewerPassword
-                        ?.let { viewerPassword ->
-                            followerPassword = viewerPassword
-                            LiveTrackingPreferences.save(
-                                context,
-                                LiveTrackingPreferences
-                                    .load(context)
-                                    .copy(
-                                        group = group.trim(),
-                                        participantPassword = participantPassword.trim(),
-                                        followerPassword = viewerPassword.trim(),
-                                    ),
-                            )
-                        }
                     client.uploadPlannedRoute(settings)
                 }.onSuccess {
                     planSent = true
@@ -865,27 +849,10 @@ fun LiveTrackingScreen(
                                     )
                             if (validationMessage != null) return@MainTrackingContent
                             isSendingPlan = true
-                            sendStatusMessage = "Checking group"
+                            sendStatusMessage = "Sending planned route"
                             coroutineScope.launch {
                                 runCatching {
                                     val client = ArkluzLiveTrackingClient(context)
-                                    client
-                                        .registerOrJoinGroup(settings)
-                                        .viewerPassword
-                                        ?.let { viewerPassword ->
-                                            followerPassword = viewerPassword
-                                            LiveTrackingPreferences.save(
-                                                context,
-                                                LiveTrackingPreferences
-                                                    .load(context)
-                                                    .copy(
-                                                        group = group.trim(),
-                                                        participantPassword = participantPassword.trim(),
-                                                        followerPassword = viewerPassword.trim(),
-                                                    ),
-                                            )
-                                        }
-                                    sendStatusMessage = "Sending planned route"
                                     client.uploadPlannedRoute(settings)
                                 }.onSuccess { result ->
                                     planSent = true
@@ -1034,7 +1001,7 @@ fun LiveTrackingScreen(
                                     coroutineScope.launch {
                                         runCatching {
                                             val client = ArkluzLiveTrackingClient(context)
-                                            val registerResult = client.registerOrJoinGroup(settings)
+                                            val registerResult = client.registerGroup(settings)
                                             val viewerPassword =
                                                 registerResult.viewerPassword
                                                     ?: client.checkGroup(settings).viewerPassword
