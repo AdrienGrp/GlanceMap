@@ -3,13 +3,16 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.maps.DemSource
+import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
@@ -50,6 +53,19 @@ class MapRenderer(
     data class ThemeApplyResult(
         val requiresVisibleTileWait: Boolean = false,
         val tileUpdateBaselineVersion: Long = 0L,
+    )
+
+    internal data class FirstVisibleMapEvent(
+        val version: Long,
+        val source: FirstVisibleBaseTileSource,
+    )
+
+    private data class PendingFirstVisibleMapTiming(
+        val requestId: Long,
+        val mapName: String,
+        val cacheId: String,
+        val startedAtElapsedMs: Long,
+        val traceMarker: BenchmarkTrace.AsyncMarker,
     )
 
     data class ReliefOverlayState(
@@ -105,6 +121,9 @@ class MapRenderer(
         private const val CONSTRAINED_STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN = 0
         private const val CONSTRAINED_STARTUP_PREWARM_DURATION_MS = 4_000L
+        private const val FIRST_VISIBLE_MAP_TRACE_STAGE = "mapRenderer.firstVisibleMap"
+        private const val FIRST_VISIBLE_MAP_DIAGNOSTIC_STAGE = "mapRenderer.firstVisibleMap"
+        private const val FIRST_VISIBLE_MAP_TIMING_TIMEOUT_MS = 10_000L
 
         fun captureCacheDiagnostics(context: Context): CacheDiagnosticsSnapshot = captureMapRendererCacheDiagnostics(context)
     }
@@ -141,6 +160,10 @@ class MapRenderer(
     @Volatile private var cacheCleanupInProgress: Boolean = false
     private val tileCacheUpdateCounter = AtomicLong(0L)
     private val tileCacheUpdateVersion = MutableStateFlow(0L)
+    private val firstVisibleMapCounter = AtomicLong(0L)
+    private val firstVisibleMapEvent = MutableStateFlow<FirstVisibleMapEvent?>(null)
+    private var nextFirstVisibleMapRequestId: Long = 0L
+    private var pendingFirstVisibleMapTiming: PendingFirstVisibleMapTiming? = null
     private val activityManager: ActivityManager? by lazy {
         context.getSystemService(ActivityManager::class.java)
     }
@@ -417,6 +440,22 @@ class MapRenderer(
 
     fun currentTileCacheUpdateVersion(): Long = tileCacheUpdateCounter.get()
 
+    internal suspend fun awaitFirstVisibleMapAfter(
+        baselineVersion: Long,
+        timeoutMs: Long,
+    ): FirstVisibleMapEvent? {
+        firstVisibleMapEvent.value?.let { event ->
+            if (event.version > baselineVersion) return event
+        }
+        return withTimeoutOrNull(timeoutMs.coerceAtLeast(1L)) {
+            firstVisibleMapEvent
+                .filterNotNull()
+                .first { event -> event.version > baselineVersion }
+        }
+    }
+
+    internal fun currentFirstVisibleMapVersion(): Long = firstVisibleMapCounter.get()
+
     fun setElevationLabelUnitsMetric(isMetric: Boolean) {
         if (currentElevationLabelsMetric == isMetric) return
 
@@ -461,6 +500,11 @@ class MapRenderer(
             return
         }
 
+        prepareFirstVisibleMapTiming(
+            mapPath = mapPath,
+            cacheId = desiredCacheId,
+        )
+
         try {
             cleanLayerSwap = consumeCleanLayerSwap()
             if (rebuildTileCacheRequested || desiredCacheId != currentTileCacheId) {
@@ -484,6 +528,7 @@ class MapRenderer(
             val mapFile = File(mapPath)
             if (!mapFile.exists()) {
                 timingStatus = "missing_map_file"
+                cancelFirstVisibleMapTiming(reason = timingStatus)
                 currentMapPath = null
                 currentMapSignature = null
                 currentDemSignature = newDemSignature
@@ -509,6 +554,7 @@ class MapRenderer(
                 }
             if (theme == null) {
                 timingStatus = "theme_unavailable"
+                cancelFirstVisibleMapTiming(reason = timingStatus)
                 currentMapPath = null
                 currentMapSignature = null
                 currentDemSignature = newDemSignature
@@ -553,6 +599,7 @@ class MapRenderer(
             timingStatus = "loaded"
         } catch (e: Exception) {
             timingStatus = "error_${e.javaClass.simpleName}"
+            cancelFirstVisibleMapTiming(reason = timingStatus)
             Log.e(TAG, "updateMapLayer: Error loading map file: $mapPath", e)
             clearCurrentLayer()
             currentMapPath = null
@@ -648,6 +695,7 @@ class MapRenderer(
     }
 
     fun destroy() {
+        cancelFirstVisibleMapTiming(reason = "destroyed")
         clearCurrentLayer()
         destroyHillsRenderConfig()
         runCatching { tileCache.removeObserver(tileCacheObserver) }
@@ -916,15 +964,22 @@ class MapRenderer(
             detail = "warmStartupCache=$warmStartupCache demPresent=${demSignature != null}",
         ) {
             val hillsConfig = buildHillsRenderConfigOrNull(demSignature, requiredDemTileIds)
-            TileRendererLayer(
+            FirstVisibleTileRendererLayer(
                 tileCache,
                 mapDataStore,
                 mapView.model.mapViewPosition,
-                false,
-                true,
-                false,
                 AndroidGraphicFactory.INSTANCE,
                 hillsConfig,
+                onFirstVisibleBaseTile = { layer, source ->
+                    val visibleAtElapsedMs = SystemClock.elapsedRealtime()
+                    mapView.post {
+                        handleFirstVisibleBaseTile(
+                            layer = layer,
+                            source = source,
+                            visibleAtElapsedMs = visibleAtElapsedMs,
+                        )
+                    }
+                },
             ).apply {
                 setXmlRenderTheme(theme)
                 trySetThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
@@ -933,6 +988,82 @@ class MapRenderer(
                 }
             }
         }
+
+    private fun startFirstVisibleMapTiming(
+        mapPath: String,
+        cacheId: String,
+    ) {
+        cancelFirstVisibleMapTiming(reason = "superseded")
+        val requestId = ++nextFirstVisibleMapRequestId
+        val startedAtElapsedMs = SystemClock.elapsedRealtime()
+        pendingFirstVisibleMapTiming =
+            PendingFirstVisibleMapTiming(
+                requestId = requestId,
+                mapName = File(mapPath).name,
+                cacheId = cacheId,
+                startedAtElapsedMs = startedAtElapsedMs,
+                traceMarker = BenchmarkTrace.beginAsync(FIRST_VISIBLE_MAP_TRACE_STAGE),
+            )
+        mapView.postDelayed(
+            {
+                if (pendingFirstVisibleMapTiming?.requestId == requestId) {
+                    cancelFirstVisibleMapTiming(reason = "timeout")
+                }
+            },
+            FIRST_VISIBLE_MAP_TIMING_TIMEOUT_MS,
+        )
+    }
+
+    private fun prepareFirstVisibleMapTiming(
+        mapPath: String?,
+        cacheId: String,
+    ) {
+        if (mapPath.isNullOrBlank()) {
+            cancelFirstVisibleMapTiming(reason = "map_disabled")
+        } else {
+            startFirstVisibleMapTiming(
+                mapPath = mapPath,
+                cacheId = cacheId,
+            )
+        }
+    }
+
+    private fun handleFirstVisibleBaseTile(
+        layer: FirstVisibleTileRendererLayer,
+        source: FirstVisibleBaseTileSource,
+        visibleAtElapsedMs: Long,
+    ) {
+        if (currentLayer !== layer) return
+        val timing = pendingFirstVisibleMapTiming ?: return
+        pendingFirstVisibleMapTiming = null
+        BenchmarkTrace.endAsync(timing.traceMarker)
+        val version = firstVisibleMapCounter.incrementAndGet()
+        firstVisibleMapEvent.value =
+            FirstVisibleMapEvent(
+                version = version,
+                source = source,
+            )
+        MapHotPathDiagnostics.recordInterval(
+            stage = "$FIRST_VISIBLE_MAP_DIAGNOSTIC_STAGE.${source.telemetryToken}",
+            startedAtElapsedMs = timing.startedAtElapsedMs,
+            completedAtElapsedMs = visibleAtElapsedMs,
+            status = source.telemetryToken,
+            detail = "map=${timing.mapName} cacheId=${timing.cacheId}",
+        )
+    }
+
+    private fun cancelFirstVisibleMapTiming(reason: String) {
+        val timing = pendingFirstVisibleMapTiming ?: return
+        pendingFirstVisibleMapTiming = null
+        BenchmarkTrace.endAsync(timing.traceMarker)
+        MapHotPathDiagnostics.recordInterval(
+            stage = "$FIRST_VISIBLE_MAP_DIAGNOSTIC_STAGE.cancelled",
+            startedAtElapsedMs = timing.startedAtElapsedMs,
+            completedAtElapsedMs = SystemClock.elapsedRealtime(),
+            status = reason,
+            detail = "map=${timing.mapName} cacheId=${timing.cacheId}",
+        )
+    }
 
     private fun destroyHillsRenderConfig() {
         hillsRenderConfig?.interruptAndDestroy()

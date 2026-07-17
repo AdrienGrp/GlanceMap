@@ -199,6 +199,16 @@ class WatchNavigationBenchmarks {
                 label = "mapLayerUpdate",
             ),
             TraceSectionMetric(
+                sectionName = "mapRenderer.firstVisibleMap",
+                mode = TraceSectionMetric.Mode.Sum,
+                label = "firstVisibleMap",
+            ),
+            TraceSectionMetric(
+                sectionName = "mapRenderer.firstVisibleMap",
+                mode = TraceSectionMetric.Mode.Count,
+                label = "firstVisibleMapCount",
+            ),
+            TraceSectionMetric(
                 sectionName = "mapRenderer.openMapFile",
                 mode = TraceSectionMetric.Mode.Sum,
                 label = "mapFileOpen",

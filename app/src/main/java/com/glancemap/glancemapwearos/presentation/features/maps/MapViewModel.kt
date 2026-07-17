@@ -140,7 +140,6 @@ class MapViewModel(
         private const val MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS = 4_500L
         private const val MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS = 220L
         private const val MAP_RENDERER_APPLY_DELAY_MS = 16L
-        private const val INITIAL_THEME_PREWARM_DELAY_MS = 1500L
         private const val RICH_MAP_METADATA_DEFER_MS = 2_000L
     }
 
@@ -174,14 +173,14 @@ class MapViewModel(
     private var pendingThemeSelection: ThemeSelection? = null
     private var pendingThemeSelectionShowsIndicator: Boolean = false
     private var hasConsumedInitialThemeSelection: Boolean = false
+    private var hasPreparedThemeSelection: Boolean = false
+    private var initialThemeSelectionApplied: Boolean = false
     private var rendererConfigApplyPending: Boolean = false
     private var themeApplyJob: Job? = null
-    private var themePrewarmJob: Job? = null
     private var rendererWorkJob: Job? = null
     private var rendererWorkGeneration: Long = 0L
     private var pendingMapLayerPath: String? = null
     private var pendingExternalCacheClear: Boolean = false
-    private var lastPrewarmedBundledThemeId: String? = null
 
     private var mapHolder: MapHolder? = null
     private var latestZoomMin: Int? = null
@@ -251,9 +250,6 @@ class MapViewModel(
                 .collectLatest { selection ->
                     val showIndicator = hasConsumedInitialThemeSelection
                     hasConsumedInitialThemeSelection = true
-                    if (!showIndicator) {
-                        scheduleInitialBundledThemePrewarm(selection)
-                    }
                     handleThemeSelection(
                         selection = selection,
                         showIndicator = showIndicator,
@@ -833,7 +829,6 @@ class MapViewModel(
         Dem3CoverageUtils.clearCaches()
         RoutingCoverageUtils.clearCaches()
         requestExternalCacheClear()
-        lastPrewarmedBundledThemeId = null
         loadMapFiles(preserveExistingCoverage = false)
         return result
     }
@@ -888,6 +883,7 @@ class MapViewModel(
                 )
             }
 
+            hasPreparedThemeSelection = true
             val renderer = mapRenderer
             themeApplyResult = applyRendererConfigIfReady()
             applyLatestZoomBounds(reason = "theme_selection")
@@ -936,25 +932,6 @@ class MapViewModel(
         )
     }
 
-    private fun scheduleInitialBundledThemePrewarm(selection: ThemeSelection) {
-        val bundledThemeId =
-            selection.themeId
-                .takeIf { MapsforgeThemeCatalog.isBundledAssetTheme(it) }
-                ?: return
-        if (lastPrewarmedBundledThemeId == bundledThemeId) return
-
-        lastPrewarmedBundledThemeId = bundledThemeId
-        themePrewarmJob?.cancel()
-        themePrewarmJob =
-            viewModelScope.launch(Dispatchers.IO) {
-                delay(INITIAL_THEME_PREWARM_DELAY_MS)
-                runCatching { themeComposer.prewarmThemeAssets(bundledThemeId) }
-                    .onFailure { error ->
-                        Log.w("Theme", "Failed to prewarm bundled theme assets for $bundledThemeId", error)
-                    }
-            }
-    }
-
     private fun submitThemeSelection(
         selection: ThemeSelection,
         showIndicator: Boolean,
@@ -974,6 +951,10 @@ class MapViewModel(
                         selection = selection,
                         awaitVisibleContent = showIndicator,
                     )
+                    if (!initialThemeSelectionApplied && hasPreparedThemeSelection) {
+                        initialThemeSelectionApplied = true
+                        schedulePendingRendererWorkIfReady()
+                    }
                 } finally {
                     if (showIndicator) {
                         val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
@@ -1014,8 +995,10 @@ class MapViewModel(
     }
 
     private fun schedulePendingRendererWorkIfReady() {
-        val renderer = mapRenderer ?: return
-        if (!isMapViewRenderReady()) return
+        val renderer =
+            mapRenderer
+                ?.takeIf { initialThemeSelectionApplied && isMapViewRenderReady() }
+                ?: return
 
         val generation = rendererWorkGeneration
         rendererWorkJob?.cancel()
@@ -1040,28 +1023,10 @@ class MapViewModel(
                     }
 
                 try {
-                    if (pendingExternalCacheClear) {
-                        pendingExternalCacheClear = false
-                        renderer.onExternalCachesCleared()
-                        renderer.updateMapLayer(selectedMapPath.value)
-                        applyLatestZoomBounds(reason = "external_cache_clear")
-                    } else {
-                        val tileBaselineVersion =
-                            if (showInitialMapLoadIndicator) {
-                                renderer.currentTileCacheUpdateVersion()
-                            } else {
-                                0L
-                            }
-                        renderer.updateMapLayer(pendingMapLayerPath)
-                        applyLatestZoomBounds(reason = "map_layer_update")
-                        if (showInitialMapLoadIndicator) {
-                            renderer.awaitTileCacheUpdateAfter(
-                                baselineVersion = tileBaselineVersion,
-                                timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS,
-                            )
-                            delay(MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS)
-                        }
-                    }
+                    applyPendingRendererWork(
+                        renderer = renderer,
+                        awaitInitialVisibleMap = showInitialMapLoadIndicator,
+                    )
                 } finally {
                     if (showInitialMapLoadIndicator) {
                         val elapsedMs = SystemClock.elapsedRealtime() - indicatorStartedAtMs
@@ -1076,7 +1041,40 @@ class MapViewModel(
             }
     }
 
+    private suspend fun applyPendingRendererWork(
+        renderer: MapRenderer,
+        awaitInitialVisibleMap: Boolean,
+    ) {
+        if (pendingExternalCacheClear) {
+            pendingExternalCacheClear = false
+            renderer.onExternalCachesCleared()
+            renderer.updateMapLayer(selectedMapPath.value)
+            applyLatestZoomBounds(reason = "external_cache_clear")
+            return
+        }
+
+        val firstVisibleMapBaselineVersion =
+            if (awaitInitialVisibleMap) {
+                renderer.currentFirstVisibleMapVersion()
+            } else {
+                0L
+            }
+        renderer.updateMapLayer(pendingMapLayerPath)
+        applyLatestZoomBounds(reason = "map_layer_update")
+        if (awaitInitialVisibleMap) {
+            renderer.awaitFirstVisibleMapAfter(
+                baselineVersion = firstVisibleMapBaselineVersion,
+                timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS,
+            )
+            delay(MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS)
+        }
+    }
+
     private fun applyRendererConfigIfReady(): MapRenderer.ThemeApplyResult {
+        if (!hasPreparedThemeSelection) {
+            rendererConfigApplyPending = true
+            return MapRenderer.ThemeApplyResult()
+        }
         val renderer = mapRenderer
         if (renderer == null) {
             rendererConfigApplyPending = true
