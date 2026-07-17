@@ -43,6 +43,7 @@ import com.glancemap.glancemapwearos.presentation.features.download.DownloadSett
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
+import com.glancemap.glancemapwearos.presentation.features.navigate.AmbientScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
@@ -155,6 +156,8 @@ class MainActivity : ComponentActivity() {
             val isAmbient = ambientState.isAmbient
             val ambientTickMs = ambientState.ambientTickMs
             val isDeviceInteractive = ambientState.isDeviceInteractive
+            val burnInProtectionRequired = ambientState.burnInProtectionRequired
+            val deviceHasLowBitAmbient = ambientState.deviceHasLowBitAmbient
             val activityLocationScreenState =
                 remember(isAmbient, isDeviceInteractive) {
                     resolveLocationScreenState(
@@ -232,13 +235,18 @@ class MainActivity : ComponentActivity() {
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
                 }
                 val isNavigateScreen = routeLabel == WatchRoutes.NAVIGATE
+                val activityOwnsRuntime =
+                    activityOwnsNavigationRuntime(
+                        isNavigateScreen = isNavigateScreen,
+                        isAmbient = isAmbient,
+                    )
                 LaunchedEffect(isNavigateScreen) {
                     if (!isNavigateScreen) {
                         suppressNavigateTime = false
                     }
                 }
                 LaunchedEffect(
-                    isNavigateScreen,
+                    activityOwnsRuntime,
                     traceRecordingState.active,
                     recordingRuntimePaused,
                     traceRecordingState.autoPaused,
@@ -252,11 +260,11 @@ class MainActivity : ComponentActivity() {
                     activityLocationScreenState,
                     locationPermissionGranted,
                 ) {
-                    if (isNavigateScreen) return@LaunchedEffect
+                    if (!activityOwnsRuntime) return@LaunchedEffect
                     val runtimeDemand =
                         navigationRuntimeDemand(
                             NavigationRuntimeInputs(
-                                isNavigateScreen = false,
+                                isNavigateScreen = isNavigateScreen,
                                 screenState = activityLocationScreenState,
                                 isScreenResumed = true,
                                 hasLocationPermission = locationPermissionGranted,
@@ -315,6 +323,16 @@ class MainActivity : ComponentActivity() {
                         "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
                     )
                     recordingActionPromptRequestToken += 1L
+                }
+
+                if (isAmbient) {
+                    AmbientScreen(
+                        ambientTick = ambientTickMs,
+                        timeFormat = navigateTimeFormat,
+                        burnInProtectionRequired = burnInProtectionRequired,
+                        deviceHasLowBitAmbient = deviceHasLowBitAmbient,
+                    )
+                    return@GlanceMapTheme
                 }
 
                 AppScaffold(

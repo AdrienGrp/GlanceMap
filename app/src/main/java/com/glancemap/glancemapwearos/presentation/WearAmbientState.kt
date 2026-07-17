@@ -22,11 +22,17 @@ internal class WearAmbientState(
         private set
     var isDeviceInteractive by mutableStateOf(true)
         private set
+    var burnInProtectionRequired by mutableStateOf(false)
+        private set
+    var deviceHasLowBitAmbient by mutableStateOf(false)
+        private set
     val observer =
         AmbientLifecycleObserver(
             activity,
             object : AmbientLifecycleObserver.AmbientLifecycleCallback {
                 override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                    burnInProtectionRequired = ambientDetails.burnInProtectionRequired
+                    deviceHasLowBitAmbient = ambientDetails.deviceHasLowBitAmbient
                     isAmbient = true
                     ambientTickMs = System.currentTimeMillis()
                     refreshDeviceInteractive(fallback = false)
@@ -35,6 +41,8 @@ internal class WearAmbientState(
 
                 override fun onExitAmbient() {
                     isAmbient = false
+                    burnInProtectionRequired = false
+                    deviceHasLowBitAmbient = false
                     ambientTickMs = System.currentTimeMillis()
                     refreshDeviceInteractive(fallback = true)
                     onTelemetryEvent("ambient_exit")
