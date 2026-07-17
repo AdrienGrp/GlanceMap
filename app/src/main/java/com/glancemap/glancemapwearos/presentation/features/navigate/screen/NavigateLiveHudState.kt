@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntSize
+import com.glancemap.glancemapwearos.core.maps.mapZoomScaleStepsMeters
+import com.glancemap.glancemapwearos.core.maps.nearestMetricScaleStepIndex
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
@@ -50,7 +52,7 @@ internal fun rememberNavigateLiveHudState(
     var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
 
     val preferredScaleMeters =
-        preferredScaleMetersForZoomBound(
+        preferredScaleMetersForZoomLevel(
             currentZoomLevel = currentZoomLevel,
             zoomMin = zoomMin,
             zoomMax = zoomMax,
@@ -191,7 +193,7 @@ internal fun rememberNavigateLiveHudState(
     )
 }
 
-internal fun preferredScaleMetersForZoomBound(
+internal fun preferredScaleMetersForZoomLevel(
     currentZoomLevel: Int,
     zoomMin: Int,
     zoomMax: Int,
@@ -200,11 +202,15 @@ internal fun preferredScaleMetersForZoomBound(
 ): Int? {
     val farthestScaleMeters = maxOf(zoomMinScaleMeters, zoomMaxScaleMeters)
     val closestScaleMeters = minOf(zoomMinScaleMeters, zoomMaxScaleMeters)
-    return when (currentZoomLevel) {
-        zoomMax -> closestScaleMeters
-        zoomMin -> farthestScaleMeters
-        else -> null
+    val levelsFromClosest = zoomMax - currentZoomLevel
+    val closestScaleIndex = nearestMetricScaleStepIndex(closestScaleMeters)
+    return when {
+        currentZoomLevel == zoomMin -> farthestScaleMeters
+        levelsFromClosest !in 0 until CLOSE_ZOOM_SCALE_LABEL_COUNT -> null
+        else -> mapZoomScaleStepsMeters.getOrNull(closestScaleIndex + levelsFromClosest)
     }
 }
+
+private const val CLOSE_ZOOM_SCALE_LABEL_COUNT = 5
 
 private const val LIVE_ELEVATION_RESAMPLE_DISTANCE_METERS = 3.0

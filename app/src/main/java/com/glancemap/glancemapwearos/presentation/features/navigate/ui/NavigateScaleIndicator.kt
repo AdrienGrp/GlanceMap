@@ -12,8 +12,7 @@ internal data class ScaleIndicatorUi(
     val widthRatio: Float,
 )
 
-private val metricScaleStepsMeters =
-    doubleArrayOf(2.5) + mapZoomScaleStepsMeters.map { it.toDouble() }
+private val metricScaleStepsMeters = mapZoomScaleStepsMeters.map { it.toDouble() }.toDoubleArray()
 
 private val imperialScaleStepsFeet =
     doubleArrayOf(
@@ -101,26 +100,10 @@ internal fun calculateScaleIndicatorForZoom(
     val scaleMeters =
         preferredScaleMeters
             ?.let { preferredMeters ->
-                val preferredScaleMetersValue =
-                    chooseScaleDistanceMeters(
-                        targetMeters = preferredMeters.toDouble(),
-                        isMetric = isMetric,
-                    )
-                val precedingZoomScaleMeters =
-                    chooseScaleDistanceMeters(
-                        targetMeters =
-                            scaleMetersForZoomLevel(
-                                zoom = zoomLevel - 1,
-                                viewportWidthPx = viewportWidthPx,
-                                latitudeDegrees = latitudeDegrees,
-                            ),
-                        isMetric = isMetric,
-                    )
-                if (scaleDistancesMatch(preferredScaleMetersValue, precedingZoomScaleMeters)) {
-                    naturalScaleMeters
-                } else {
-                    preferredScaleMetersValue
-                }
+                chooseScaleDistanceMeters(
+                    targetMeters = preferredMeters.toDouble(),
+                    isMetric = isMetric,
+                )
             }
             ?: naturalScaleMeters
     val widthRatio = (scaleMeters / targetMeters).toFloat()
@@ -162,7 +145,7 @@ private fun pickLargestNotExceeding(
     steps: DoubleArray,
     target: Double,
 ): Double {
-    var candidate = target
+    var candidate = steps.firstOrNull() ?: target
     for (step in steps) {
         if (step <= target) candidate = step else break
     }
@@ -204,10 +187,4 @@ private fun formatScaleDistance(
     }
 }
 
-private fun scaleDistancesMatch(
-    first: Double,
-    second: Double,
-): Boolean = abs(first - second) < SCALE_DISTANCE_MATCH_EPSILON_METERS
-
 private const val SCALE_DISTANCE_INTEGER_EPSILON = 0.01
-private const val SCALE_DISTANCE_MATCH_EPSILON_METERS = 0.01

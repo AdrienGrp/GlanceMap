@@ -42,7 +42,7 @@ class NavigateScaleIndicatorTest {
     }
 
     @Test
-    fun `closest zoom uses two point five meters instead of repeating five meters`() {
+    fun `closest zoom uses configured five meter scale`() {
         val indicator =
             requireNotNull(
                 calculateScaleIndicatorForZoom(
@@ -54,28 +54,88 @@ class NavigateScaleIndicatorTest {
                 ),
             )
 
-        assertEquals("2.5 m", indicator.label)
-        assertTrue(indicator.widthRatio < 1f)
+        assertEquals("5 m", indicator.label)
+        assertTrue(indicator.widthRatio > 1f)
     }
 
     @Test
-    fun `closest zoom sequence does not repeat scale labels`() {
+    fun `five meter limit produces stable close zoom labels`() {
         val labels =
             (18..22).map { zoomLevel ->
+                val preferredScaleMeters =
+                    preferredScaleMetersForZoomLevel(
+                        currentZoomLevel = zoomLevel,
+                        zoomMin = 6,
+                        zoomMax = 22,
+                        zoomMinScaleMeters = 200_000,
+                        zoomMaxScaleMeters = 5,
+                    )
                 requireNotNull(
                     calculateScaleIndicatorForZoom(
                         zoomLevel = zoomLevel,
                         viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
                         latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
                         isMetric = true,
-                        preferredScaleMeters = 5.takeIf { zoomLevel == 22 },
+                        preferredScaleMeters = preferredScaleMeters,
                     ),
                 ).label
             }
 
         assertEquals(
-            listOf("50 m", "25 m", "10 m", "5 m", "2.5 m"),
+            listOf("50 m", "25 m", "20 m", "10 m", "5 m"),
             labels,
         )
+    }
+
+    @Test
+    fun `twenty meter limit remains the final close zoom label`() {
+        val labels =
+            (18..20).map { zoomLevel ->
+                val preferredScaleMeters =
+                    preferredScaleMetersForZoomLevel(
+                        currentZoomLevel = zoomLevel,
+                        zoomMin = 6,
+                        zoomMax = 20,
+                        zoomMinScaleMeters = 200_000,
+                        zoomMaxScaleMeters = 20,
+                    )
+                requireNotNull(
+                    calculateScaleIndicatorForZoom(
+                        zoomLevel = zoomLevel,
+                        viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
+                        latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
+                        isMetric = true,
+                        preferredScaleMeters = preferredScaleMeters,
+                    ),
+                ).label
+            }
+
+        assertEquals(listOf("50 m", "25 m", "20 m"), labels)
+    }
+
+    @Test
+    fun `ten meter limit remains the final close zoom label`() {
+        val labels =
+            (18..21).map { zoomLevel ->
+                val preferredScaleMeters =
+                    preferredScaleMetersForZoomLevel(
+                        currentZoomLevel = zoomLevel,
+                        zoomMin = 6,
+                        zoomMax = 21,
+                        zoomMinScaleMeters = 200_000,
+                        zoomMaxScaleMeters = 10,
+                    )
+                requireNotNull(
+                    calculateScaleIndicatorForZoom(
+                        zoomLevel = zoomLevel,
+                        viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
+                        latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
+                        isMetric = true,
+                        preferredScaleMeters = preferredScaleMeters,
+                    ),
+                ).label
+            }
+
+        assertEquals(listOf("50 m", "25 m", "20 m", "10 m"), labels)
     }
 }
