@@ -68,6 +68,10 @@ class GpxViewModel(
     private val _gpxFiles = MutableStateFlow<List<GpxFileState>>(emptyList())
     val gpxFiles: StateFlow<List<GpxFileState>> = _gpxFiles.asStateFlow()
 
+    private val _lastVisitedGpxListPage =
+        MutableStateFlow(SettingsRepository.DEFAULT_GPX_LIST_PAGE)
+    val lastVisitedGpxListPage: StateFlow<String> = _lastVisitedGpxListPage.asStateFlow()
+
     private val _activeGpxDetails = MutableStateFlow<List<GpxTrackDetails>>(emptyList())
     val activeGpxDetails: StateFlow<List<GpxTrackDetails>> = _activeGpxDetails.asStateFlow()
 
@@ -174,6 +178,10 @@ class GpxViewModel(
     private val pressThresholdMeters = 30.0
 
     init {
+        settingsRepository.gpxLastVisitedListPage
+            .onEach { page -> _lastVisitedGpxListPage.value = page }
+            .launchIn(viewModelScope)
+
         combine(
             combine(
                 settingsRepository.gpxFlatSpeedMps,
@@ -300,6 +308,15 @@ class GpxViewModel(
 
     fun loadGpxFiles() {
         viewModelScope.launch { reloadFromDisk() }
+    }
+
+    fun setLastVisitedGpxListPage(page: String) {
+        if (_lastVisitedGpxListPage.value == page) return
+
+        _lastVisitedGpxListPage.value = page
+        viewModelScope.launch {
+            settingsRepository.setGpxLastVisitedListPage(page)
+        }
     }
 
     private fun beginReloadGeneration(): Long =

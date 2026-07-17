@@ -90,24 +90,28 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private enum class GpxListMode(
+    val storedPage: String,
     val headerTitle: String,
     val icon: ImageVector,
     val toggleContentDescription: String,
     val emptyStateMessage: String,
 ) {
     TRACKS(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_TRACKS,
         headerTitle = "GPX",
         icon = Icons.Default.Route,
         toggleContentDescription = "Show hike activities",
         emptyStateMessage = "Send GPX files from the companion phone app.",
     ),
     HIKE_ACTIVITIES(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_HIKE_ACTIVITIES,
         headerTitle = "Hike",
         icon = Icons.AutoMirrored.Filled.DirectionsRun,
         toggleContentDescription = "Show bike activities",
         emptyStateMessage = "Hike recordings will appear here.",
     ),
     BIKE_ACTIVITIES(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_BIKE_ACTIVITIES,
         headerTitle = "Bike",
         icon = Icons.AutoMirrored.Filled.DirectionsBike,
         toggleContentDescription = "Show GPX tracks",
@@ -121,6 +125,10 @@ private enum class GpxListMode(
             HIKE_ACTIVITIES -> BIKE_ACTIVITIES
             BIKE_ACTIVITIES -> TRACKS
         }
+
+    companion object {
+        fun fromStoredPage(page: String): GpxListMode = values().firstOrNull { it.storedPage == page } ?: TRACKS
+    }
 }
 
 @Composable
@@ -135,6 +143,7 @@ fun GpxScreen(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val gpxFiles by gpxViewModel.gpxFiles.collectAsState()
+    val lastVisitedGpxListPage by gpxViewModel.lastVisitedGpxListPage.collectAsState()
     val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
     val elevationProfileUiState by gpxViewModel.elevationProfileUiState.collectAsState()
     val exportUiState by gpxViewModel.exportUiState.collectAsState()
@@ -154,7 +163,7 @@ fun GpxScreen(
     var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
     var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
     var guidanceStartingPath by remember { mutableStateOf<String?>(null) }
-    var listMode by remember { mutableStateOf(GpxListMode.TRACKS) }
+    val listMode = GpxListMode.fromStoredPage(lastVisitedGpxListPage)
     val showActivities = listMode != GpxListMode.TRACKS
     val visibleGpxFiles =
         remember(gpxFiles, listMode) {
@@ -558,7 +567,7 @@ fun GpxScreen(
                     CompactIconHitTargetButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            listMode = listMode.next()
+                            gpxViewModel.setLastVisitedGpxListPage(listMode.next().storedPage)
                             isSendMode = false
                             selectedSendPaths = emptySet()
                             isRenameMode = false

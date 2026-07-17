@@ -74,6 +74,10 @@ interface SettingsRepository {
         const val ACTIVITY_PROFILE_WALK_HIKE = "WALK_HIKE"
         const val ACTIVITY_PROFILE_BIKE = "BIKE"
         const val DEFAULT_ACTIVITY_PROFILE = ACTIVITY_PROFILE_HIKE
+        const val GPX_LIST_PAGE_TRACKS = "TRACKS"
+        const val GPX_LIST_PAGE_HIKE_ACTIVITIES = "HIKE_ACTIVITIES"
+        const val GPX_LIST_PAGE_BIKE_ACTIVITIES = "BIKE_ACTIVITIES"
+        const val DEFAULT_GPX_LIST_PAGE = GPX_LIST_PAGE_TRACKS
         const val DEFAULT_USER_WEIGHT_KG = 75f
         const val MIN_USER_WEIGHT_KG = 35f
         const val MAX_USER_WEIGHT_KG = 160f
@@ -147,6 +151,7 @@ interface SettingsRepository {
         const val TURN_BY_TURN_TURN_ALERTS_OFF = "OFF"
         const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
         const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
+        const val DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE = TURN_BY_TURN_TURN_ALERTS_ALL
         const val DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = false
         const val DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED = true
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 40
@@ -616,6 +621,10 @@ interface SettingsRepository {
     val compassMode: Flow<Boolean>
 
     suspend fun setCompassMode(isCompassMode: Boolean)
+
+    val gpxLastVisitedListPage: Flow<String>
+
+    suspend fun setGpxLastVisitedListPage(page: String)
 
     val isGpxInspectionEnabled: Flow<Boolean>
 

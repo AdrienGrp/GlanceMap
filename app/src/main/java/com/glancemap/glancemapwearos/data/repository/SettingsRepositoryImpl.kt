@@ -152,6 +152,7 @@ class SettingsRepositoryImpl private constructor(
         val KEEP_APP_OPEN = booleanPreferencesKey("keep_app_open")
         val KEEP_APP_OPEN_TIP_SHOWN = booleanPreferencesKey("keep_app_open_tip_shown")
         val COMPASS_MODE = booleanPreferencesKey("compass_mode")
+        val GPX_LAST_VISITED_LIST_PAGE = stringPreferencesKey("gpx_last_visited_list_page")
         val GPX_INSPECTION_ENABLED = booleanPreferencesKey("gpx_inspection_enabled")
         val GPX_FLAT_SPEED_MPS = floatPreferencesKey("gpx_flat_speed_mps")
         val GPX_ADVANCED_ETA_ENABLED = booleanPreferencesKey("gpx_advanced_eta_enabled")
@@ -657,7 +658,7 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.data.map {
             it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE]
                 .takeIf { mode -> mode in allowedTurnByTurnTurnAlertModes }
-                ?: SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE
         }
 
     override suspend fun setTurnByTurnTurnAlertsMode(mode: String) {
@@ -666,7 +667,7 @@ class SettingsRepositoryImpl private constructor(
                 if (mode in allowedTurnByTurnTurnAlertModes) {
                     mode
                 } else {
-                    SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE
                 }
         }
     }
@@ -1340,6 +1341,21 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.COMPASS_MODE] = isCompassMode }
     }
 
+    override val gpxLastVisitedListPage: Flow<String> =
+        context.dataStore.data.map { preferences ->
+            preferences[PrefKeys.GPX_LAST_VISITED_LIST_PAGE]
+                .takeIf { it in allowedGpxListPages }
+                ?: SettingsRepository.DEFAULT_GPX_LIST_PAGE
+        }
+
+    override suspend fun setGpxLastVisitedListPage(page: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PrefKeys.GPX_LAST_VISITED_LIST_PAGE] =
+                page.takeIf { it in allowedGpxListPages }
+                    ?: SettingsRepository.DEFAULT_GPX_LIST_PAGE
+        }
+    }
+
     override val isGpxInspectionEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.GPX_INSPECTION_ENABLED] ?: true }
 
     override suspend fun setGpxInspectionEnabled(enabled: Boolean) {
@@ -1721,6 +1737,12 @@ class SettingsRepositoryImpl private constructor(
             setOf(
                 SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
                 SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
+            )
+        private val allowedGpxListPages =
+            setOf(
+                SettingsRepository.GPX_LIST_PAGE_TRACKS,
+                SettingsRepository.GPX_LIST_PAGE_HIKE_ACTIVITIES,
+                SettingsRepository.GPX_LIST_PAGE_BIKE_ACTIVITIES,
             )
         private val allowedNorthReferenceModes =
             setOf(
