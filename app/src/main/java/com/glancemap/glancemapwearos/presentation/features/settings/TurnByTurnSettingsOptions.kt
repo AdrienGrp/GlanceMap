@@ -17,8 +17,8 @@ internal val TurnByTurnReverseSuggestionOptions =
 
 internal val TurnByTurnAlertsOptions =
     listOf(
-        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT to "Important",
-        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL to "All turns",
+        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL to "All turns (recommended)",
+        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT to "Major turns",
         SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF to "Off",
     )
 
@@ -42,5 +42,5 @@ internal fun turnAlertsLabel(mode: String): String =
     when (mode) {
         SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF -> "Off"
         SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL -> "All turns"
-        else -> "Important"
+        else -> "Major turns"
     }

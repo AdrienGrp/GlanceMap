@@ -37,6 +37,26 @@ class RecordingTrackFilterTest {
     }
 
     @Test
+    fun qualityGateRejectsPoorUrbanAccuracyBeforeItBecomesTheFirstPoint() {
+        val hikeGate = RecordingFixQualityGate()
+        val bikeGate = RecordingFixQualityGate()
+
+        val hikeResult =
+            hikeGate.evaluate(
+                sample(x = 0.0, elapsedMillis = 1_000L, accuracyMeters = 36f),
+                HIKE,
+            )
+        val bikeResult =
+            bikeGate.evaluate(
+                sample(x = 0.0, elapsedMillis = 1_000L, accuracyMeters = 51f),
+                BIKE,
+            )
+
+        assertEquals(RecordingFixQualityReason.POOR_ACCURACY, hikeResult.reason)
+        assertEquals(RecordingFixQualityReason.POOR_ACCURACY, bikeResult.reason)
+    }
+
+    @Test
     fun isolatedJumpIsHeldAndFollowingGoodFixIsAccepted() {
         val gate = RecordingFixQualityGate()
         assertTrue(gate.evaluate(sample(x = 0.0, elapsedMillis = 1_000L), HIKE).accepted)
@@ -145,6 +165,65 @@ class RecordingTrackFilterTest {
     }
 
     @Test
+    fun adaptiveSmoothingPullsLikelyIsolatedGpsSpikeTowardTravelLine() {
+        val before = point(x = 0.0, y = 0.0, timeMillis = 1_000L, accuracyMeters = 6f)
+        val middle = point(x = 10.0, y = 18.0, timeMillis = 4_000L, accuracyMeters = 16f)
+        val after = point(x = 20.0, y = 0.0, timeMillis = 7_000L, accuracyMeters = 6f)
+
+        val result =
+            smoothRecordingMiddlePoint(
+                before = before,
+                middle = middle,
+                after = after,
+                mode = SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+                activityProfile = HIKE,
+            )
+
+        assertNotNull(result)
+        assertTrue(result!!.adjustmentMeters >= 5.5)
+        assertTrue(
+            haversineMeters(result.point.latLong, after.latLong) <
+                haversineMeters(middle.latLong, after.latLong),
+        )
+    }
+
+    @Test
+    fun smoothingSkipsGapBeyondActiveRecordingCadence() {
+        val result =
+            smoothRecordingMiddlePoint(
+                before = point(x = 0.0, y = 0.0, timeMillis = 1_000L, accuracyMeters = 5f),
+                middle = point(x = 10.0, y = 2.0, timeMillis = 4_000L, accuracyMeters = 12f),
+                after = point(x = 20.0, y = 0.0, timeMillis = 10_000L, accuracyMeters = 5f),
+                options =
+                    RecordingPointSmoothingOptions(
+                        mode = SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+                        activityProfile = HIKE,
+                        sampleIntervalSeconds = 1,
+                    ),
+            )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun smoothingAllowsExpectedGapForSlowerRecordingCadence() {
+        val result =
+            smoothRecordingMiddlePoint(
+                before = point(x = 0.0, y = 0.0, timeMillis = 1_000L, accuracyMeters = 5f),
+                middle = point(x = 10.0, y = 2.0, timeMillis = 7_000L, accuracyMeters = 12f),
+                after = point(x = 20.0, y = 0.0, timeMillis = 13_000L, accuracyMeters = 5f),
+                options =
+                    RecordingPointSmoothingOptions(
+                        mode = SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+                        activityProfile = HIKE,
+                        sampleIntervalSeconds = 5,
+                    ),
+            )
+
+        assertNotNull(result)
+    }
+
+    @Test
     fun smoothingOffLeavesPointUntouched() {
         assertNull(
             smoothRecordingMiddlePoint(
@@ -199,5 +278,6 @@ class RecordingTrackFilterTest {
     private companion object {
         val ORIGIN = LatLong(45.0, 6.0)
         const val HIKE = SettingsRepository.ACTIVITY_PROFILE_HIKE
+        const val BIKE = SettingsRepository.ACTIVITY_PROFILE_BIKE
     }
 }

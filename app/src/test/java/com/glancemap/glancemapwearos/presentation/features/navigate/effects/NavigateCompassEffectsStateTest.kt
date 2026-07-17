@@ -147,7 +147,7 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun googleFusedStopsImmediatelyWhenScreenTurnsOffButKeepsAmbientGrace() {
+    fun googleFusedStopsImmediatelyForScreenOffButKeepsAmbientGrace() {
         assertEquals(
             0L,
             resolveNavigateCompassImmediateStopDelayMs(
@@ -182,7 +182,7 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun screenOffAndOfflineModeStillStopImmediatelyDuringDisposal() {
+    fun screenOffDisposalAndOfflineModeStopImmediately() {
         assertEquals(
             0L,
             resolveNavigateCompassImmediateStopDelayMs(

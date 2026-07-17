@@ -371,7 +371,7 @@ class SettingsViewModel(
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
-                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+                SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE,
             )
 
     fun setTurnByTurnTurnAlertsMode(mode: String) =

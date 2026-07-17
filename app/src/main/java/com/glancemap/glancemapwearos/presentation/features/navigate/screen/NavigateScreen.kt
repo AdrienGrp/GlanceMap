@@ -555,6 +555,7 @@ fun NavigateScreen(
                     ?: displayedRouteToolCreatePreview?.previewPoints
                     ?: emptyList(),
             recordingTraceSegments = recordingTraceSegments,
+            recordingTraceFollowsMarker = traceRecordingState.active && !traceRecordingState.paused,
             routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
             routeToolDraftPoints = routeToolDraftConnectorPoints,
             poiViewModel = poiViewModel,

@@ -581,8 +581,12 @@ class TraceRecordingViewModel(
                             before = beforeMiddle,
                             middle = originalMiddle,
                             after = point,
-                            mode = currentState.trackSmoothingMode,
-                            activityProfile = currentState.activityProfile,
+                            options =
+                                RecordingPointSmoothingOptions(
+                                    mode = currentState.trackSmoothingMode,
+                                    activityProfile = currentState.activityProfile,
+                                    sampleIntervalSeconds = effectiveSampleIntervalSeconds(),
+                                ),
                         )
                     } else {
                         null

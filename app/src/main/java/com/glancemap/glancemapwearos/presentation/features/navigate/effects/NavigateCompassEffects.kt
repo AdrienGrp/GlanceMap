@@ -54,10 +54,8 @@ internal fun NavigateCompassEffects(
                 "ui_stop immediate=true reason=$reason screenState=${latestScreenState.value.name} " +
                     "delayMs=$delayMs provider=${latestCompassProviderType.value.name}",
             )
-            if (delayMs > 0L && latestScreenState.value.isNonInteractive) {
-                // Preserve a short warm-return window without running high-rate sensors in ambient.
-                compassViewModel.setLowPowerMode(enabled = true)
-            }
+            // Do not change the sampling mode during the bounded grace period. Changing it
+            // restarts Google Fused Orientation and defeats the warm-return window.
             compassViewModel.stop(reason = reason, delayMs = delayMs)
             return
         }

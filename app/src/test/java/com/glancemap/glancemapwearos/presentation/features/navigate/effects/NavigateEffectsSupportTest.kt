@@ -267,6 +267,35 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
+    fun renderedCompassUiStatePublishesAtMapOverlayCadence() {
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_000L,
+                lastPublishedAtElapsedMs = Long.MIN_VALUE,
+            ),
+        )
+        assertFalse(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_039L,
+                lastPublishedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_040L,
+                lastPublishedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_001L,
+                lastPublishedAtElapsedMs = 1_000L,
+                force = true,
+            ),
+        )
+    }
+
+    @Test
     fun rapidHeadingChangesEnableFastTurnRendering() {
         assertTrue(
             isFastHeadingTurn(

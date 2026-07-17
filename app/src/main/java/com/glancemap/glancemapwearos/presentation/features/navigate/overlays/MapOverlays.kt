@@ -56,6 +56,7 @@ internal fun MapOverlays(
     activeGpxDetails: List<GpxTrackDetails>,
     routeToolPreviewPoints: List<LatLong>,
     recordingTraceSegments: List<List<LatLong>>,
+    recordingTraceFollowsMarker: Boolean,
     routeToolCreatePreviewActive: Boolean,
     routeToolDraftPoints: List<LatLong>,
     poiViewModel: PoiViewModel,
@@ -244,6 +245,9 @@ internal fun MapOverlays(
     RecordingTraceOverlayEffect(
         mapView = mapView,
         segments = recordingTraceSegments,
+        followLocationMarker = recordingTraceFollowsMarker,
+        locationMarker = locationMarker,
+        topOverlayCoordinator = topOverlayCoordinator,
     )
 
     inspectionUiState?.let { ui ->

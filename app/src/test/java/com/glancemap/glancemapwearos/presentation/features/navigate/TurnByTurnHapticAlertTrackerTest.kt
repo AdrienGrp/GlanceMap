@@ -5,6 +5,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Gui
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstruction
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
@@ -38,6 +39,26 @@ class TurnByTurnHapticAlertTrackerTest {
 
         assertEquals(TurnHapticAlertOutcome.FILTERED, events.single().outcome)
         assertEquals("turn_mode", events.single().reason)
+    }
+
+    @Test
+    fun allTurnsIncludesSlightTurnsButExcludesContinueAndArrival() {
+        val mode = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL
+
+        assertTrue(shouldAlertForTurn(mode, RouteInstructionCommand.SLIGHT_LEFT))
+        assertTrue(shouldAlertForTurn(mode, RouteInstructionCommand.RIGHT))
+        assertFalse(shouldAlertForTurn(mode, RouteInstructionCommand.CONTINUE))
+        assertFalse(shouldAlertForTurn(mode, RouteInstructionCommand.FINISH))
+    }
+
+    @Test
+    fun majorTurnsExcludesSlightTurnsAndArrival() {
+        val mode = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+
+        assertTrue(shouldAlertForTurn(mode, RouteInstructionCommand.LEFT))
+        assertFalse(shouldAlertForTurn(mode, RouteInstructionCommand.SLIGHT_RIGHT))
+        assertFalse(shouldAlertForTurn(mode, RouteInstructionCommand.CONTINUE))
+        assertFalse(shouldAlertForTurn(mode, RouteInstructionCommand.FINISH))
     }
 
     @Test

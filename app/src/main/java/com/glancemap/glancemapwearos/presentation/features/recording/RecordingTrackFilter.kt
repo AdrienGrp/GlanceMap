@@ -7,7 +7,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
 
-internal const val RECORDING_TRACK_FILTER_VERSION = 1
+internal const val RECORDING_TRACK_FILTER_VERSION = 2
 internal const val EARTH_RADIUS_METERS = 6_371_000.0
 
 internal data class RecordingFixSample(
@@ -138,6 +138,12 @@ internal data class RecordingPointSmoothingResult(
     val adjustmentMeters: Double,
 )
 
+internal data class RecordingPointSmoothingOptions(
+    val mode: String,
+    val activityProfile: String,
+    val sampleIntervalSeconds: Int = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS,
+)
+
 /**
  * Smooths only the middle point of a three-point sequence. The latest endpoint is never
  * delayed or pulled backwards. Corrections are lateral, accuracy-weighted and disabled at
@@ -148,16 +154,19 @@ internal fun smoothRecordingMiddlePoint(
     before: RecordedTracePoint,
     middle: RecordedTracePoint,
     after: RecordedTracePoint,
-    mode: String,
-    activityProfile: String,
+    options: RecordingPointSmoothingOptions,
 ): RecordingPointSmoothingResult? {
+    val mode = options.mode
+    val activityProfile = options.activityProfile
     if (mode == SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF) return null
     if (middle.startsNewSegment || after.startsNewSegment) return null
     val firstIntervalMillis = middle.timeMillis - before.timeMillis
     val secondIntervalMillis = after.timeMillis - middle.timeMillis
+    val maximumIntervalMillis =
+        recordingSmoothingMaximumIntervalMillis(options.sampleIntervalSeconds)
     if (
-        firstIntervalMillis !in 1..RECORDING_SMOOTHING_MAX_INTERVAL_MS ||
-        secondIntervalMillis !in 1..RECORDING_SMOOTHING_MAX_INTERVAL_MS
+        firstIntervalMillis !in 1..maximumIntervalMillis ||
+        secondIntervalMillis !in 1..maximumIntervalMillis
     ) {
         return null
     }
@@ -175,12 +184,10 @@ internal fun smoothRecordingMiddlePoint(
         }
     if (firstLength < minimumLegMeters || secondLength < minimumLegMeters) return null
 
-    val turnDegrees = angleDegrees(middleLocal, secondVector)
     val config = smoothingConfig(mode = mode, activityProfile = activityProfile)
-    if (turnDegrees > config.maximumTurnDegrees) return null
-
     val baselineSquared = afterLocal.x * afterLocal.x + afterLocal.y * afterLocal.y
     if (baselineSquared < minimumLegMeters * minimumLegMeters) return null
+    val baselineLength = afterLocal.length()
     val projectionFraction =
         ((middleLocal.x * afterLocal.x + middleLocal.y * afterLocal.y) / baselineSquared)
     if (projectionFraction !in RECORDING_SMOOTHING_MIN_PROJECTION..RECORDING_SMOOTHING_MAX_PROJECTION) return null
@@ -201,13 +208,32 @@ internal fun smoothRecordingMiddlePoint(
             .average()
             .takeIf(Double::isFinite)
             ?: middleAccuracy
+    val turnDegrees = angleDegrees(middleLocal, secondVector)
+    val likelyIsolatedSpike =
+        RecordingSpikeCandidate(
+            turnDegrees = turnDegrees,
+            detourRatio = (firstLength + secondLength) / baselineLength,
+            lateralErrorMeters = lateralErrorMeters,
+            middleAccuracyMeters = middleAccuracy,
+            neighbourAccuracyMeters = neighbourAccuracy,
+        ).isLikely()
+    if (!likelyIsolatedSpike && turnDegrees > config.maximumTurnDegrees) {
+        return null
+    }
     val relativeUncertainty = (middleAccuracy / neighbourAccuracy.coerceAtLeast(1.0)).coerceIn(0.65, 1.6)
     val accuracyNeed = (middleAccuracy / (middleAccuracy + RECORDING_SMOOTHING_ACCURACY_PIVOT_M)).coerceIn(0.2, 0.9)
-    val requestedAdjustment = lateralErrorMeters * config.strength * relativeUncertainty * accuracyNeed
+    val adjustmentProfile =
+        config.adjustmentProfile(
+            mode = mode,
+            activityProfile = activityProfile,
+            likelyIsolatedSpike = likelyIsolatedSpike,
+        )
+    val requestedAdjustment =
+        lateralErrorMeters * adjustmentProfile.strength * relativeUncertainty * accuracyNeed
     val accuracyCap =
-        (middleAccuracy * config.accuracyAdjustmentFactor)
-            .coerceIn(config.minimumCapMeters, config.maximumCapMeters)
-    val geometryCap = min(firstLength, secondLength) * config.maximumLegFraction
+        (middleAccuracy * adjustmentProfile.accuracyAdjustmentFactor)
+            .coerceIn(config.minimumCapMeters, adjustmentProfile.maximumCapMeters)
+    val geometryCap = min(firstLength, secondLength) * adjustmentProfile.maximumLegFraction
     val adjustmentMeters = min(requestedAdjustment, min(accuracyCap, geometryCap))
     if (adjustmentMeters < config.minimumAdjustmentMeters) return null
 
@@ -222,6 +248,24 @@ internal fun smoothRecordingMiddlePoint(
         adjustmentMeters = adjustmentMeters,
     )
 }
+
+internal fun smoothRecordingMiddlePoint(
+    before: RecordedTracePoint,
+    middle: RecordedTracePoint,
+    after: RecordedTracePoint,
+    mode: String,
+    activityProfile: String,
+): RecordingPointSmoothingResult? =
+    smoothRecordingMiddlePoint(
+        before = before,
+        middle = middle,
+        after = after,
+        options =
+            RecordingPointSmoothingOptions(
+                mode = mode,
+                activityProfile = activityProfile,
+            ),
+    )
 
 private fun isPlausibleTransition(
     previous: RecordingFixSample,
@@ -285,7 +329,58 @@ private data class RecordingSmoothingConfig(
     val minimumAdjustmentMeters: Double,
     val fallbackAccuracyMeters: Double,
     val maximumLegFraction: Double,
+) {
+    fun adjustmentProfile(
+        mode: String,
+        activityProfile: String,
+        likelyIsolatedSpike: Boolean,
+    ): RecordingAdjustmentProfile {
+        if (!likelyIsolatedSpike) {
+            return RecordingAdjustmentProfile(
+                strength = strength,
+                accuracyAdjustmentFactor = accuracyAdjustmentFactor,
+                maximumCapMeters = maximumCapMeters,
+                maximumLegFraction = maximumLegFraction,
+            )
+        }
+        val bike = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+        val strong = mode == SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG
+        return RecordingAdjustmentProfile(
+            strength = if (strong) 0.82 else 0.68,
+            accuracyAdjustmentFactor = if (strong) 0.72 else 0.55,
+            maximumCapMeters =
+                when {
+                    bike && strong -> 16.0
+                    bike -> 10.0
+                    strong -> 10.0
+                    else -> 6.0
+                },
+            maximumLegFraction = if (strong) 0.78 else 0.68,
+        )
+    }
+}
+
+private data class RecordingAdjustmentProfile(
+    val strength: Double,
+    val accuracyAdjustmentFactor: Double,
+    val maximumCapMeters: Double,
+    val maximumLegFraction: Double,
 )
+
+private data class RecordingSpikeCandidate(
+    private val turnDegrees: Double,
+    private val detourRatio: Double,
+    private val lateralErrorMeters: Double,
+    private val middleAccuracyMeters: Double,
+    private val neighbourAccuracyMeters: Double,
+) {
+    fun isLikely(): Boolean =
+        turnDegrees >= RECORDING_SPIKE_MIN_TURN_DEGREES &&
+            lateralErrorMeters >= RECORDING_SPIKE_MIN_LATERAL_ERROR_M &&
+            detourRatio >= RECORDING_SPIKE_MIN_DETOUR_RATIO &&
+            middleAccuracyMeters >= RECORDING_SPIKE_MIN_ACCURACY_M &&
+            middleAccuracyMeters >= neighbourAccuracyMeters * RECORDING_SPIKE_MIN_RELATIVE_ACCURACY
+}
 
 private fun smoothingConfig(
     mode: String,
@@ -355,20 +450,31 @@ private fun Float?.validAccuracyOr(fallbackMeters: Double): Double =
         ?.toDouble()
         ?: fallbackMeters
 
+private fun recordingSmoothingMaximumIntervalMillis(sampleIntervalSeconds: Int): Long =
+    (sampleIntervalSeconds.coerceAtLeast(1) * 1_000L * RECORDING_SMOOTHING_INTERVAL_MULTIPLIER)
+        .coerceIn(RECORDING_SMOOTHING_MIN_MAX_INTERVAL_MS, RECORDING_SMOOTHING_ABSOLUTE_MAX_INTERVAL_MS)
+
 private const val RECORDING_FIX_MAX_HIKE_SPEED_MPS = 8.0
 private const val RECORDING_FIX_MAX_BIKE_SPEED_MPS = 45.0
 private const val RECORDING_FIX_MIN_MODELED_HIKE_SPEED_MPS = 3.5
 private const val RECORDING_FIX_MIN_MODELED_BIKE_SPEED_MPS = 12.0
 private const val RECORDING_FIX_MAX_REPORTED_SPEED_FACTOR = 1.25
-private const val RECORDING_FIX_MAX_HIKE_ACCURACY_M = 100f
-private const val RECORDING_FIX_MAX_BIKE_ACCURACY_M = 150f
+private const val RECORDING_FIX_MAX_HIKE_ACCURACY_M = 35f
+private const val RECORDING_FIX_MAX_BIKE_ACCURACY_M = 50f
 private const val RECORDING_FIX_FALLBACK_ACCURACY_M = 12.0
-private const val RECORDING_FIX_ACCURACY_ALLOWANCE_FACTOR = 1.25
+private const val RECORDING_FIX_ACCURACY_ALLOWANCE_FACTOR = 0.75
 private const val RECORDING_FIX_BASE_ALLOWANCE_M = 5.0
 private const val RECORDING_FIX_SPEED_ACCURACY_MULTIPLIER = 3.0
-private const val RECORDING_SMOOTHING_MAX_INTERVAL_MS = 30_000L
+private const val RECORDING_SMOOTHING_INTERVAL_MULTIPLIER = 3L
+private const val RECORDING_SMOOTHING_MIN_MAX_INTERVAL_MS = 5_000L
+private const val RECORDING_SMOOTHING_ABSOLUTE_MAX_INTERVAL_MS = 30_000L
 private const val RECORDING_SMOOTHING_MIN_HIKE_LEG_M = 1.0
 private const val RECORDING_SMOOTHING_MIN_BIKE_LEG_M = 3.0
 private const val RECORDING_SMOOTHING_MIN_PROJECTION = 0.12
 private const val RECORDING_SMOOTHING_MAX_PROJECTION = 0.88
 private const val RECORDING_SMOOTHING_ACCURACY_PIVOT_M = 4.0
+private const val RECORDING_SPIKE_MIN_TURN_DEGREES = 105.0
+private const val RECORDING_SPIKE_MIN_LATERAL_ERROR_M = 4.0
+private const val RECORDING_SPIKE_MIN_ACCURACY_M = 8.0
+private const val RECORDING_SPIKE_MIN_RELATIVE_ACCURACY = 0.85
+private const val RECORDING_SPIKE_MIN_DETOUR_RATIO = 1.65

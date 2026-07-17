@@ -231,17 +231,20 @@ internal object MarkerMotionTelemetry {
         )
     }
 
+    @Suppress("LongParameterList")
     fun recordSeedAnchor(
         nowElapsedMs: Long,
+        fixAgeMs: Long,
         accuracyM: Float,
         speedMps: Float,
         bearingDeg: Float?,
+        origin: String,
     ) {
         val snapshot =
             MarkerMotionSnapshot(
                 mode = MarkerMotionMode.FIXED,
                 reason = "wake_anchor",
-                fixAgeMs = 0L,
+                fixAgeMs = fixAgeMs,
                 accuracyM = accuracyM,
                 speedMps = speedMps,
                 bearingDeg = bearingDeg,
@@ -254,7 +257,8 @@ internal object MarkerMotionTelemetry {
         DebugTelemetry.log(
             TAG,
             buildString {
-                append("seed reason=wake")
+                append("seed reason=wake source=$origin")
+                append(" age=${fixAgeMs}ms")
                 append(" acc=${accuracyM.format(1)}")
                 append(" speed=${speedMps.format(2)}")
                 append(" bearing=${bearingDeg.formatOrNa(1)}")
@@ -275,6 +279,9 @@ internal object MarkerMotionTelemetry {
         blendDurationMs: Long?,
         innovationDistanceM: Float?,
         fixGapMs: Long?,
+        rawSpeedMps: Float?,
+        speedAccuracyMps: Float?,
+        sourceMode: String,
     ) {
         val snapshot =
             MarkerMotionSnapshot(
@@ -313,6 +320,9 @@ internal object MarkerMotionTelemetry {
                 append(" age=${fixAgeMs}ms")
                 append(" acc=${accuracyM.format(1)}")
                 append(" speed=${speedMps.format(2)}")
+                append(" rawSpeed=${rawSpeedMps.formatOrNa(2)}")
+                append(" speedAcc=${speedAccuracyMps.formatOrNa(2)}")
+                append(" source=$sourceMode")
                 append(" bearing=${bearingDeg.formatOrNa(1)}")
                 correctionDistanceM?.let { append(" corr=${it.format(1)}") }
                 blendDurationMs?.let { append(" blendMs=$it") }

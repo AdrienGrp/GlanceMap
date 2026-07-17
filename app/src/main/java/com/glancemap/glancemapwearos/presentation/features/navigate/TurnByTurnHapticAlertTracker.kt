@@ -291,9 +291,12 @@ internal fun shouldAlertForTurn(
 ): Boolean =
     when (mode) {
         SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF -> false
-        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL -> true
+        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL ->
+            command != RouteInstructionCommand.CONTINUE &&
+                command != RouteInstructionCommand.FINISH
         else ->
             command != RouteInstructionCommand.CONTINUE &&
                 command != RouteInstructionCommand.SLIGHT_LEFT &&
-                command != RouteInstructionCommand.SLIGHT_RIGHT
+                command != RouteInstructionCommand.SLIGHT_RIGHT &&
+                command != RouteInstructionCommand.FINISH
     }
