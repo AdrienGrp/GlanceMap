@@ -257,38 +257,6 @@ class CompassManagerMathTest {
     }
 
     @Test
-    fun resolveLargeJumpActionAcceptsImmediatelyDuringRelock() {
-        val action =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = true,
-                hasPendingLargeJump = false,
-                pendingDeltaDeg = Float.NaN,
-            )
-        assertEquals(LargeJumpAction.ACCEPT_IMMEDIATE, action)
-    }
-
-    @Test
-    fun resolveLargeJumpActionRequiresCoherentConfirmationOutsideRelock() {
-        val confirmed =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 20f,
-            )
-        val rejected =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 60f,
-            )
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, confirmed)
-        assertEquals(LargeJumpAction.REJECT_PENDING, rejected)
-    }
-
-    @Test
     fun resolveStartupTransientActionFirstSampleAwaitsConfirmation() {
         val decision =
             resolveStartupTransientAction(

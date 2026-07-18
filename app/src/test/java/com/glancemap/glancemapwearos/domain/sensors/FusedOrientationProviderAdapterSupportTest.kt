@@ -7,99 +7,11 @@ import org.junit.Test
 
 class FusedOrientationProviderAdapterSupportTest {
     @Test
-    fun relockLargeJumpNeedsConfirmationWhenFusedConfidenceIsWeak() {
-        assertEquals(
-            LargeJumpAction.REJECT_PENDING,
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    inRelock = true,
-                    headingErrorDeg = 25f,
-                    conservativeHeadingErrorDeg = 180f,
-                ),
-            ),
-        )
-    }
-
-    @Test
-    fun relockLargeJumpCanPassImmediatelyWhenFusedConfidenceIsGood() {
-        assertEquals(
-            LargeJumpAction.ACCEPT_IMMEDIATE,
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    inRelock = true,
-                    headingErrorDeg = 8f,
-                    conservativeHeadingErrorDeg = 30f,
-                ),
-            ),
-        )
-    }
-
-    @Test
-    fun rapidLargeJumpStaysQuarantinedDespiteRepeatedSamples() {
-        assertEquals(
-            LargeJumpAction.REJECT_PENDING,
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    hasPendingLargeJump = true,
-                    pendingDeltaDeg = 22f,
-                    pendingAgeMs = 45L,
-                    pendingConsistentSampleCount = 3,
-                ),
-            ),
-        )
-    }
-
-    @Test
-    fun sustainedLargeJumpConfirmsAfterQuarantine() {
-        assertEquals(
-            LargeJumpAction.ACCEPT_CONFIRMED,
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    hasPendingLargeJump = true,
-                    pendingDeltaDeg = 22f,
-                    pendingAgeMs = 320L,
-                    pendingConsistentSampleCount = 8,
-                ),
-            ),
-        )
-    }
-
-    @Test
-    fun pendingLargeJumpIsAcceptedAfterAbsoluteTimeout() {
-        val action =
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    hasPendingLargeJump = true,
-                    pendingDeltaDeg = 80f,
-                    pendingAgeMs = 500L,
-                    pendingConsistentSampleCount = 1,
-                ),
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
-        assertEquals(
-            FusedLargeJumpAcceptanceReason.TIMEOUT_500_MS,
-            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 500L),
-        )
-    }
-
-    @Test
-    fun coherentPendingLargeJumpReportsStableAcceptance() {
-        val action =
-            resolveFusedLargeJumpAction(
-                defaultLargeJumpInput.copy(
-                    hasPendingLargeJump = true,
-                    pendingDeltaDeg = 12f,
-                    pendingAgeMs = 320L,
-                    pendingConsistentSampleCount = 2,
-                ),
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
-        assertEquals(
-            FusedLargeJumpAcceptanceReason.STABLE,
-            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 320L),
-        )
+    fun lowConfidenceGoogleHeadingRemainsUsableForDegradedTracking() {
+        assertTrue(isUsableGoogleFusedHeadingError(45f))
+        assertTrue(isUsableGoogleFusedHeadingError(179.9f))
+        assertFalse(isUsableGoogleFusedHeadingError(180f))
+        assertFalse(isUsableGoogleFusedHeadingError(Float.NaN))
     }
 
     @Test
@@ -122,12 +34,42 @@ class FusedOrientationProviderAdapterSupportTest {
         )
         assertTrue(
             shouldPublishFusedHeading(
-                nowElapsedMs = 1_033L,
+                nowElapsedMs = 1_040L,
                 lastPublishAtElapsedMs = 1_000L,
                 lowPowerMode = false,
                 force = false,
             ),
         )
+    }
+
+    @Test
+    fun activeTurnPublishesAtFiftyHertzWithoutChangingTheSensorRequest() {
+        assertFalse(
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_019L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                activeTurn = true,
+                force = false,
+            ),
+        )
+        assertTrue(
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_020L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                activeTurn = true,
+                force = false,
+            ),
+        )
+    }
+
+    @Test
+    fun activeTurnRequiresRelativeMovementRateInsteadOfAbsoluteHeadingNoise() {
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.3f, elapsedMs = 20L))
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.5f, elapsedMs = 40L))
+        assertTrue(isActiveRelativeTurnStep(stepDeg = 1.2f, elapsedMs = 40L))
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 10f, elapsedMs = 500L))
     }
 
     @Test
@@ -162,18 +104,6 @@ class FusedOrientationProviderAdapterSupportTest {
         assertEquals(3, third.state.consecutiveSamples)
         assertEquals(1_100L, third.durationMs)
     }
-
-    private val defaultLargeJumpInput =
-        FusedLargeJumpInput(
-            jumpDeg = 148f,
-            inRelock = false,
-            hasPendingLargeJump = false,
-            pendingDeltaDeg = Float.NaN,
-            pendingAgeMs = 0L,
-            pendingConsistentSampleCount = 0,
-            headingErrorDeg = 25f,
-            conservativeHeadingErrorDeg = 180f,
-        )
 
     private fun unusableUpdate(
         nowMs: Long,

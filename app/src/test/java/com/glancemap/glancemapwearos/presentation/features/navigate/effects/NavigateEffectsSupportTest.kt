@@ -75,6 +75,7 @@ class NavigateEffectsSupportTest {
                 accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 1_000L,
                 headingSampleStale = false,
+                headingRenderable = true,
             )
 
         assertTrue(shouldDriveCompassFollowMap(state))
@@ -116,10 +117,26 @@ class NavigateEffectsSupportTest {
                 accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 1_000L,
                 headingSampleStale = false,
+                headingRenderable = true,
             )
 
         assertTrue(shouldDriveMarkerHeading(state))
         assertTrue(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
+    }
+
+    @Test
+    fun degradedGoogleHeadingKeepsMapAndMarkerMovingWhenRenderable() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingSource = HeadingSource.FUSED_ORIENTATION,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 1_000L,
+                headingSampleStale = false,
+                headingRenderable = true,
+            )
+
+        assertTrue(shouldDriveCompassFollowMap(state))
+        assertTrue(shouldDriveMarkerHeading(state))
     }
 
     @Test

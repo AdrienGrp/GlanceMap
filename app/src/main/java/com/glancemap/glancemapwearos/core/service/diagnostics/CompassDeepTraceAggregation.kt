@@ -1,5 +1,9 @@
 package com.glancemap.glancemapwearos.core.service.diagnostics
 
+import com.glancemap.glancemapwearos.domain.sensors.CompassMagneticQuality
+import com.glancemap.glancemapwearos.domain.sensors.CompassNorthBasis
+import com.glancemap.glancemapwearos.domain.sensors.CompassTrackingReason
+import com.glancemap.glancemapwearos.domain.sensors.CompassTrackingState
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -7,9 +11,21 @@ internal data class CompassDeepTraceProviderSample(
     val provider: String,
     val headingDeg: Float,
     val headingErrorDeg: Float?,
+    val liveHeadingErrorDeg: Float? = null,
+    val conservativeHeadingErrorDeg: Float? = null,
     val accuracy: Int,
     val startupWarmup: Boolean,
     val usable: Boolean,
+    val trackingState: CompassTrackingState? = null,
+    val trackingReason: CompassTrackingReason? = null,
+    val northBasis: CompassNorthBasis? = null,
+    val magneticQuality: CompassMagneticQuality? = null,
+    val magneticFieldUt: Float? = null,
+    val relativeHeadingDeg: Float? = null,
+    val fusedRelativeDisagreementDeg: Float? = null,
+    val targetHeadingDeg: Float? = null,
+    val quarantineActive: Boolean = false,
+    val recoveryActive: Boolean = false,
     val atElapsedMs: Long,
 )
 
@@ -34,11 +50,17 @@ internal class CompassDeepTraceWindowAccumulator(
     private val fusedHeading = HeadingTraceStats()
     private val sensorManagerHeading = HeadingTraceStats()
     private val fusedError = ScalarTraceStats()
+    private val fusedLiveError = ScalarTraceStats()
+    private val fusedConservativeError = ScalarTraceStats()
     private val sensorManagerError = ScalarTraceStats()
     private val gyroMagnitude = ScalarTraceStats()
     private val gyroZ = ScalarTraceStats()
     private val accelerometerMagnitude = ScalarTraceStats()
     private val magnetometerMagnitude = ScalarTraceStats()
+    private var magnetometerOutsideNormalSamples = 0
+    private val relativeHeading = HeadingTraceStats()
+    private val fusedRelativeDisagreement = ScalarTraceStats()
+    private val targetHeading = HeadingTraceStats()
     private val renderedHeading = HeadingTraceStats()
     private val mapRotation = HeadingTraceStats()
     private val targetRenderDelta = ScalarTraceStats()
@@ -47,6 +69,12 @@ internal class CompassDeepTraceWindowAccumulator(
     private var continuityActiveRenderSamples = 0
     private val continuityOffset = ScalarTraceStats()
     private val providerAccuracyCounts = IntArray(4)
+    private val trackingStateCounts = IntArray(CompassTrackingState.entries.size)
+    private val magneticQualityCounts = IntArray(CompassMagneticQuality.entries.size)
+    private var quarantineProviderSamples = 0
+    private var recoveryProviderSamples = 0
+    private var lastTrackingReason: CompassTrackingReason? = null
+    private var lastNorthBasis: CompassNorthBasis? = null
 
     val hasSamples: Boolean
         get() =
@@ -59,9 +87,13 @@ internal class CompassDeepTraceWindowAccumulator(
 
     fun recordProvider(sample: CompassDeepTraceProviderSample) {
         when (sample.provider) {
-            "google_fused" -> {
+            "google_fused", "fused_orientation" -> {
                 fusedHeading.add(sample.headingDeg, sample.atElapsedMs)
                 sample.headingErrorDeg?.takeIf(Float::isFinite)?.let(fusedError::add)
+                sample.liveHeadingErrorDeg?.takeIf(Float::isFinite)?.let(fusedLiveError::add)
+                sample.conservativeHeadingErrorDeg
+                    ?.takeIf(Float::isFinite)
+                    ?.let(fusedConservativeError::add)
             }
             "sensor_manager" -> {
                 sensorManagerHeading.add(sample.headingDeg, sample.atElapsedMs)
@@ -73,6 +105,15 @@ internal class CompassDeepTraceWindowAccumulator(
         if (sample.accuracy in providerAccuracyCounts.indices) {
             providerAccuracyCounts[sample.accuracy] += 1
         }
+        sample.relativeHeadingDeg?.let { relativeHeading.add(it, sample.atElapsedMs) }
+        sample.fusedRelativeDisagreementDeg?.let(fusedRelativeDisagreement::add)
+        sample.targetHeadingDeg?.let { targetHeading.add(it, sample.atElapsedMs) }
+        sample.trackingState?.let { trackingStateCounts[it.ordinal] += 1 }
+        sample.magneticQuality?.let { magneticQualityCounts[it.ordinal] += 1 }
+        if (sample.quarantineActive) quarantineProviderSamples += 1
+        if (sample.recoveryActive) recoveryProviderSamples += 1
+        lastTrackingReason = sample.trackingReason ?: lastTrackingReason
+        lastNorthBasis = sample.northBasis ?: lastNorthBasis
     }
 
     fun recordRawSensor(
@@ -89,7 +130,12 @@ internal class CompassDeepTraceWindowAccumulator(
                 gyroZ.add(z)
             }
             CompassDeepTraceRawSensor.ACCELEROMETER -> accelerometerMagnitude.add(magnitude)
-            CompassDeepTraceRawSensor.MAGNETOMETER -> magnetometerMagnitude.add(magnitude)
+            CompassDeepTraceRawSensor.MAGNETOMETER -> {
+                magnetometerMagnitude.add(magnitude)
+                if (magnitude !in TRACE_MAGNETIC_NORMAL_MIN_UT..TRACE_MAGNETIC_NORMAL_MAX_UT) {
+                    magnetometerOutsideNormalSamples += 1
+                }
+            }
         }
     }
 
@@ -107,54 +153,107 @@ internal class CompassDeepTraceWindowAccumulator(
     ): String {
         val durationMs = (endedAtElapsedMs - startedAtElapsedMs).coerceAtLeast(0L)
         return buildString {
-            append("window index=").append(index)
-            append(" startElapsedMs=").append(startedAtElapsedMs)
-            append(" durationMs=").append(durationMs)
-            append(" providerSamples=").append(fusedHeading.count + sensorManagerHeading.count)
-            append(" fusedSamples=").append(fusedHeading.count)
-            append(" fusedIntervalAvgMs=").append(fusedHeading.averageIntervalMs.formatTrace(1))
-            append(" fusedIntervalMaxMs=").append(fusedHeading.maximumIntervalMs.formatTrace(1))
-            append(" fusedStepAvgDeg=").append(fusedHeading.averageStepDeg.formatTrace(1))
-            append(" fusedStepMaxDeg=").append(fusedHeading.maximumStepDeg.formatTrace(1))
-            append(" fusedRateMaxDegPerSec=").append(fusedHeading.maximumRateDegPerSec.formatTrace(1))
-            append(" fusedReversals=").append(fusedHeading.reversalCount)
-            append(" fusedErrorAvgDeg=").append(fusedError.average.formatTrace(1))
-            append(" fusedErrorMaxDeg=").append(fusedError.maximum.formatTrace(1))
-            append(" sensorManagerSamples=").append(sensorManagerHeading.count)
-            append(" sensorManagerIntervalAvgMs=").append(sensorManagerHeading.averageIntervalMs.formatTrace(1))
-            append(" sensorManagerStepAvgDeg=").append(sensorManagerHeading.averageStepDeg.formatTrace(1))
-            append(" sensorManagerStepMaxDeg=").append(sensorManagerHeading.maximumStepDeg.formatTrace(1))
-            append(" sensorManagerReversals=").append(sensorManagerHeading.reversalCount)
-            append(" sensorManagerErrorAvgDeg=").append(sensorManagerError.average.formatTrace(1))
-            append(" unusableProviderSamples=").append(unusableProviderSamples)
-            append(" warmupProviderSamples=").append(startupWarmupProviderSamples)
-            append(" accuracyUnreliable=").append(providerAccuracyCounts[0])
-            append(" accuracyLow=").append(providerAccuracyCounts[1])
-            append(" accuracyMedium=").append(providerAccuracyCounts[2])
-            append(" accuracyHigh=").append(providerAccuracyCounts[3])
-            append(" gyroSamples=").append(gyroMagnitude.count)
-            append(" gyroMagnitudeAvgRadPerSec=").append(gyroMagnitude.average.formatTrace(3))
-            append(" gyroMagnitudeMaxRadPerSec=").append(gyroMagnitude.maximum.formatTrace(3))
-            append(" gyroZAvgRadPerSec=").append(gyroZ.average.formatTrace(3))
-            append(" accelSamples=").append(accelerometerMagnitude.count)
-            append(" accelMagnitudeAvg=").append(accelerometerMagnitude.average.formatTrace(2))
-            append(" accelMagnitudeMax=").append(accelerometerMagnitude.maximum.formatTrace(2))
-            append(" magSamples=").append(magnetometerMagnitude.count)
-            append(" magMagnitudeAvgUt=").append(magnetometerMagnitude.average.formatTrace(1))
-            append(" magMagnitudeMaxUt=").append(magnetometerMagnitude.maximum.formatTrace(1))
-            append(" renderSamples=").append(renderedHeading.count)
-            append(" renderStepAvgDeg=").append(renderedHeading.averageStepDeg.formatTrace(1))
-            append(" renderStepMaxDeg=").append(renderedHeading.maximumStepDeg.formatTrace(1))
-            append(" renderRateMaxDegPerSec=").append(renderedHeading.maximumRateDegPerSec.formatTrace(1))
-            append(" renderReversals=").append(renderedHeading.reversalCount)
-            append(" mapStepMaxDeg=").append(mapRotation.maximumStepDeg.formatTrace(1))
-            append(" mapReversals=").append(mapRotation.reversalCount)
-            append(" targetRenderDeltaAvgDeg=").append(targetRenderDelta.average.formatTrace(1))
-            append(" targetRenderDeltaMaxDeg=").append(targetRenderDelta.maximum.formatTrace(1))
-            append(" continuityRenderSamples=").append(continuityActiveRenderSamples)
-            append(" continuityOffsetAvgDeg=").append(continuityOffset.average.formatTrace(1))
-            append(" continuityOffsetMaxDeg=").append(continuityOffset.maximum.formatTrace(1))
+            appendWindowHeader(index, durationMs)
+            appendFusedProviderStats()
+            appendFallbackProviderStats()
+            appendRawSensorStats()
+            appendIntegrityStats()
+            appendRenderStats()
         }
+    }
+
+    private fun StringBuilder.appendWindowHeader(
+        index: Int,
+        durationMs: Long,
+    ) {
+        append("window index=").append(index)
+        append(" startElapsedMs=").append(startedAtElapsedMs)
+        append(" durationMs=").append(durationMs)
+        append(" providerSamples=").append(fusedHeading.count + sensorManagerHeading.count)
+    }
+
+    private fun StringBuilder.appendFusedProviderStats() {
+        append(" fusedSamples=").append(fusedHeading.count)
+        append(" fusedIntervalAvgMs=").append(fusedHeading.averageIntervalMs.formatTrace(1))
+        append(" fusedIntervalMaxMs=").append(fusedHeading.maximumIntervalMs.formatTrace(1))
+        append(" fusedStepAvgDeg=").append(fusedHeading.averageStepDeg.formatTrace(1))
+        append(" fusedStepMaxDeg=").append(fusedHeading.maximumStepDeg.formatTrace(1))
+        append(" fusedRateMaxDegPerSec=").append(fusedHeading.maximumRateDegPerSec.formatTrace(1))
+        append(" fusedReversals=").append(fusedHeading.reversalCount)
+        append(" fusedErrorAvgDeg=").append(fusedError.average.formatTrace(1))
+        append(" fusedErrorMaxDeg=").append(fusedError.maximum.formatTrace(1))
+        append(" fusedLiveErrorAvgDeg=").append(fusedLiveError.average.formatTrace(1))
+        append(" fusedLiveErrorMaxDeg=").append(fusedLiveError.maximum.formatTrace(1))
+        append(" fusedConservativeErrorAvgDeg=").append(fusedConservativeError.average.formatTrace(1))
+        append(" fusedConservativeErrorMaxDeg=").append(fusedConservativeError.maximum.formatTrace(1))
+    }
+
+    private fun StringBuilder.appendFallbackProviderStats() {
+        append(" sensorManagerSamples=").append(sensorManagerHeading.count)
+        append(" sensorManagerIntervalAvgMs=").append(sensorManagerHeading.averageIntervalMs.formatTrace(1))
+        append(" sensorManagerStepAvgDeg=").append(sensorManagerHeading.averageStepDeg.formatTrace(1))
+        append(" sensorManagerStepMaxDeg=").append(sensorManagerHeading.maximumStepDeg.formatTrace(1))
+        append(" sensorManagerReversals=").append(sensorManagerHeading.reversalCount)
+        append(" sensorManagerErrorAvgDeg=").append(sensorManagerError.average.formatTrace(1))
+        append(" unusableProviderSamples=").append(unusableProviderSamples)
+        append(" warmupProviderSamples=").append(startupWarmupProviderSamples)
+        append(" accuracyUnreliable=").append(providerAccuracyCounts[0])
+        append(" accuracyLow=").append(providerAccuracyCounts[1])
+        append(" accuracyMedium=").append(providerAccuracyCounts[2])
+        append(" accuracyHigh=").append(providerAccuracyCounts[3])
+    }
+
+    private fun StringBuilder.appendRawSensorStats() {
+        append(" gyroSamples=").append(gyroMagnitude.count)
+        append(" gyroMagnitudeAvgRadPerSec=").append(gyroMagnitude.average.formatTrace(3))
+        append(" gyroMagnitudeMaxRadPerSec=").append(gyroMagnitude.maximum.formatTrace(3))
+        append(" gyroZAvgRadPerSec=").append(gyroZ.average.formatTrace(3))
+        append(" accelSamples=").append(accelerometerMagnitude.count)
+        append(" accelMagnitudeAvg=").append(accelerometerMagnitude.average.formatTrace(2))
+        append(" accelMagnitudeMax=").append(accelerometerMagnitude.maximum.formatTrace(2))
+        append(" magSamples=").append(magnetometerMagnitude.count)
+        append(" magMagnitudeAvgUt=").append(magnetometerMagnitude.average.formatTrace(1))
+        append(" magMagnitudeMinUt=").append(magnetometerMagnitude.minimum.formatTrace(1))
+        append(" magMagnitudeMaxUt=").append(magnetometerMagnitude.maximum.formatTrace(1))
+        append(" magOutsideNormalSamples=").append(magnetometerOutsideNormalSamples)
+    }
+
+    private fun StringBuilder.appendIntegrityStats() {
+        append(" relativeSamples=").append(relativeHeading.count)
+        append(" relativeStepAvgDeg=").append(relativeHeading.averageStepDeg.formatTrace(1))
+        append(" relativeStepMaxDeg=").append(relativeHeading.maximumStepDeg.formatTrace(1))
+        append(" disagreementAvgDeg=").append(fusedRelativeDisagreement.average.formatTrace(1))
+        append(" disagreementMaxDeg=").append(fusedRelativeDisagreement.maximum.formatTrace(1))
+        append(" acquiringSamples=").append(trackingStateCounts[CompassTrackingState.ACQUIRING.ordinal])
+        append(" trackingSamples=").append(trackingStateCounts[CompassTrackingState.TRACKING.ordinal])
+        append(" degradedSamples=").append(trackingStateCounts[CompassTrackingState.DEGRADED.ordinal])
+        append(" magGoodSamples=").append(magneticQualityCounts[CompassMagneticQuality.GOOD.ordinal])
+        append(" magInterferenceSamples=")
+            .append(magneticQualityCounts[CompassMagneticQuality.INTERFERENCE.ordinal])
+        append(" quarantineProviderSamples=").append(quarantineProviderSamples)
+        append(" recoveryProviderSamples=").append(recoveryProviderSamples)
+        append(" lastTrackingReason=").append(lastTrackingReason?.telemetryToken ?: "na")
+        append(" lastNorthBasis=").append(lastNorthBasis?.telemetryToken ?: "na")
+        append(" fusedLastHeadingDeg=").append(fusedHeading.latest.formatTrace(1))
+        append(" relativeLastHeadingDeg=").append(relativeHeading.latest.formatTrace(1))
+        append(" targetLastHeadingDeg=").append(targetHeading.latest.formatTrace(1))
+    }
+
+    private fun StringBuilder.appendRenderStats() {
+        append(" renderSamples=").append(renderedHeading.count)
+        append(" renderStepAvgDeg=").append(renderedHeading.averageStepDeg.formatTrace(1))
+        append(" renderStepMaxDeg=").append(renderedHeading.maximumStepDeg.formatTrace(1))
+        append(" renderRateMaxDegPerSec=").append(renderedHeading.maximumRateDegPerSec.formatTrace(1))
+        append(" renderReversals=").append(renderedHeading.reversalCount)
+        append(" mapStepMaxDeg=").append(mapRotation.maximumStepDeg.formatTrace(1))
+        append(" mapReversals=").append(mapRotation.reversalCount)
+        append(" renderLastHeadingDeg=").append(renderedHeading.latest.formatTrace(1))
+        append(" mapLastRotationDeg=").append(mapRotation.latest.formatTrace(1))
+        append(" targetRenderDeltaAvgDeg=").append(targetRenderDelta.average.formatTrace(1))
+        append(" targetRenderDeltaMaxDeg=").append(targetRenderDelta.maximum.formatTrace(1))
+        append(" continuityRenderSamples=").append(continuityActiveRenderSamples)
+        append(" continuityOffsetAvgDeg=").append(continuityOffset.average.formatTrace(1))
+        append(" continuityOffsetMaxDeg=").append(continuityOffset.maximum.formatTrace(1))
     }
 }
 
@@ -163,6 +262,7 @@ private class ScalarTraceStats {
         private set
     private var total = 0.0
     private var maxValue: Float? = null
+    private var minValue: Float? = null
 
     val average: Float?
         get() = if (count > 0) (total / count).toFloat() else null
@@ -170,11 +270,15 @@ private class ScalarTraceStats {
     val maximum: Float?
         get() = maxValue
 
+    val minimum: Float?
+        get() = minValue
+
     fun add(value: Float) {
         if (!value.isFinite()) return
         count += 1
         total += value.toDouble()
         maxValue = maxOf(maxValue ?: value, value)
+        minValue = minOf(minValue ?: value, value)
     }
 }
 
@@ -193,6 +297,9 @@ private class HeadingTraceStats {
     private var stepTotalDeg = 0.0
     private var stepMaxDeg = 0f
     private var rateMaxDegPerSec = 0f
+
+    val latest: Float?
+        get() = lastHeadingDeg
 
     val averageIntervalMs: Float?
         get() = if (intervalCount > 0) intervalTotalMs.toFloat() / intervalCount else null
@@ -253,3 +360,5 @@ private fun angleDeltaDeg(
 private fun Float?.formatTrace(decimals: Int): String = this?.let { TelemetryFormatters.decimal(it, decimals) } ?: "na"
 
 private const val TRACE_REVERSAL_MIN_STEP_DEG = 1f
+private const val TRACE_MAGNETIC_NORMAL_MIN_UT = 15f
+private const val TRACE_MAGNETIC_NORMAL_MAX_UT = 85f

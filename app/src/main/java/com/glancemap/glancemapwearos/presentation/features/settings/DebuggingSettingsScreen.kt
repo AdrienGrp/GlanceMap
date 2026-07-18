@@ -34,6 +34,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassHeadingDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
@@ -199,6 +200,7 @@ fun DebuggingSettingsScreen(
                 fullDiagnostics = fullDiagnostics,
             )
             ScreenStateDiagnostics.configure(captureActive = true)
+            CompassHeadingDiagnostics.reset()
             DebugTelemetry.setEnabled(fullDiagnostics)
             DebugTelemetry.log(
                 "DiagnosticsFlow",
@@ -218,7 +220,9 @@ fun DebuggingSettingsScreen(
                 reason = "capture_toggle_off",
                 detail = "source=debug_screen",
             )
+            CompassHeadingDiagnostics.flush(reason = "capture_toggle_off")
             DebugTelemetry.setEnabled(false)
+            CompassHeadingDiagnostics.reset()
             EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
             ScreenStateDiagnostics.configure(captureActive = false)
         }
@@ -311,6 +315,7 @@ fun DebuggingSettingsScreen(
                 onClick = {
                     if (exportInProgress) return@Chip
                     DebugTelemetry.clear()
+                    CompassHeadingDiagnostics.reset()
                     CompassDeepTraceDiagnostics.clear()
                     MarkerMotionTelemetry.clear()
                     EnergyDiagnostics.clear()
@@ -471,8 +476,10 @@ fun DebuggingSettingsScreen(
                                     reason = "capture_toggle_off",
                                     detail = "source=export",
                                 )
+                                CompassHeadingDiagnostics.flush(reason = "capture_export")
                                 viewModel.setGpsDebugTelemetry(false)
                                 DebugTelemetry.setEnabled(false)
+                                CompassHeadingDiagnostics.reset()
                                 EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
                                 ScreenStateDiagnostics.configure(captureActive = false)
                             }

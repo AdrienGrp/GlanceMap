@@ -63,6 +63,11 @@ internal fun reportCompassIssueNow(
             "headingError=${renderState.headingErrorDeg.formatDebugOrNa(1)} " +
             "conservativeError=${renderState.conservativeHeadingErrorDeg.formatDebugOrNa(1)} " +
             "sampleAgeMs=${sampleAgeMs ?: "na"} stale=${renderState.headingSampleStale} " +
+            "trackingState=${renderState.trackingState.telemetryToken} " +
+            "trackingReason=${renderState.trackingReason.telemetryToken} " +
+            "renderable=${renderState.headingRenderable} trusted=${renderState.headingTrusted} " +
+            "northBasis=${renderState.northBasis.telemetryToken} " +
+            "magneticQuality=${renderState.magneticQuality.telemetryToken} " +
             "magneticInterference=${renderState.magneticInterference}",
     )
 }

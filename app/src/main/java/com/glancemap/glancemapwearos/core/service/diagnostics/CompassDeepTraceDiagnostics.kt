@@ -69,7 +69,8 @@ internal object CompassDeepTraceDiagnostics {
                     startedAtEpochMs = nowEpochMs,
                 )
             startLine =
-                "session_start id=$sessionCount atMs=$nowEpochMs autoStop=false " +
+                "session_start schemaVersion=$COMPASS_DEEP_TRACE_SCHEMA_VERSION " +
+                "id=$sessionCount atMs=$nowEpochMs autoStop=false " +
                 "windowMs=$WINDOW_DURATION_MS bufferLines=$MAX_BUFFERED_LINES sensorPeriodUs=40000"
             appendLineLocked(startLine)
             val registeredSensors = registration.registeredSensors
@@ -188,3 +189,5 @@ internal object CompassDeepTraceDiagnostics {
         }
     }
 }
+
+internal const val COMPASS_DEEP_TRACE_SCHEMA_VERSION = 2

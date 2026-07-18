@@ -35,6 +35,8 @@ internal fun NavigateCompassWakeTelemetry(
     var firstSourceLogged by remember { mutableStateOf(false) }
     var fusedLogged by remember { mutableStateOf(false) }
     var renderedLogged by remember { mutableStateOf(false) }
+    var firstRenderableLogged by remember { mutableStateOf(false) }
+    var firstTrustedLogged by remember { mutableStateOf(false) }
     val startupMetrics = remember { CompassStartupMetrics() }
     val interactive = isScreenResumed && screenState == LocationScreenState.INTERACTIVE && !isOfflineMode
 
@@ -46,6 +48,8 @@ internal fun NavigateCompassWakeTelemetry(
             firstSourceLogged = false
             fusedLogged = false
             renderedLogged = false
+            firstRenderableLogged = false
+            firstTrustedLogged = false
             if (DebugTelemetry.isEnabled()) {
                 startupMetrics.start(
                     sessionId = sessionId,
@@ -66,6 +70,27 @@ internal fun NavigateCompassWakeTelemetry(
                         nowElapsedMs = now,
                     ),
             )
+            val sampleAgeMs = renderState.headingSampleAgeMs(now)
+            if (renderState.headingRenderable && !renderState.headingSampleStale) {
+                firstRenderableLogged = true
+                logCompassWake(
+                    "wake_session stage=first_renderable id=$sessionId latencyMs=0 " +
+                        "state=${renderState.trackingState.telemetryToken} " +
+                        "reason=${renderState.trackingReason.telemetryToken} " +
+                        "cached=true sampleAgeMs=${sampleAgeMs ?: "na"}",
+                )
+            }
+            if (renderState.headingTrusted && !renderState.headingSampleStale) {
+                if (sampleAgeMs != null && sampleAgeMs <= TRUSTED_CACHED_HEADING_MAX_AGE_MS) {
+                    firstTrustedLogged = true
+                    logCompassWake(
+                        "wake_session stage=first_trusted id=$sessionId latencyMs=0 " +
+                            "state=${renderState.trackingState.telemetryToken} " +
+                            "reason=${renderState.trackingReason.telemetryToken} " +
+                            "cached=true sampleAgeMs=$sampleAgeMs",
+                    )
+                }
+            }
         } else if (startedAtMs > 0L) {
             startupMetrics.finish(
                 nowElapsedMs = now,
@@ -76,6 +101,7 @@ internal fun NavigateCompassWakeTelemetry(
             logCompassWake(
                 "wake_session stage=end id=$sessionId durationMs=${(now - startedAtMs).coerceAtLeast(0L)} " +
                     "firstSource=$firstSourceLogged fused=$fusedLogged rendered=$renderedLogged " +
+                    "firstRenderable=$firstRenderableLogged firstTrusted=$firstTrustedLogged " +
                     "screenState=${screenState.name} offline=$isOfflineMode",
             )
             startedAtMs = 0L
@@ -101,6 +127,44 @@ internal fun NavigateCompassWakeTelemetry(
                     } else {
                         renderState.headingSource
                     },
+            )
+        }
+    }
+
+    LaunchedEffect(
+        interactive,
+        sessionId,
+        renderState.headingRenderable,
+        renderState.headingTrusted,
+        renderState.trackingState,
+        renderState.trackingReason,
+        renderState.headingSampleElapsedRealtimeMs,
+        renderState.headingSampleStale,
+    ) {
+        if (!interactive || startedAtMs <= 0L || renderState.headingSampleStale) return@LaunchedEffect
+        val now = SystemClock.elapsedRealtime()
+        val latencyMs = (now - startedAtMs).coerceAtLeast(0L)
+        val sampleAgeMs = renderState.headingSampleAgeMs(now)
+        if (!firstRenderableLogged && renderState.headingRenderable) {
+            firstRenderableLogged = true
+            logCompassWake(
+                "wake_session stage=first_renderable id=$sessionId latencyMs=$latencyMs " +
+                    "state=${renderState.trackingState.telemetryToken} " +
+                    "reason=${renderState.trackingReason.telemetryToken} " +
+                    "cached=false sampleAgeMs=${sampleAgeMs ?: "na"}",
+            )
+        }
+        val trustedSampleCurrent =
+            renderState.headingSampleElapsedRealtimeMs?.let { sampleAtMs ->
+                sampleAtMs >= startedAtMs || (sampleAgeMs ?: Long.MAX_VALUE) <= TRUSTED_CACHED_HEADING_MAX_AGE_MS
+            } == true
+        if (!firstTrustedLogged && renderState.headingTrusted && trustedSampleCurrent) {
+            firstTrustedLogged = true
+            logCompassWake(
+                "wake_session stage=first_trusted id=$sessionId latencyMs=$latencyMs " +
+                    "state=${renderState.trackingState.telemetryToken} " +
+                    "reason=${renderState.trackingReason.telemetryToken} " +
+                    "cached=false sampleAgeMs=${sampleAgeMs ?: "na"}",
             )
         }
     }
@@ -185,6 +249,12 @@ private fun logCompassWake(message: String) {
     if (!DebugTelemetry.isEnabled()) return
     DebugTelemetry.log(COMPASS_TELEMETRY_TAG, message)
 }
+
+private fun CompassRenderState.headingSampleAgeMs(
+    nowElapsedMs: Long,
+): Long? = headingSampleElapsedRealtimeMs?.let { (nowElapsedMs - it).coerceAtLeast(0L) }
+
+private const val TRUSTED_CACHED_HEADING_MAX_AGE_MS = 5_000L
 
 internal data class CompassStartupSnapshot(
     val sessionId: Long,

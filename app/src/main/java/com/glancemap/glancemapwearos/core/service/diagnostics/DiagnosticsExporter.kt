@@ -8,8 +8,10 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveBundleDownloadTelemetrySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveCompassHeadingTelemetrySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeBundleDownloadSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassDeepTraceSection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassHeadingTelemetrySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDownloadSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
@@ -529,6 +531,7 @@ object DiagnosticsExporter {
                 captureWindowEndEpochMs = captureWindowEndEpochMs,
             )
         val compassTelemetryInsights = deriveCompassTelemetryInsights(telemetryLines)
+        val compassHeadingTelemetrySummary = deriveCompassHeadingTelemetrySummary(telemetryLines)
         val acceptedFixSummaries = deriveAcceptedFixSummaries(telemetryLines)
         val bundleDownloadSummary = deriveBundleDownloadTelemetrySummary(telemetryLines)
         val captureDurationMs =
@@ -1230,6 +1233,7 @@ object DiagnosticsExporter {
                     } ?: "na"
                 }",
             )
+            writer.writeCompassHeadingTelemetrySummary(compassHeadingTelemetrySummary)
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
             writer.appendLine(

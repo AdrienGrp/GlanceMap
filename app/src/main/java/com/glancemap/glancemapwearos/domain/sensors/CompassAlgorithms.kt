@@ -40,7 +40,6 @@ internal const val STARTUP_HEADING_PUBLISH_MASK_SAMPLES_DEFAULT = 1
 internal const val STARTUP_HEADING_PUBLISH_MASK_SAMPLES_ROTATION_VECTOR = 2
 internal const val ROTATION_VECTOR_UNCERTAINTY_INDEX = 4
 internal const val ROTATION_VECTOR_UNCERTAINTY_EPSILON_DEG = 0.5f
-internal const val HEADING_LARGE_JUMP_REJECT_DEG = 120f
 internal const val SENSOR_HEADING_LARGE_JUMP_REJECT_DEG = 75f
 internal const val HEADING_LARGE_JUMP_CONFIRM_WINDOW_MS = 600L
 internal const val HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG = 36f
@@ -99,6 +98,7 @@ data class NorthReferenceStatus(
     val declinationAvailable: Boolean,
     val waitingForDeclination: Boolean,
     val pipeline: HeadingPipeline,
+    val automaticByProvider: Boolean = false,
 )
 
 enum class HeadingPipeline {
@@ -323,23 +323,6 @@ internal enum class LargeJumpAction {
     ACCEPT_IMMEDIATE,
     ACCEPT_CONFIRMED,
     REJECT_PENDING,
-}
-
-internal fun resolveLargeJumpAction(
-    jumpDeg: Float,
-    inRelock: Boolean,
-    hasPendingLargeJump: Boolean,
-    pendingDeltaDeg: Float,
-): LargeJumpAction {
-    if (jumpDeg <= HEADING_LARGE_JUMP_REJECT_DEG) return LargeJumpAction.NONE
-    if (inRelock) return LargeJumpAction.ACCEPT_IMMEDIATE
-    if (hasPendingLargeJump &&
-        pendingDeltaDeg.isFinite() &&
-        pendingDeltaDeg <= HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG
-    ) {
-        return LargeJumpAction.ACCEPT_CONFIRMED
-    }
-    return LargeJumpAction.REJECT_PENDING
 }
 
 internal data class SensorLargeJumpInput(

@@ -325,17 +325,31 @@ fun CompassSettingsScreen(
             )
         }
         item {
-            SettingsOptionPickerRow(
-                label = "North mode",
-                selectedValue = northReferenceMode,
-                options = northReferenceOptions,
-                secondaryLabel =
-                    northReferenceStatusSecondaryLabel(
-                        requestedMode = northReferenceMode,
-                        status = northReferenceStatus,
-                    ),
-                onSelect = viewModel::setNorthReferenceMode,
-            )
+            if (usesAutomaticGoogleNorthReference(effectiveProviderType)) {
+                Chip(
+                    label = "North reference",
+                    secondaryLabel = automaticNorthReferenceStatusLabel(activeProviderType),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = { showInfoDialog = true },
+                )
+            } else {
+                SettingsOptionPickerRow(
+                    label = "North mode",
+                    selectedValue = northReferenceMode,
+                    options = northReferenceOptions,
+                    secondaryLabel =
+                        northReferenceStatusSecondaryLabel(
+                            requestedMode = northReferenceMode,
+                            status = northReferenceStatus,
+                        ),
+                    onSelect = viewModel::setNorthReferenceMode,
+                )
+            }
         }
         if (showSensorControls) {
             item {
@@ -526,12 +540,13 @@ fun CompassSettingsScreen(
         onDismiss = { showInfoDialog = false },
         lines =
             listOf(
-                "Recommended setup: Google Fused + True north.\n\n" +
+                "Recommended setup: Google Fused.\n\n" +
                     "Quick test: stand still, face a clear landmark, then switch North-up / Compass.\n" +
                     "The map should keep the same direction and should not jump after open or wake.\n\n" +
-                    "North mode:\n" +
-                    "Use True north for maps.\n" +
-                    "Use Magnetic north only if you want to match a magnetic compass.\n\n" +
+                    "North reference:\n" +
+                    "Google Fused chooses it automatically.\n" +
+                    "With Custom sensors, use True north for maps,\n" +
+                    "or Magnetic north to match a magnetic compass.\n\n" +
                     "If Google Fused still feels wrong on your watch,\n" +
                     "switch Orientation provider to Custom sensors.\n" +
                     "Custom mode prefers Rotation vector when available,\n" +

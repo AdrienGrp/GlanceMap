@@ -1,6 +1,10 @@
 package com.glancemap.glancemapwearos.core.service.diagnostics
 
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassDeepTraceSection
+import com.glancemap.glancemapwearos.domain.sensors.CompassMagneticQuality
+import com.glancemap.glancemapwearos.domain.sensors.CompassNorthBasis
+import com.glancemap.glancemapwearos.domain.sensors.CompassTrackingReason
+import com.glancemap.glancemapwearos.domain.sensors.CompassTrackingState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -42,6 +46,12 @@ class CompassDeepTraceAggregationTest {
         assertTrue(line.contains("gyroSamples=1"))
         assertTrue(line.contains("accelSamples=1"))
         assertTrue(line.contains("magSamples=1"))
+        assertTrue(line.contains("magMagnitudeMinUt=50.0"))
+        assertTrue(line.contains("fusedLiveErrorAvgDeg=6.0"))
+        assertTrue(line.contains("fusedConservativeErrorAvgDeg=18.0"))
+        assertTrue(line.contains("trackingSamples=3"))
+        assertTrue(line.contains("lastNorthBasis=google_automatic"))
+        assertTrue(line.contains("disagreementMaxDeg=4.0"))
         assertTrue(line.contains("renderSamples=2"))
         assertTrue(line.contains("targetRenderDeltaAvgDeg=5.0"))
     }
@@ -62,6 +72,7 @@ class CompassDeepTraceAggregationTest {
         )
 
         assertTrue(output.contains("Compass Deep Trace"))
+        assertTrue(output.contains("schemaVersion=2"))
         assertTrue(output.contains("aggregateWindowCount=2"))
         assertTrue(output.contains("lastStopReason=manual"))
         assertEquals(1, output.lines().count { it.startsWith("window index=") })
@@ -92,9 +103,19 @@ class CompassDeepTraceAggregationTest {
         provider = "google_fused",
         headingDeg = headingDeg,
         headingErrorDeg = 8f,
+        liveHeadingErrorDeg = 6f,
+        conservativeHeadingErrorDeg = 18f,
         accuracy = 3,
         startupWarmup = false,
         usable = true,
+        trackingState = CompassTrackingState.TRACKING,
+        trackingReason = CompassTrackingReason.STABLE,
+        northBasis = CompassNorthBasis.GOOGLE_AUTOMATIC,
+        magneticQuality = CompassMagneticQuality.GOOD,
+        magneticFieldUt = 50f,
+        relativeHeadingDeg = headingDeg - 2f,
+        fusedRelativeDisagreementDeg = 4f,
+        targetHeadingDeg = headingDeg,
         atElapsedMs = atElapsedMs,
     )
 

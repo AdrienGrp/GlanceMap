@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceRenderSample
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassHeadingDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
@@ -368,6 +369,12 @@ fun NavigationOrientationEffect(
                                 ),
                             )
                         }
+                        CompassHeadingDiagnostics.recordRenderSample(
+                            targetHeadingDeg = liveTarget,
+                            renderedHeadingDeg = current,
+                            mapRotationDeg = displayedMapRot.floatValue,
+                            atElapsedMs = nowElapsedMs,
+                        )
                         requestMapRedraw()
                         CompassRenderPerfTelemetry.recordRedraw(navMode)
                     }
@@ -409,6 +416,12 @@ fun NavigationOrientationEffect(
                         ),
                     )
                 }
+                CompassHeadingDiagnostics.recordRenderSample(
+                    targetHeadingDeg = liveTarget,
+                    renderedHeadingDeg = next,
+                    mapRotationDeg = displayedMapRot.floatValue,
+                    atElapsedMs = nowElapsedMs,
+                )
                 requestMapRedraw()
                 CompassRenderPerfTelemetry.recordRedraw(navMode)
             }
@@ -495,29 +508,27 @@ private fun angleDeltaDeg(
 
 internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boolean {
     if (renderState.headingSource == HeadingSource.NONE) return false
-    if (renderState.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) return false
-    if (renderState.providerType == CompassProviderType.GOOGLE_FUSED) {
-        if (renderState.headingSource != HeadingSource.FUSED_ORIENTATION) return false
-        if (renderState.headingSampleStale || renderState.headingSampleElapsedRealtimeMs == null) {
-            return false
-        }
+    return if (renderState.providerType == CompassProviderType.GOOGLE_FUSED) {
+        renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+            renderState.headingSampleElapsedRealtimeMs != null &&
+            !renderState.headingSampleStale &&
+            renderState.headingRenderable
+    } else {
+        renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
     }
-    return true
 }
 
 internal fun shouldDriveMarkerHeading(renderState: CompassRenderState): Boolean {
-    val hasBaseHeading =
-        renderState.headingSource != HeadingSource.NONE &&
+    if (renderState.headingSource == HeadingSource.NONE) return false
+    return when (renderState.providerType) {
+        CompassProviderType.SENSOR_MANAGER ->
             renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
-    val providerAllowsMarkerHeading =
-        when (renderState.providerType) {
-            CompassProviderType.SENSOR_MANAGER -> true
-            CompassProviderType.GOOGLE_FUSED ->
-                renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-                    renderState.headingSampleElapsedRealtimeMs != null &&
-                    !renderState.headingSampleStale
-        }
-    return hasBaseHeading && providerAllowsMarkerHeading
+        CompassProviderType.GOOGLE_FUSED ->
+            renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+                renderState.headingSampleElapsedRealtimeMs != null &&
+                !renderState.headingSampleStale &&
+                renderState.headingRenderable
+    }
 }
 
 internal fun shouldDriveHeadingForNavMode(

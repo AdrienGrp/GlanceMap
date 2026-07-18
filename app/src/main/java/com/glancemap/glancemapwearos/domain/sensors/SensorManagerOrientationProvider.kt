@@ -123,7 +123,42 @@ internal class SensorManagerOrientationProvider(
             baseRenderState,
             _magneticInterference,
         ) { baseState, magneticInterference ->
-            baseState.copy(magneticInterference = magneticInterference)
+            val renderable =
+                baseState.headingSource != HeadingSource.NONE &&
+                    !baseState.headingSampleStale &&
+                    baseState.headingDeg.isFinite()
+            baseState.copy(
+                magneticInterference = magneticInterference,
+                trackingState =
+                    when {
+                        magneticInterference -> CompassTrackingState.DEGRADED
+                        renderable -> CompassTrackingState.TRACKING
+                        else -> CompassTrackingState.ACQUIRING
+                    },
+                trackingReason =
+                    when {
+                        magneticInterference -> CompassTrackingReason.MAGNETIC_INTERFERENCE
+                        renderable -> CompassTrackingReason.STABLE
+                        else -> CompassTrackingReason.STARTUP
+                    },
+                headingRenderable = renderable,
+                headingTrusted =
+                    renderable &&
+                        !magneticInterference &&
+                        baseState.accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                northBasis =
+                    if (baseState.northReferenceStatus.effectiveMode == NorthReferenceMode.TRUE) {
+                        CompassNorthBasis.TRUE_APP_DECLINATION
+                    } else {
+                        CompassNorthBasis.MAGNETIC
+                    },
+                magneticQuality =
+                    when {
+                        magneticInterference -> CompassMagneticQuality.INTERFERENCE
+                        renderable -> CompassMagneticQuality.GOOD
+                        else -> CompassMagneticQuality.UNKNOWN
+                    },
+            )
         }.stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(0),

@@ -484,6 +484,8 @@ internal fun rememberNavigateLocationUiState(
         locationViewModel.currentLocation
             .filterNotNull()
             .collect { loc ->
+                val ll = toValidLatLongOrNull(loc.latitude, loc.longitude) ?: return@collect
+                compassViewModel.updateDeclinationFromLocation(loc)
                 if (latestSuppressLocationMarker.value) return@collect
 
                 val receivedAtElapsedMs = android.os.SystemClock.elapsedRealtime()
@@ -588,9 +590,6 @@ internal fun rememberNavigateLocationUiState(
                     )
                 }
 
-                compassViewModel.updateDeclinationFromLocation(loc)
-
-                val ll = toValidLatLongOrNull(loc.latitude, loc.longitude) ?: return@collect
                 navigateViewModel.onLocationUpdate(ll)
                 val motionSpeedMps =
                     if (loc.hasSpeed() && loc.speed.isFinite()) {
