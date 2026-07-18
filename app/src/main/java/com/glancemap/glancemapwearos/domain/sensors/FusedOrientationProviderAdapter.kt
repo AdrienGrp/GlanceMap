@@ -582,13 +582,22 @@ internal class FusedOrientationProviderAdapter(
         integritySensorMonitor.start(
             handler = handler,
             lowPower = lowPowerMode && !isRecalibrationBoostActive(),
-            onRelativeHeading = { headingDeg, atElapsedMs ->
-                updateActiveTurnPublicationState(headingDeg, atElapsedMs)
-                latestIntegritySnapshot =
-                    headingIntegrityEngine.onRelativeHeading(
-                        headingDeg = headingDeg,
-                        atElapsedMs = atElapsedMs,
-                    )
+            onRelativeHeading = { witness, atElapsedMs ->
+                val headingDeg = witness.headingDeg
+                if (headingDeg == null) {
+                    latestIntegritySnapshot =
+                        headingIntegrityEngine.onRelativeWitnessUnavailable(
+                            horizontalProjection = witness.horizontalProjection,
+                        )
+                } else {
+                    updateActiveTurnPublicationState(headingDeg, atElapsedMs)
+                    latestIntegritySnapshot =
+                        headingIntegrityEngine.onRelativeHeading(
+                            headingDeg = headingDeg,
+                            horizontalProjection = witness.horizontalProjection,
+                            atElapsedMs = atElapsedMs,
+                        )
+                }
             },
             onMagneticField = { strengthUt, atElapsedMs ->
                 updateIntegritySnapshot(
@@ -831,7 +840,10 @@ internal class FusedOrientationProviderAdapter(
         headingErrorDeg: Float,
         conservativeHeadingErrorDeg: Float,
     ) {
-        val activeTurn = !lowPowerMode && nowElapsedMs <= activeTurnPublishUntilElapsedMs
+        val activeTurn =
+            !lowPowerMode &&
+                latestIntegritySnapshot.relativeWitnessSupportsHighRate &&
+                nowElapsedMs <= activeTurnPublishUntilElapsedMs
         if (
             !shouldPublishFusedHeading(
                 nowElapsedMs = nowElapsedMs,

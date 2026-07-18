@@ -68,6 +68,10 @@ internal object CompassHeadingDiagnostics {
                     magneticQuality = snapshot.magneticQuality,
                     magneticFieldUt = snapshot.magneticFieldUt,
                     relativeHeadingDeg = snapshot.relativeHeadingDeg,
+                    relativeWitnessAvailable = snapshot.relativeWitnessAvailable,
+                    relativeWitnessSuppressed = snapshot.relativeWitnessSuppressed,
+                    relativeWitnessSupportsHighRate = snapshot.relativeWitnessSupportsHighRate,
+                    relativeHorizontalProjection = snapshot.relativeHorizontalProjection,
                     fusedRelativeDisagreementDeg = snapshot.absoluteRelativeDisagreementDeg,
                     targetHeadingDeg = snapshot.renderHeadingDeg,
                     quarantineActive = snapshot.quarantineActive,
@@ -204,10 +208,14 @@ internal object CompassHeadingDiagnostics {
         private val conservativeError = RunningStats()
         private val magneticField = RunningStats()
         private val disagreement = RunningStats()
+        private val relativeProjection = RunningStats()
         private val stateCounts = IntArray(CompassTrackingState.entries.size)
         private val magneticQualityCounts = IntArray(CompassMagneticQuality.entries.size)
         private var quarantineSamples = 0
         private var recoverySamples = 0
+        private var relativeWitnessAvailableSamples = 0
+        private var relativeWitnessSuppressedSamples = 0
+        private var relativeWitnessHighRateSamples = 0
         private var provider = HeadingSource.NONE
         private var northBasis = CompassNorthBasis.UNKNOWN
         private var lastReason = CompassTrackingReason.STARTUP
@@ -236,11 +244,15 @@ internal object CompassHeadingDiagnostics {
             liveHeadingErrorDeg?.let(liveError::add)
             conservativeHeadingErrorDeg?.let(conservativeError::add)
             snapshot.magneticFieldUt?.let(magneticField::add)
+            snapshot.relativeHorizontalProjection?.let(relativeProjection::add)
             snapshot.absoluteRelativeDisagreementDeg?.let(disagreement::add)
             stateCounts[snapshot.state.ordinal] += 1
             magneticQualityCounts[snapshot.magneticQuality.ordinal] += 1
             if (snapshot.quarantineActive) quarantineSamples += 1
             if (snapshot.recoveryActive) recoverySamples += 1
+            if (snapshot.relativeWitnessAvailable) relativeWitnessAvailableSamples += 1
+            if (snapshot.relativeWitnessSuppressed) relativeWitnessSuppressedSamples += 1
+            if (snapshot.relativeWitnessSupportsHighRate) relativeWitnessHighRateSamples += 1
             this.provider = provider
             this.northBasis = northBasis
             lastReason = snapshot.reason
@@ -285,6 +297,11 @@ internal object CompassHeadingDiagnostics {
                 append(" disagreementAvgDeg=").append(disagreement.average.formatOrNa(1))
                 append(" disagreementMaxDeg=").append(disagreement.maximum.formatOrNa(1))
                 append(" disagreementSamples=").append(disagreement.count)
+                append(" relativeWitnessAvailableSamples=").append(relativeWitnessAvailableSamples)
+                append(" relativeWitnessSuppressedSamples=").append(relativeWitnessSuppressedSamples)
+                append(" relativeWitnessHighRateSamples=").append(relativeWitnessHighRateSamples)
+                append(" relativeProjectionAvg=").append(relativeProjection.average.formatOrNa(2))
+                append(" relativeProjectionMin=").append(relativeProjection.minimum.formatOrNa(2))
                 append(" acquiringSamples=").append(stateCounts[CompassTrackingState.ACQUIRING.ordinal])
                 append(" trackingSamples=").append(stateCounts[CompassTrackingState.TRACKING.ordinal])
                 append(" degradedSamples=").append(stateCounts[CompassTrackingState.DEGRADED.ordinal])
@@ -328,6 +345,8 @@ private data class TransitionSnapshot(
     val reason: CompassTrackingReason,
     val northBasis: CompassNorthBasis,
     val magneticQuality: CompassMagneticQuality,
+    val relativeWitnessAvailable: Boolean,
+    val relativeWitnessSuppressed: Boolean,
     val quarantineActive: Boolean,
     val recoveryActive: Boolean,
 )
@@ -368,6 +387,7 @@ private class CompassTransitionTelemetry {
                 magneticTransitionLine(prior, current, snapshot),
                 quarantineTransitionLine(prior, current, snapshot, atElapsedMs),
                 recoveryTransitionLine(prior, current, snapshot, atElapsedMs),
+                relativeWitnessTransitionLine(prior, current, snapshot),
             )
         previous = current
         return lines
@@ -481,9 +501,34 @@ private fun FusedHeadingIntegritySnapshot.toTransitionSnapshot(northBasis: Compa
         reason = reason,
         northBasis = northBasis,
         magneticQuality = magneticQuality,
+        relativeWitnessAvailable = relativeWitnessAvailable,
+        relativeWitnessSuppressed = relativeWitnessSuppressed,
         quarantineActive = quarantineActive,
         recoveryActive = recoveryActive,
     )
+
+private fun relativeWitnessTransitionLine(
+    previous: TransitionSnapshot?,
+    current: TransitionSnapshot,
+    snapshot: FusedHeadingIntegritySnapshot,
+): String? {
+    val availabilityChanged =
+        previous == null ||
+            previous.relativeWitnessAvailable != current.relativeWitnessAvailable
+    val suppressionChanged =
+        previous == null ||
+            previous.relativeWitnessSuppressed != current.relativeWitnessSuppressed
+    val witnessChanged = availabilityChanged || suppressionChanged
+    return if (witnessChanged) {
+        "heading_engine witness transition " +
+            "available=${current.relativeWitnessAvailable} " +
+            "suppressed=${current.relativeWitnessSuppressed} " +
+            "projection=${snapshot.relativeHorizontalProjection.formatOrNa(2)} " +
+            "disagreementDeg=${snapshot.absoluteRelativeDisagreementDeg.formatOrNa(1)}"
+    } else {
+        null
+    }
+}
 
 private fun elapsedSince(
     nowElapsedMs: Long,

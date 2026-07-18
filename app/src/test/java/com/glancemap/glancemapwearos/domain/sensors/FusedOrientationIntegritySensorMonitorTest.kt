@@ -5,46 +5,48 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.cos
-import kotlin.math.sin
 
 class FusedOrientationIntegritySensorMonitorTest {
     @Test
-    fun worldYawProducesAndroidHeadingDelta() {
-        assertEquals(
-            -90f,
-            requireNotNull(
-                gameRotationHeadingDeltaDeg(
-                    previous = quaternion(axisX = 0f, axisY = 0f, axisZ = 1f, angleDeg = 0f),
-                    current = quaternion(axisX = 0f, axisY = 0f, axisZ = 1f, angleDeg = 90f),
+    fun screenTopProjectionUsesTheSamePhysicalAxisAsTheMapHeading() {
+        val witness =
+            gameRotationScreenTopWitness(
+                rotationMatrix(
+                    screenTopEast = 1f,
+                    screenTopNorth = 0f,
                 ),
-            ),
-            ANGLE_TOLERANCE_DEG,
-        )
+            )
+
+        assertEquals(90f, requireNotNull(witness.headingDeg), ANGLE_TOLERANCE_DEG)
+        assertEquals(1f, witness.horizontalProjection, ANGLE_TOLERANCE_DEG)
     }
 
     @Test
-    fun wristPitchDoesNotCreateAHeadingTurn() {
-        assertEquals(
-            0f,
-            requireNotNull(
-                gameRotationHeadingDeltaDeg(
-                    previous = quaternion(axisX = 1f, axisY = 0f, axisZ = 0f, angleDeg = 80f),
-                    current = quaternion(axisX = 1f, axisY = 0f, axisZ = 0f, angleDeg = 100f),
+    fun tiltedWatchWithoutHorizontalScreenTopHasNoHeadingWitness() {
+        val witness =
+            gameRotationScreenTopWitness(
+                rotationMatrix(
+                    screenTopEast = 0.1f,
+                    screenTopNorth = 0.1f,
                 ),
-            ),
-            ANGLE_TOLERANCE_DEG,
-        )
+            )
+
+        assertNull(witness.headingDeg)
+        assertTrue(witness.horizontalProjection < 0.35f)
     }
 
     @Test
-    fun undefinedTwistIsIgnoredInsteadOfCreatingAJitterStep() {
-        assertNull(
-            gameRotationHeadingDeltaDeg(
-                previous = quaternion(axisX = 1f, axisY = 0f, axisZ = 0f, angleDeg = 0f),
-                current = quaternion(axisX = 1f, axisY = 0f, axisZ = 0f, angleDeg = 180f),
-            ),
-        )
+    fun normalWristPitchRetainsAStableScreenTopHeading() {
+        val witness =
+            gameRotationScreenTopWitness(
+                rotationMatrix(
+                    screenTopEast = 0f,
+                    screenTopNorth = 0.8f,
+                ),
+            )
+
+        assertEquals(0f, requireNotNull(witness.headingDeg), ANGLE_TOLERANCE_DEG)
+        assertEquals(0.8f, witness.horizontalProjection, ANGLE_TOLERANCE_DEG)
     }
 
     @Test
@@ -54,21 +56,21 @@ class FusedOrientationIntegritySensorMonitorTest {
         assertTrue(isPlausibleRelativeHeadingStep(90f, elapsedMs = 200L))
     }
 
-    private fun quaternion(
-        axisX: Float,
-        axisY: Float,
-        axisZ: Float,
-        angleDeg: Float,
-    ): OrientationQuaternion {
-        val halfAngleRad = Math.toRadians(angleDeg.toDouble()) / 2.0
-        val sine = sin(halfAngleRad).toFloat()
-        return OrientationQuaternion(
-            w = cos(halfAngleRad).toFloat(),
-            x = axisX * sine,
-            y = axisY * sine,
-            z = axisZ * sine,
+    private fun rotationMatrix(
+        screenTopEast: Float,
+        screenTopNorth: Float,
+    ): FloatArray =
+        floatArrayOf(
+            1f,
+            screenTopEast,
+            0f,
+            0f,
+            screenTopNorth,
+            0f,
+            0f,
+            0f,
+            1f,
         )
-    }
 
     private companion object {
         const val ANGLE_TOLERANCE_DEG = 0.01f

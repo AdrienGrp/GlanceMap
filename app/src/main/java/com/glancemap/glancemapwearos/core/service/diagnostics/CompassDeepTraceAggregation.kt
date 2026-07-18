@@ -22,6 +22,10 @@ internal data class CompassDeepTraceProviderSample(
     val magneticQuality: CompassMagneticQuality? = null,
     val magneticFieldUt: Float? = null,
     val relativeHeadingDeg: Float? = null,
+    val relativeWitnessAvailable: Boolean = false,
+    val relativeWitnessSuppressed: Boolean = false,
+    val relativeWitnessSupportsHighRate: Boolean = false,
+    val relativeHorizontalProjection: Float? = null,
     val fusedRelativeDisagreementDeg: Float? = null,
     val targetHeadingDeg: Float? = null,
     val quarantineActive: Boolean = false,
@@ -59,6 +63,7 @@ internal class CompassDeepTraceWindowAccumulator(
     private val magnetometerMagnitude = ScalarTraceStats()
     private var magnetometerOutsideNormalSamples = 0
     private val relativeHeading = HeadingTraceStats()
+    private val relativeHorizontalProjection = ScalarTraceStats()
     private val fusedRelativeDisagreement = ScalarTraceStats()
     private val targetHeading = HeadingTraceStats()
     private val renderedHeading = HeadingTraceStats()
@@ -73,6 +78,7 @@ internal class CompassDeepTraceWindowAccumulator(
     private val magneticQualityCounts = IntArray(CompassMagneticQuality.entries.size)
     private var quarantineProviderSamples = 0
     private var recoveryProviderSamples = 0
+    private val relativeWitness = RelativeWitnessTraceStats()
     private var lastTrackingReason: CompassTrackingReason? = null
     private var lastNorthBasis: CompassNorthBasis? = null
 
@@ -106,12 +112,14 @@ internal class CompassDeepTraceWindowAccumulator(
             providerAccuracyCounts[sample.accuracy] += 1
         }
         sample.relativeHeadingDeg?.let { relativeHeading.add(it, sample.atElapsedMs) }
+        sample.relativeHorizontalProjection?.let(relativeHorizontalProjection::add)
         sample.fusedRelativeDisagreementDeg?.let(fusedRelativeDisagreement::add)
         sample.targetHeadingDeg?.let { targetHeading.add(it, sample.atElapsedMs) }
         sample.trackingState?.let { trackingStateCounts[it.ordinal] += 1 }
         sample.magneticQuality?.let { magneticQualityCounts[it.ordinal] += 1 }
         if (sample.quarantineActive) quarantineProviderSamples += 1
         if (sample.recoveryActive) recoveryProviderSamples += 1
+        relativeWitness.record(sample)
         lastTrackingReason = sample.trackingReason ?: lastTrackingReason
         lastNorthBasis = sample.northBasis ?: lastNorthBasis
     }
@@ -222,6 +230,11 @@ internal class CompassDeepTraceWindowAccumulator(
         append(" relativeSamples=").append(relativeHeading.count)
         append(" relativeStepAvgDeg=").append(relativeHeading.averageStepDeg.formatTrace(1))
         append(" relativeStepMaxDeg=").append(relativeHeading.maximumStepDeg.formatTrace(1))
+        append(" relativeWitnessAvailableSamples=").append(relativeWitness.availableSamples)
+        append(" relativeWitnessSuppressedSamples=").append(relativeWitness.suppressedSamples)
+        append(" relativeWitnessHighRateSamples=").append(relativeWitness.highRateSamples)
+        append(" relativeProjectionAvg=").append(relativeHorizontalProjection.average.formatTrace(2))
+        append(" relativeProjectionMin=").append(relativeHorizontalProjection.minimum.formatTrace(2))
         append(" disagreementAvgDeg=").append(fusedRelativeDisagreement.average.formatTrace(1))
         append(" disagreementMaxDeg=").append(fusedRelativeDisagreement.maximum.formatTrace(1))
         append(" acquiringSamples=").append(trackingStateCounts[CompassTrackingState.ACQUIRING.ordinal])
@@ -254,6 +267,21 @@ internal class CompassDeepTraceWindowAccumulator(
         append(" continuityRenderSamples=").append(continuityActiveRenderSamples)
         append(" continuityOffsetAvgDeg=").append(continuityOffset.average.formatTrace(1))
         append(" continuityOffsetMaxDeg=").append(continuityOffset.maximum.formatTrace(1))
+    }
+}
+
+private class RelativeWitnessTraceStats {
+    var availableSamples = 0
+        private set
+    var suppressedSamples = 0
+        private set
+    var highRateSamples = 0
+        private set
+
+    fun record(sample: CompassDeepTraceProviderSample) {
+        if (sample.relativeWitnessAvailable) availableSamples += 1
+        if (sample.relativeWitnessSuppressed) suppressedSamples += 1
+        if (sample.relativeWitnessSupportsHighRate) highRateSamples += 1
     }
 }
 

@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.domain.sensors
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -10,22 +9,19 @@ import kotlin.math.abs
 class FusedHeadingIntegrityEngineTest {
     @Test
     fun normalMagneticWarmupIsNotReportedAsInterference() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
+        val replay = Replay(integrityEngine())
 
         replay.magnetic(42f)
         val snapshot = replay.absolute(headingDeg = 32f)
 
         assertEquals(CompassTrackingState.ACQUIRING, snapshot.state)
         assertEquals(CompassTrackingReason.RECOVERING, snapshot.reason)
-        assertEquals(CompassMagneticQuality.RECOVERING, snapshot.magneticQuality)
         assertFalse(snapshot.magneticQuality == CompassMagneticQuality.INTERFERENCE)
     }
 
     @Test
     fun stableAbsoluteAndRelativeEvidenceCompletesAcquisition() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
+        val replay = Replay(integrityEngine())
 
         val snapshot = replay.acquireStableHeading(headingDeg = 32f)
 
@@ -34,274 +30,123 @@ class FusedHeadingIntegrityEngineTest {
         assertTrue(snapshot.renderable)
         assertTrue(snapshot.trusted)
         assertEquals(32f, requireNotNull(snapshot.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertEquals(0f, requireNotNull(snapshot.residualSpreadDeg), ANGLE_TOLERANCE_DEG)
-        assertFalse(snapshot.quarantineActive)
+        assertTrue(snapshot.relativeWitnessAvailable)
+        assertTrue(snapshot.relativeWitnessSupportsHighRate)
+        assertFalse(snapshot.relativeWitnessSuppressed)
     }
 
     @Test
-    fun ninetyDegreeFusedRelockWithoutRelativeTurnRemainsQuarantined() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
-        replay.acquireStableHeading(headingDeg = 10f)
-
-        replay.advance(20L)
-        replay.relative(headingDeg = 0f)
-        val relock = replay.absolute(headingDeg = 100f, liveErrorDeg = 25f, conservativeErrorDeg = 180f)
-
-        assertEquals(CompassTrackingState.DEGRADED, relock.state)
-        assertEquals(CompassTrackingReason.ABSOLUTE_RELATIVE_DISAGREEMENT, relock.reason)
-        assertEquals(90f, requireNotNull(relock.absoluteRelativeDisagreementDeg), ANGLE_TOLERANCE_DEG)
-        assertEquals(10f, requireNotNull(relock.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertEquals(100f, requireNotNull(relock.quarantinedAbsoluteHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertTrue(relock.quarantineActive)
-
-        var latest = relock
-        repeat(25) {
-            replay.advance(100L)
-            replay.magnetic(42f)
-            replay.relative(0f)
-            latest = replay.absolute(headingDeg = 100f, liveErrorDeg = 25f, conservativeErrorDeg = 180f)
-        }
-
-        assertEquals(CompassTrackingState.DEGRADED, latest.state)
-        assertTrue(latest.quarantineActive)
-        assertEquals(10f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-    }
-
-    @Test
-    fun stableHighConfidenceRelockEventuallyRecoversWithBoundedMovement() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
-        replay.acquireStableHeading(headingDeg = 10f)
-
-        replay.advance(20L)
-        replay.relative(0f)
-        var latest =
-            replay.absolute(
-                headingDeg = 100f,
-                liveErrorDeg = 25f,
-                conservativeErrorDeg = 180f,
-            )
-        assertEquals(CompassTrackingState.DEGRADED, latest.state)
-
-        var previousHeadingDeg = requireNotNull(latest.renderHeadingDeg)
-        repeat(35) {
-            replay.advance(100L)
-            replay.magnetic(42f)
-            replay.relative(0f)
-            latest = replay.absolute(headingDeg = 100f, liveErrorDeg = 8f, conservativeErrorDeg = 30f)
-            val currentHeadingDeg = requireNotNull(latest.renderHeadingDeg)
-            assertTrue(
-                abs(shortestAngleDiffDeg(currentHeadingDeg, previousHeadingDeg)) <=
-                    MAX_100_MS_RECOVERY_CORRECTION_DEG + ANGLE_TOLERANCE_DEG,
-            )
-            previousHeadingDeg = currentHeadingDeg
-        }
-
-        assertEquals(CompassTrackingState.TRACKING, latest.state)
-        assertEquals(CompassTrackingReason.STABLE, latest.reason)
-        assertEquals(100f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-    }
-
-    @Test
-    fun gradualWeakConfidenceRelockIsStoppedBeforeItCanRotateTheMapFar() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
+    fun persistentWitnessDisagreementIsSuppressedAndCannotSteerTheMap() {
+        val replay = Replay(integrityEngine())
         replay.acquireStableHeading(headingDeg = 10f)
 
         var latest: FusedHeadingIntegritySnapshot? = null
-        listOf(14f, 18f, 22f, 26f, 30f, 34f, 38f).forEach { absoluteHeadingDeg ->
+        var previousHeading = 10f
+        repeat(12) {
             replay.advance(20L)
             replay.magnetic(42f)
-            replay.relative(0f)
-            latest =
-                replay.absolute(
-                    headingDeg = absoluteHeadingDeg,
-                    liveErrorDeg = 25f,
-                    conservativeErrorDeg = 180f,
-                )
+            replay.relative(headingDeg = 0f)
+            latest = replay.absolute(headingDeg = 100f, liveErrorDeg = 25f, conservativeErrorDeg = 180f)
+            val currentHeading = requireNotNull(latest.renderHeadingDeg)
+            assertTrue(
+                abs(shortestAngleDiffDeg(currentHeading, previousHeading)) <=
+                    MAX_UNVERIFIED_20_MS_CORRECTION_DEG + ANGLE_TOLERANCE_DEG,
+            )
+            previousHeading = currentHeading
         }
 
         val snapshot = requireNotNull(latest)
-        assertEquals(CompassTrackingState.DEGRADED, snapshot.state)
-        assertEquals(CompassTrackingReason.ABSOLUTE_RELATIVE_DISAGREEMENT, snapshot.reason)
-        assertTrue(snapshot.quarantineActive)
-        assertTrue(
-            abs(shortestAngleDiffDeg(requireNotNull(snapshot.renderHeadingDeg), 10f)) <=
-                20f + ANGLE_TOLERANCE_DEG,
+        assertEquals(CompassTrackingState.TRACKING, snapshot.state)
+        assertTrue(snapshot.relativeWitnessSuppressed)
+        assertFalse(snapshot.relativeWitnessAvailable)
+        assertFalse(snapshot.relativeWitnessSupportsHighRate)
+        assertTrue(requireNotNull(snapshot.renderHeadingDeg) in 10f..60f)
+    }
+
+    @Test
+    fun agreeingWitnessAllowsResponsiveButBoundedFusedCorrection() {
+        val replay = Replay(integrityEngine())
+        replay.acquireStableHeading(headingDeg = 10f)
+
+        replay.advance(20L)
+        replay.magnetic(42f)
+        replay.relative(headingDeg = 100f)
+        val snapshot = replay.absolute(headingDeg = 100f)
+
+        assertEquals(CompassTrackingState.TRACKING, snapshot.state)
+        assertTrue(snapshot.relativeWitnessSupportsHighRate)
+        assertEquals(
+            MAX_VERIFIED_20_MS_CORRECTION_DEG,
+            requireNotNull(snapshot.renderHeadingDeg) - 10f,
+            ANGLE_TOLERANCE_DEG,
         )
     }
 
     @Test
-    fun genuineFullTurnStaysTrackingAndReturnsToStart() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
+    fun unavailableWitnessUsesBoundedFusedCorrectionWithoutBlockingTracking() {
+        val replay = Replay(integrityEngine())
+        replay.acquireStableHeading(headingDeg = 10f)
+
+        replay.advance(20L)
+        replay.witnessUnavailable(horizontalProjection = 0.1f)
+        val snapshot = replay.absolute(headingDeg = 100f)
+
+        assertEquals(CompassTrackingState.TRACKING, snapshot.state)
+        assertFalse(snapshot.relativeWitnessAvailable)
+        assertFalse(snapshot.relativeWitnessSupportsHighRate)
+        assertEquals(
+            10f + MAX_UNVERIFIED_20_MS_CORRECTION_DEG,
+            requireNotNull(snapshot.renderHeadingDeg),
+            ANGLE_TOLERANCE_DEG,
+        )
+    }
+
+    @Test
+    fun magneticInterferenceStillDegradesButNeverUsesTheRelativeHeadingAsMapHeading() {
+        val replay = Replay(integrityEngine())
+        replay.acquireStableHeading(headingDeg = 40f)
+
+        replay.magnetic(2_000f)
+        replay.advance(20L)
+        replay.relative(headingDeg = 20f)
+        val snapshot = replay.absolute(headingDeg = 60f)
+
+        assertEquals(CompassTrackingState.DEGRADED, snapshot.state)
+        assertEquals(CompassTrackingReason.MAGNETIC_INTERFERENCE, snapshot.reason)
+        assertEquals(
+            40f + MAX_VERIFIED_20_MS_CORRECTION_DEG,
+            requireNotNull(snapshot.renderHeadingDeg),
+            ANGLE_TOLERANCE_DEG,
+        )
+    }
+
+    @Test
+    fun genuineFullTurnTracksGoogleFusedWhenWitnessAgrees() {
+        val replay = Replay(integrityEngine())
         var latest = replay.acquireStableHeading(headingDeg = 0f)
-        var renderedTurnDeg = 0f
-        var previousRenderedHeadingDeg = requireNotNull(latest.renderHeadingDeg)
 
         val headings = (12..348 step 12).map(Int::toFloat) + 0f
         headings.forEach { headingDeg ->
             replay.advance(20L)
             replay.magnetic(42f)
             replay.relative(headingDeg)
-            latest = replay.absolute(headingDeg = headingDeg)
-
+            latest = replay.absolute(headingDeg)
             assertEquals(CompassTrackingState.TRACKING, latest.state)
-            assertFalse(latest.quarantineActive)
-            assertTrue((latest.absoluteRelativeDisagreementDeg ?: 0f) <= ANGLE_TOLERANCE_DEG)
-            val renderedHeadingDeg = requireNotNull(latest.renderHeadingDeg)
-            renderedTurnDeg += shortestAngleDiffDeg(renderedHeadingDeg, previousRenderedHeadingDeg)
-            previousRenderedHeadingDeg = renderedHeadingDeg
+            assertTrue(latest.relativeWitnessSupportsHighRate)
+            assertEquals(headingDeg, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
         }
-
-        assertEquals(360f, renderedTurnDeg, ANGLE_TOLERANCE_DEG)
-        assertEquals(0f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-    }
-
-    @Test
-    fun magneticInterferenceUsesRelativeContinuityAndRecoveryIsBounded() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
-        replay.acquireStableHeading(headingDeg = 40f)
-
-        replay.advance(20L)
-        val interference = replay.magnetic(2_000f)
-        assertEquals(CompassTrackingState.DEGRADED, interference.state)
-        assertEquals(CompassTrackingReason.MAGNETIC_INTERFERENCE, interference.reason)
-        assertEquals(CompassMagneticQuality.INTERFERENCE, interference.magneticQuality)
-
-        replay.advance(20L)
-        replay.relative(20f)
-        var latest = replay.absolute(headingDeg = 60f)
-        assertEquals(60f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertEquals(CompassTrackingState.DEGRADED, latest.state)
-
-        val renderedDuringRecovery = mutableListOf<Float>()
-        val correctionDuringRecovery = mutableListOf<Float>()
-        repeat(24) {
-            replay.advance(75L)
-            replay.magnetic(42f)
-            replay.relative(20f)
-            latest = replay.absolute(headingDeg = 80f)
-            renderedDuringRecovery += requireNotNull(latest.renderHeadingDeg)
-            if (latest.recoveryActive || abs(latest.recoveryCorrectionDeg) > 0f) {
-                correctionDuringRecovery += latest.recoveryCorrectionDeg
-            }
-        }
-
-        assertTrue(correctionDuringRecovery.isNotEmpty())
-        correctionDuringRecovery.forEach { correctionDeg ->
-            assertTrue(abs(correctionDeg) <= MAX_75_MS_RECOVERY_CORRECTION_DEG + ANGLE_TOLERANCE_DEG)
-        }
-        renderedDuringRecovery.zipWithNext().forEach { (previous, current) ->
-            assertTrue(shortestAngleDiffDeg(current, previous) >= -ANGLE_TOLERANCE_DEG)
-        }
-        assertEquals(CompassTrackingState.TRACKING, latest.state)
-        assertEquals(CompassTrackingReason.STABLE, latest.reason)
-        assertEquals(80f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertFalse(latest.quarantineActive)
-    }
-
-    @Test
-    fun circularEvidenceAndTrackingHandleNorthWraparound() {
-        assertEquals(
-            4f,
-            requireNotNull(circularWindowSpreadDeg(listOf(358f, 359f, 0f, 1f, 2f))),
-            ANGLE_TOLERANCE_DEG,
-        )
-
-        val engine = integrityEngine()
-        val replay = Replay(engine)
-        replay.acquireStableHeading(headingDeg = 358f)
-
-        replay.advance(20L)
-        replay.relative(4f)
-        val wrapped = replay.absolute(headingDeg = 2f)
-
-        assertEquals(CompassTrackingState.TRACKING, wrapped.state)
-        assertEquals(2f, requireNotNull(wrapped.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertTrue((wrapped.absoluteRelativeDisagreementDeg ?: 0f) <= ANGLE_TOLERANCE_DEG)
-        assertFalse(wrapped.quarantineActive)
     }
 
     @Test
     fun unavailableRelativeSensorStillAllowsStableAbsoluteAcquisition() {
-        val engine =
-            FusedHeadingIntegrityEngine(
-                relativeSensorAvailable = false,
-                magnetometerAvailable = false,
-            )
+        val engine = FusedHeadingIntegrityEngine(relativeSensorAvailable = false, magnetometerAvailable = false)
         val replay = Replay(engine, relativeSensorAvailable = false, magnetometerAvailable = false)
 
-        val first = replay.absolute(headingDeg = 75f)
-        assertEquals(CompassTrackingState.ACQUIRING, first.state)
-        assertTrue(first.renderable)
-        assertNull(first.relativeHeadingDeg)
+        val snapshot = replay.acquireStableHeading(headingDeg = 75f)
 
-        var latest = first
-        repeat(8) {
-            replay.advance(50L)
-            latest = replay.absolute(headingDeg = 75f)
-        }
-
-        assertEquals(CompassTrackingState.TRACKING, latest.state)
-        assertEquals(CompassTrackingReason.STABLE, latest.reason)
-        assertEquals(CompassMagneticQuality.UNAVAILABLE, latest.magneticQuality)
-        assertEquals(75f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-        assertFalse(latest.quarantineActive)
-    }
-
-    @Test
-    fun recoveryWithoutRelativeSensorAppliesOnlyOneBoundedCorrection() {
-        val engine =
-            FusedHeadingIntegrityEngine(
-                relativeSensorAvailable = false,
-                magnetometerAvailable = false,
-            )
-        val replay = Replay(engine, relativeSensorAvailable = false, magnetometerAvailable = false)
-        replay.acquireStableHeading(headingDeg = 75f)
-
-        replay.advance(20L)
-        var latest = replay.absolute(headingDeg = 165f)
-        assertEquals(CompassTrackingState.DEGRADED, latest.state)
-        assertEquals(75f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-
-        var previousHeadingDeg = requireNotNull(latest.renderHeadingDeg)
-        repeat(35) {
-            replay.advance(100L)
-            latest = replay.absolute(headingDeg = 165f)
-            val currentHeadingDeg = requireNotNull(latest.renderHeadingDeg)
-            assertTrue(
-                abs(shortestAngleDiffDeg(currentHeadingDeg, previousHeadingDeg)) <=
-                    MAX_100_MS_RECOVERY_CORRECTION_DEG + ANGLE_TOLERANCE_DEG,
-            )
-            previousHeadingDeg = currentHeadingDeg
-        }
-
-        assertEquals(CompassTrackingState.TRACKING, latest.state)
-        assertEquals(165f, requireNotNull(latest.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
-    }
-
-    @Test
-    fun stalledMagnetometerBecomesUnavailableInsteadOfBlockingForever() {
-        val engine = integrityEngine()
-        val replay = Replay(engine)
-        replay.acquireStableHeading(headingDeg = 75f)
-
-        replay.advance(1_100L)
-        replay.relative(0f)
-        val stale = replay.absolute(headingDeg = 75f)
-        assertEquals(CompassMagneticQuality.UNKNOWN, stale.magneticQuality)
-        assertEquals(CompassTrackingState.DEGRADED, stale.state)
-
-        replay.advance(2_000L)
-        replay.relative(0f)
-        val unavailable = replay.absolute(headingDeg = 75f)
-
-        assertEquals(CompassMagneticQuality.UNAVAILABLE, unavailable.magneticQuality)
-        assertFalse(unavailable.reason == CompassTrackingReason.MAGNETIC_INTERFERENCE)
-        assertTrue(unavailable.renderable)
+        assertEquals(CompassTrackingState.TRACKING, snapshot.state)
+        assertEquals(CompassMagneticQuality.UNAVAILABLE, snapshot.magneticQuality)
+        assertEquals(75f, requireNotNull(snapshot.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
     }
 
     private fun integrityEngine(): FusedHeadingIntegrityEngine =
@@ -323,8 +168,11 @@ class FusedHeadingIntegrityEngineTest {
         fun relative(headingDeg: Float): FusedHeadingIntegritySnapshot =
             engine.onRelativeHeading(
                 headingDeg = headingDeg,
+                horizontalProjection = 0.9f,
                 atElapsedMs = nowElapsedMs,
             )
+
+        fun witnessUnavailable(horizontalProjection: Float) = engine.onRelativeWitnessUnavailable(horizontalProjection)
 
         fun magnetic(strengthUt: Float): FusedHeadingIntegritySnapshot =
             engine.onMagneticField(
@@ -357,7 +205,7 @@ class FusedHeadingIntegrityEngineTest {
                 if (index > 0) advance(50L)
                 if (magnetometerAvailable) magnetic(42f)
                 if (relativeSensorAvailable) relative(0f)
-                latest = absolute(headingDeg = headingDeg)
+                latest = absolute(headingDeg)
             }
             return requireNotNull(latest)
         }
@@ -365,7 +213,7 @@ class FusedHeadingIntegrityEngineTest {
 
     private companion object {
         const val ANGLE_TOLERANCE_DEG = 0.01f
-        const val MAX_75_MS_RECOVERY_CORRECTION_DEG = 3.375f
-        const val MAX_100_MS_RECOVERY_CORRECTION_DEG = 4.5f
+        const val MAX_VERIFIED_20_MS_CORRECTION_DEG = 14.4f
+        const val MAX_UNVERIFIED_20_MS_CORRECTION_DEG = 3.6f
     }
 }

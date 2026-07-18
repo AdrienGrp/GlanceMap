@@ -11,7 +11,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
-/** Supplies magnetometer-independent relative turns and magnetic integrity to Google Fused. */
+/** Supplies a tilt-aware, magnetometer-independent turn witness and magnetic integrity to Google Fused. */
 internal class FusedOrientationIntegritySensorMonitor(
     context: Context,
 ) : SensorEventListener {
@@ -20,13 +20,10 @@ internal class FusedOrientationIntegritySensorMonitor(
     private val gameRotationVector =
         sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
     private val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-    private val gameQuaternion = FloatArray(4)
+    private val gameRotationMatrix = FloatArray(9)
 
     private var started = false
-    private var previousGameQuaternion: OrientationQuaternion? = null
-    private var previousGameSampleAtElapsedMs = 0L
-    private var accumulatedRelativeHeadingDeg = 0f
-    private var onRelativeHeading: ((Float, Long) -> Unit)? = null
+    private var onRelativeHeading: ((RelativeHeadingWitness, Long) -> Unit)? = null
     private var onMagneticField: ((Float, Long) -> Unit)? = null
 
     val relativeSensorAvailable: Boolean
@@ -38,15 +35,12 @@ internal class FusedOrientationIntegritySensorMonitor(
     fun start(
         handler: Handler,
         lowPower: Boolean,
-        onRelativeHeading: (Float, Long) -> Unit,
+        onRelativeHeading: (RelativeHeadingWitness, Long) -> Unit,
         onMagneticField: (Float, Long) -> Unit,
     ) {
         stop()
         this.onRelativeHeading = onRelativeHeading
         this.onMagneticField = onMagneticField
-        previousGameQuaternion = null
-        previousGameSampleAtElapsedMs = 0L
-        accumulatedRelativeHeadingDeg = 0f
         val relativePeriodUs =
             if (lowPower) INTEGRITY_LOW_POWER_PERIOD_US else INTEGRITY_RELATIVE_PERIOD_US
         val magneticPeriodUs =
@@ -65,9 +59,6 @@ internal class FusedOrientationIntegritySensorMonitor(
     fun stop() {
         if (started) sensorManager.unregisterListener(this)
         started = false
-        previousGameQuaternion = null
-        previousGameSampleAtElapsedMs = 0L
-        accumulatedRelativeHeadingDeg = 0f
         onRelativeHeading = null
         onMagneticField = null
     }
@@ -93,34 +84,11 @@ internal class FusedOrientationIntegritySensorMonitor(
         atElapsedMs: Long,
     ) {
         if (event.values.size < 3) return
-        SensorManager.getQuaternionFromVector(gameQuaternion, event.values)
-        val currentQuaternion =
-            OrientationQuaternion(
-                w = gameQuaternion[0],
-                x = gameQuaternion[1],
-                y = gameQuaternion[2],
-                z = gameQuaternion[3],
-            )
-        val previousQuaternion = previousGameQuaternion
-        val previousAtElapsedMs = previousGameSampleAtElapsedMs
-        previousGameQuaternion = currentQuaternion
-        previousGameSampleAtElapsedMs = atElapsedMs
-        if (previousQuaternion != null && previousAtElapsedMs > 0L) {
-            val elapsedMs = (atElapsedMs - previousAtElapsedMs).coerceAtLeast(1L)
-            val headingStepDeg =
-                gameRotationHeadingDeltaDeg(
-                    previous = previousQuaternion,
-                    current = currentQuaternion,
-                )
-            if (
-                headingStepDeg != null &&
-                isPlausibleRelativeHeadingStep(headingStepDeg, elapsedMs)
-            ) {
-                accumulatedRelativeHeadingDeg =
-                    normalize360Deg(accumulatedRelativeHeadingDeg + headingStepDeg)
-            }
-        }
-        onRelativeHeading?.invoke(accumulatedRelativeHeadingDeg, atElapsedMs)
+        SensorManager.getRotationMatrixFromVector(gameRotationMatrix, event.values)
+        onRelativeHeading?.invoke(
+            gameRotationScreenTopWitness(gameRotationMatrix),
+            atElapsedMs,
+        )
     }
 
     private fun publishMagneticField(
@@ -136,40 +104,41 @@ internal class FusedOrientationIntegritySensorMonitor(
     }
 }
 
-internal data class OrientationQuaternion(
-    val w: Float,
-    val x: Float,
-    val y: Float,
-    val z: Float,
+/**
+ * A heading measured from the projected top of the watch screen.
+ *
+ * TYPE_GAME_ROTATION_VECTOR deliberately has no north reference. Its heading is therefore only
+ * suitable as a relative witness for Google Fused, never as the heading displayed on the map.
+ */
+internal data class RelativeHeadingWitness(
+    val headingDeg: Float?,
+    val horizontalProjection: Float,
 )
 
 /**
- * Returns the heading component of the world-frame rotation between two game-RV samples.
- * Swing/tilt is discarded, avoiding Euler azimuth instability when the watch approaches vertical.
+ * Finds the horizontal direction of device +Y (the top of a watch screen) in the game-RV world
+ * frame. A heading is unavailable when that axis is nearly vertical, because any azimuth would be
+ * dominated by wrist pitch/roll noise.
  */
-internal fun gameRotationHeadingDeltaDeg(
-    previous: OrientationQuaternion,
-    current: OrientationQuaternion,
-): Float? {
-    if (!previous.isFinite() || !current.isFinite()) return null
-    val deltaW =
-        current.w * previous.w +
-            current.x * previous.x +
-            current.y * previous.y +
-            current.z * previous.z
-    val deltaZ =
-        -current.w * previous.z -
-            current.x * previous.y +
-            current.y * previous.x +
-            current.z * previous.w
-    val twistNorm = sqrt(deltaW * deltaW + deltaZ * deltaZ)
-    return if (!twistNorm.isFinite() || twistNorm < MIN_TWIST_NORM) {
-        null
-    } else {
-        val quaternionTwistDeg =
-            Math.toDegrees(2.0 * atan2(deltaZ.toDouble(), deltaW.toDouble())).toFloat()
-        normalizeSignedAngleDeg(-quaternionTwistDeg)
-    }
+internal fun gameRotationScreenTopWitness(rotationMatrix: FloatArray): RelativeHeadingWitness {
+    if (rotationMatrix.size < ROTATION_MATRIX_SIZE) return RelativeHeadingWitness(null, 0f)
+    // getRotationMatrixFromVector transforms device coordinates to world coordinates. The second
+    // column is therefore the world direction of device +Y / screen top.
+    val eastComponent = rotationMatrix[1]
+    val northComponent = rotationMatrix[4]
+    val horizontalProjection = sqrt(eastComponent * eastComponent + northComponent * northComponent)
+    val headingDeg =
+        when {
+            !eastComponent.isFinite() -> null
+            !northComponent.isFinite() -> null
+            !horizontalProjection.isFinite() -> null
+            horizontalProjection < MIN_SCREEN_TOP_HORIZONTAL_PROJECTION -> null
+            else ->
+                normalize360Deg(
+                    Math.toDegrees(atan2(eastComponent.toDouble(), northComponent.toDouble())).toFloat(),
+                )
+        }
+    return RelativeHeadingWitness(headingDeg, horizontalProjection)
 }
 
 internal fun isPlausibleRelativeHeadingStep(
@@ -185,15 +154,12 @@ internal fun isPlausibleRelativeHeadingStep(
     return abs(headingStepDeg) <= maximumStepDeg
 }
 
-private fun OrientationQuaternion.isFinite(): Boolean = w.isFinite() && x.isFinite() && y.isFinite() && z.isFinite()
-
-private fun normalizeSignedAngleDeg(angleDeg: Float): Float = ((angleDeg + 540f) % 360f) - 180f
-
 private const val INTEGRITY_RELATIVE_PERIOD_US = 20_000
 private const val INTEGRITY_MAGNETIC_PERIOD_US = 100_000
 private const val INTEGRITY_LOW_POWER_PERIOD_US = 200_000
 private const val NANOS_PER_MILLISECOND = 1_000_000L
-private const val MIN_TWIST_NORM = 0.001f
+private const val ROTATION_MATRIX_SIZE = 9
+private const val MIN_SCREEN_TOP_HORIZONTAL_PROJECTION = 0.35f
 private const val RELATIVE_STEP_BASE_ALLOWANCE_DEG = 5f
 private const val RELATIVE_STEP_MAX_RATE_DEG_PER_SEC = 1_080f
 private const val RELATIVE_STEP_ABSOLUTE_MAX_DEG = 120f

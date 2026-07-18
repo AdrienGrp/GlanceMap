@@ -62,6 +62,10 @@ internal data class FusedHeadingIntegritySnapshot(
     val magneticQuality: CompassMagneticQuality,
     val magneticFieldUt: Float?,
     val relativeHeadingDeg: Float?,
+    val relativeWitnessAvailable: Boolean,
+    val relativeWitnessSuppressed: Boolean,
+    val relativeWitnessSupportsHighRate: Boolean,
+    val relativeHorizontalProjection: Float?,
     val absoluteRelativeDisagreementDeg: Float?,
     val residualSpreadDeg: Float?,
     val quarantinedAbsoluteHeadingDeg: Float?,
@@ -88,10 +92,12 @@ internal data class FusedHeadingIntegrityConfig(
     val magneticSampleUnavailableMs: Long = 3_000L,
     val recoveryEvidenceWindowMs: Long = 1_000L,
     val recoveryResidualSpreadDeg: Float = 12f,
-    val recoveryCorrectionRateDegPerSec: Float = 45f,
-    val recoveryCompletionDeg: Float = 2f,
     val strongLiveErrorDeg: Float = 12f,
     val strongConservativeErrorDeg: Float = 45f,
+    val witnessSuppressionMinimumSamples: Int = 3,
+    val witnessSuppressionMinimumDurationMs: Long = 200L,
+    val verifiedFusedCorrectionRateDegPerSec: Float = 720f,
+    val unverifiedFusedCorrectionRateDegPerSec: Float = 180f,
 )
 
 private data class AbsoluteMovementEvidence(
@@ -106,6 +112,7 @@ private data class AbsoluteMovementEvidence(
 private data class AbsoluteHeadingEvidence(
     val absoluteHeadingDeg: Float,
     val relativeStepDeg: Float?,
+    val stepDisagreementDeg: Float?,
     val elapsedSinceAbsoluteMs: Long,
     val fieldAcceptable: Boolean,
     val residualSpreadDeg: Float?,
@@ -120,8 +127,8 @@ private data class AbsoluteHeadingEvidence(
 /**
  * Validates one absolute Google Fused heading against a magnetometer-independent relative turn.
  *
- * The game rotation vector never supplies north. It only proves physical movement and preserves
- * visual continuity while an absolute correction is quarantined.
+ * The game rotation vector never supplies north. It only validates whether a Google Fused turn
+ * is plausible; it never drives the heading rendered on the map.
  * Event and state handlers intentionally share this single mutable state owner.
  */
 @Suppress("TooManyFunctions")
@@ -138,6 +145,7 @@ internal class FusedHeadingIntegrityEngine(
     private var evidenceStartedAtElapsedMs = 0L
     private var latestRelativeHeadingDeg: Float? = null
     private var latestRelativeAtElapsedMs = 0L
+    private val relativeWitnessValidator = RelativeHeadingWitnessValidator(config)
     private var relativeHeadingAtLastAbsoluteDeg: Float? = null
     private var relativeAtLastAbsoluteElapsedMs = 0L
     private var trackingResidualAnchorDeg: Float? = null
@@ -176,6 +184,7 @@ internal class FusedHeadingIntegrityEngine(
         relativeHeadingAtLastAbsoluteDeg = null
         relativeAtLastAbsoluteElapsedMs = 0L
         trackingResidualAnchorDeg = null
+        relativeWitnessValidator.reset()
         recoveryActive = false
         quarantineActive = false
         trusted = false
@@ -204,15 +213,27 @@ internal class FusedHeadingIntegrityEngine(
 
     fun onRelativeHeading(
         headingDeg: Float,
+        horizontalProjection: Float = 1f,
         atElapsedMs: Long,
     ): FusedHeadingIntegritySnapshot {
         if (headingDeg.isFinite()) {
             val normalizedHeadingDeg = normalize360Deg(headingDeg)
             latestRelativeHeadingDeg = normalizedHeadingDeg
             latestRelativeAtElapsedMs = atElapsedMs
+            relativeWitnessValidator.onHeading(horizontalProjection)
             relativeHistory.addLast(TimedCircularValue(atElapsedMs, normalizedHeadingDeg))
             trimWindow(relativeHistory, atElapsedMs, RELATIVE_HISTORY_WINDOW_MS)
         }
+        return buildSnapshot()
+    }
+
+    fun onRelativeWitnessUnavailable(
+        horizontalProjection: Float,
+    ): FusedHeadingIntegritySnapshot {
+        latestRelativeHeadingDeg = null
+        latestRelativeAtElapsedMs = 0L
+        relativeHistory.clear()
+        relativeWitnessValidator.onUnavailable(horizontalProjection)
         return buildSnapshot()
     }
 
@@ -276,6 +297,7 @@ internal class FusedHeadingIntegrityEngine(
         }
 
         val evidence = collectAbsoluteHeadingEvidence(sample)
+        relativeWitnessValidator.update(evidence)
         val correction =
             when (state) {
                 CompassTrackingState.ACQUIRING -> updateWhileAcquiring(evidence)
@@ -329,12 +351,7 @@ internal class FusedHeadingIntegrityEngine(
 
         val fieldAcceptable = magneticFieldAcceptable()
         val strongAbsoluteConfidence = hasStrongAbsoluteConfidence(sample)
-        val disagreementEnterDeg =
-            if (strongAbsoluteConfidence) {
-                config.trackingDisagreementEnterDeg
-            } else {
-                config.weakConfidenceDisagreementEnterDeg
-            }
+        val disagreementEnterDeg = disagreementEnterThresholdDeg(strongAbsoluteConfidence)
         val hardDisagreement =
             when {
                 disagreementDeg != null -> disagreementDeg >= disagreementEnterDeg
@@ -346,6 +363,7 @@ internal class FusedHeadingIntegrityEngine(
         return AbsoluteHeadingEvidence(
             absoluteHeadingDeg = absoluteHeadingDeg,
             relativeStepDeg = movement.relativeStepDeg,
+            stepDisagreementDeg = movement.stepDisagreementDeg,
             elapsedSinceAbsoluteMs = movement.elapsedSinceAbsoluteMs,
             fieldAcceptable = fieldAcceptable,
             residualSpreadDeg = residualSpreadDeg,
@@ -406,13 +424,7 @@ internal class FusedHeadingIntegrityEngine(
     fun snapshot(): FusedHeadingIntegritySnapshot = buildSnapshot()
 
     private fun updateWhileAcquiring(evidence: AbsoluteHeadingEvidence): Float {
-        val absoluteHeadingDeg = evidence.absoluteHeadingDeg
-        renderHeadingDeg =
-            continuityHeading(
-                absoluteHeadingDeg = absoluteHeadingDeg,
-                relativeStepDeg = evidence.relativeStepDeg,
-                elapsedMs = evidence.elapsedSinceAbsoluteMs,
-            )
+        renderHeadingDeg = moveTowardFusedHeading(evidence)
         return when {
             !evidence.fieldAcceptable -> {
                 reason = unavailableMagneticReason()
@@ -435,49 +447,27 @@ internal class FusedHeadingIntegrityEngine(
                         evidenceSpread != null &&
                         evidenceSpread <= config.acquisitionResidualSpreadDeg
                 if (!evidenceReady) {
-                    reason =
-                        if (relativeSensorAvailable && !useRelativeEvidence) {
-                            CompassTrackingReason.RELATIVE_UNAVAILABLE
-                        } else {
-                            CompassTrackingReason.ABSOLUTE_WINDOW_UNSTABLE
-                        }
+                    reason = CompassTrackingReason.ABSOLUTE_WINDOW_UNSTABLE
                     0f
                 } else {
-                    completeAcquisition(evidence)
+                    completeAcquisition()
                 }
             }
         }
     }
 
-    private fun completeAcquisition(evidence: AbsoluteHeadingEvidence): Float {
-        val absoluteHeadingDeg = evidence.absoluteHeadingDeg
+    private fun completeAcquisition(): Float {
         trackingResidualAnchorDeg = residualWindow.lastOrNull()?.valueDeg
-        val currentHeadingDeg = renderHeadingDeg ?: absoluteHeadingDeg
-        val remaining =
-            abs(shortestAngleDiffDeg(absoluteHeadingDeg, currentHeadingDeg))
-        return if (remaining <= config.recoveryCompletionDeg) {
-            renderHeadingDeg = absoluteHeadingDeg
-            state = CompassTrackingState.TRACKING
-            reason = CompassTrackingReason.STABLE
-            recoveryActive = false
-            quarantineActive = false
-            quarantinedAbsoluteHeadingDeg = null
-            0f
-        } else {
-            state = CompassTrackingState.DEGRADED
-            reason = CompassTrackingReason.RECOVERING
-            recoveryActive = true
-            quarantineActive = true
-            quarantinedAbsoluteHeadingDeg = absoluteHeadingDeg
-            applyRecoveryCorrection(
-                absoluteHeadingDeg = absoluteHeadingDeg,
-                elapsedMs = evidence.elapsedSinceAbsoluteMs,
-            )
-        }
+        state = CompassTrackingState.TRACKING
+        reason = CompassTrackingReason.STABLE
+        recoveryActive = false
+        quarantineActive = false
+        quarantinedAbsoluteHeadingDeg = null
+        return 0f
     }
 
     private fun updateWhileTracking(evidence: AbsoluteHeadingEvidence): Float =
-        if (!evidence.fieldAcceptable || evidence.hardDisagreement) {
+        if (!evidence.fieldAcceptable) {
             enterDegraded(
                 degradationReason =
                     if (!evidence.fieldAcceptable) {
@@ -487,15 +477,11 @@ internal class FusedHeadingIntegrityEngine(
                     },
                 quarantinedHeadingDeg = evidence.absoluteHeadingDeg,
             )
-            renderHeadingDeg =
-                relativeContinuityHeading(
-                    absoluteHeadingDeg = evidence.absoluteHeadingDeg,
-                    relativeStepDeg = evidence.relativeStepDeg,
-                )
+            renderHeadingDeg = moveTowardFusedHeading(evidence)
             0f
         } else {
             updateTrackingAnchor(evidence)
-            renderHeadingDeg = evidence.absoluteHeadingDeg
+            renderHeadingDeg = moveTowardFusedHeading(evidence)
             reason = CompassTrackingReason.STABLE
             recoveryActive = false
             quarantineActive = false
@@ -522,12 +508,7 @@ internal class FusedHeadingIntegrityEngine(
     }
 
     private fun updateWhileDegraded(evidence: AbsoluteHeadingEvidence): Float {
-        val absoluteHeadingDeg = evidence.absoluteHeadingDeg
-        renderHeadingDeg =
-            relativeContinuityHeading(
-                absoluteHeadingDeg = absoluteHeadingDeg,
-                relativeStepDeg = evidence.relativeStepDeg,
-            )
+        renderHeadingDeg = moveTowardFusedHeading(evidence)
         return when {
             !evidence.fieldAcceptable -> {
                 reason = unavailableMagneticReason()
@@ -566,73 +547,47 @@ internal class FusedHeadingIntegrityEngine(
             recoveryActive = false
             0f
         } else {
-            applyDegradedRecovery(evidence)
+            applyDegradedRecovery()
         }
     }
 
-    private fun applyDegradedRecovery(evidence: AbsoluteHeadingEvidence): Float {
-        val absoluteHeadingDeg = evidence.absoluteHeadingDeg
-        reason = CompassTrackingReason.RECOVERING
-        recoveryActive = true
-        quarantinedAbsoluteHeadingDeg = absoluteHeadingDeg
-        val correction =
-            applyRecoveryCorrection(
-                absoluteHeadingDeg = absoluteHeadingDeg,
-                elapsedMs = evidence.elapsedSinceAbsoluteMs,
-            )
-        val currentHeadingDeg = renderHeadingDeg ?: absoluteHeadingDeg
-        val remaining =
-            abs(shortestAngleDiffDeg(absoluteHeadingDeg, currentHeadingDeg))
-        if (remaining <= config.recoveryCompletionDeg) {
-            renderHeadingDeg = absoluteHeadingDeg
-            state = CompassTrackingState.TRACKING
-            reason = CompassTrackingReason.STABLE
-            trackingResidualAnchorDeg = residualWindow.lastOrNull()?.valueDeg
-            recoveryActive = false
-            quarantineActive = false
-            quarantinedAbsoluteHeadingDeg = null
-        }
-        return correction
+    private fun applyDegradedRecovery(): Float {
+        state = CompassTrackingState.TRACKING
+        reason = CompassTrackingReason.STABLE
+        trackingResidualAnchorDeg = residualWindow.lastOrNull()?.valueDeg
+        recoveryActive = false
+        quarantineActive = false
+        quarantinedAbsoluteHeadingDeg = null
+        return 0f
     }
 
-    private fun continuityHeading(
-        absoluteHeadingDeg: Float,
-        relativeStepDeg: Float?,
-        elapsedMs: Long,
-    ): Float {
-        val current = renderHeadingDeg
-        return when {
-            current == null -> absoluteHeadingDeg
-            relativeStepDeg != null -> normalize360Deg(current + relativeStepDeg)
-            else -> {
-                val maxStep = config.recoveryCorrectionRateDegPerSec * elapsedMs / 1_000f
-                val step =
-                    shortestAngleDiffDeg(absoluteHeadingDeg, current)
-                        .coerceIn(-maxStep, maxStep)
-                normalize360Deg(current + step)
+    /** The map receives only Google Fused heading, never a game-RV-derived heading. */
+    private fun moveTowardFusedHeading(evidence: AbsoluteHeadingEvidence): Float {
+        val current = renderHeadingDeg ?: return evidence.absoluteHeadingDeg
+        val verifiedTurn =
+            !relativeWitnessValidator.suppressed &&
+                evidence.relativeStepDeg != null &&
+                evidence.stepDisagreementDeg != null &&
+                !evidence.hardDisagreement
+        val correctionRateDegPerSec =
+            if (verifiedTurn) {
+                config.verifiedFusedCorrectionRateDegPerSec
+            } else {
+                config.unverifiedFusedCorrectionRateDegPerSec
             }
+        val maximumStepDeg = correctionRateDegPerSec * evidence.elapsedSinceAbsoluteMs / 1_000f
+        val step =
+            shortestAngleDiffDeg(evidence.absoluteHeadingDeg, current)
+                .coerceIn(-maximumStepDeg, maximumStepDeg)
+        return normalize360Deg(current + step)
+    }
+
+    private fun disagreementEnterThresholdDeg(strongAbsoluteConfidence: Boolean): Float =
+        if (strongAbsoluteConfidence) {
+            config.trackingDisagreementEnterDeg
+        } else {
+            config.weakConfidenceDisagreementEnterDeg
         }
-    }
-
-    private fun relativeContinuityHeading(
-        absoluteHeadingDeg: Float,
-        relativeStepDeg: Float?,
-    ): Float {
-        val current = renderHeadingDeg ?: return absoluteHeadingDeg
-        return relativeStepDeg?.let { normalize360Deg(current + it) } ?: current
-    }
-
-    private fun applyRecoveryCorrection(
-        absoluteHeadingDeg: Float,
-        elapsedMs: Long,
-    ): Float {
-        val current = renderHeadingDeg ?: absoluteHeadingDeg
-        val remaining = shortestAngleDiffDeg(absoluteHeadingDeg, current)
-        val maxCorrection = config.recoveryCorrectionRateDegPerSec * elapsedMs / 1_000f
-        val correction = remaining.coerceIn(-maxCorrection, maxCorrection)
-        renderHeadingDeg = normalize360Deg(current + correction)
-        return correction
-    }
 
     private fun enterDegraded(
         degradationReason: CompassTrackingReason,
@@ -687,6 +642,7 @@ internal class FusedHeadingIntegrityEngine(
 
     private fun hasRelativeEvidence(atElapsedMs: Long): Boolean =
         relativeSensorAvailable &&
+            !relativeWitnessValidator.suppressed &&
             residualWindow.isNotEmpty() &&
             freshRelativeHeading(atElapsedMs) != null
 
@@ -744,6 +700,10 @@ internal class FusedHeadingIntegrityEngine(
             magneticQuality = magneticQuality,
             magneticFieldUt = magneticFieldUt,
             relativeHeadingDeg = latestRelativeHeadingDeg,
+            relativeWitnessAvailable = relativeWitnessValidator.available,
+            relativeWitnessSuppressed = relativeWitnessValidator.suppressed,
+            relativeWitnessSupportsHighRate = relativeWitnessValidator.supportsHighRate,
+            relativeHorizontalProjection = relativeWitnessValidator.horizontalProjection,
             absoluteRelativeDisagreementDeg = lastDisagreementDeg,
             residualSpreadDeg = lastResidualSpreadDeg ?: circularWindowSpreadDeg(residualWindow),
             quarantinedAbsoluteHeadingDeg = quarantinedAbsoluteHeadingDeg,
@@ -751,6 +711,86 @@ internal class FusedHeadingIntegrityEngine(
             recoveryActive = recoveryActive,
             recoveryCorrectionDeg = lastRecoveryCorrectionDeg,
         )
+}
+
+/** Keeps the optional game-RV witness from influencing the heading rendered by Google Fused. */
+private class RelativeHeadingWitnessValidator(
+    private val config: FusedHeadingIntegrityConfig,
+) {
+    var available = false
+        private set
+    var suppressed = false
+        private set
+    var supportsHighRate = false
+        private set
+    var horizontalProjection: Float? = null
+        private set
+
+    private var disagreementSamples = 0
+    private var firstDisagreementAtElapsedMs = 0L
+
+    fun reset() {
+        available = false
+        suppressed = false
+        supportsHighRate = false
+        horizontalProjection = null
+        disagreementSamples = 0
+        firstDisagreementAtElapsedMs = 0L
+    }
+
+    fun onHeading(horizontalProjection: Float) {
+        this.horizontalProjection = horizontalProjection.takeIf(Float::isFinite)
+        available = !suppressed
+    }
+
+    fun onUnavailable(horizontalProjection: Float) {
+        this.horizontalProjection = horizontalProjection.takeIf(Float::isFinite)
+        available = false
+        supportsHighRate = false
+    }
+
+    fun update(evidence: AbsoluteHeadingEvidence) {
+        when {
+            suppressed -> markSuppressed()
+            evidence.stepDisagreementDeg == null -> clearTurnValidation()
+            !evidence.hardDisagreement -> markAgreement()
+            else -> recordDisagreement(evidence.atElapsedMs)
+        }
+    }
+
+    private fun markSuppressed() {
+        available = false
+        supportsHighRate = false
+    }
+
+    private fun clearTurnValidation() {
+        supportsHighRate = false
+        disagreementSamples = 0
+        firstDisagreementAtElapsedMs = 0L
+    }
+
+    private fun markAgreement() {
+        available = true
+        supportsHighRate = true
+        disagreementSamples = 0
+        firstDisagreementAtElapsedMs = 0L
+    }
+
+    private fun recordDisagreement(atElapsedMs: Long) {
+        supportsHighRate = false
+        disagreementSamples += 1
+        if (firstDisagreementAtElapsedMs <= 0L) {
+            firstDisagreementAtElapsedMs = atElapsedMs
+        }
+        val disagreementDurationMs =
+            (atElapsedMs - firstDisagreementAtElapsedMs).coerceAtLeast(0L)
+        val hasEnoughSamples = disagreementSamples >= config.witnessSuppressionMinimumSamples
+        val hasEnoughDuration = disagreementDurationMs >= config.witnessSuppressionMinimumDurationMs
+        if (hasEnoughSamples && hasEnoughDuration) {
+            suppressed = true
+            markSuppressed()
+        }
+    }
 }
 
 private data class TimedCircularValue(
