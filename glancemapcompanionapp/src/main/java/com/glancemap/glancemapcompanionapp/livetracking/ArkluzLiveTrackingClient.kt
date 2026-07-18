@@ -128,6 +128,9 @@ internal class ArkluzLiveTrackingClient(
                     MultipartBody
                         .Builder()
                         .setType(MultipartBody.FORM)
+                        .addFormDataPart("q", "upload")
+                        .addFormDataPart("group", settings.group.trim())
+                        .addFormDataPart("pass", settings.participantPassword.trim())
                 if (tempFile != null) {
                     builder.addFormDataPart(
                         "upload",
@@ -139,21 +142,11 @@ internal class ArkluzLiveTrackingClient(
                     builder.addFormDataPart("comments", comments)
                 }
                 val body = builder.build()
-                val uploadUrl =
-                    settings.trackingUrl
-                        .trim()
-                        .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
-                        .toHttpUrl()
-                        .newBuilder()
-                        .addQueryParameter("q", "upload")
-                        .addQueryParameter("group", settings.group.trim())
-                        .addQueryParameter("pass", settings.participantPassword.trim())
-                        .build()
 
                 execute(
                     Request
                         .Builder()
-                        .url(uploadUrl)
+                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.defaultUrl })
                         .post(body)
                         .build(),
                     diagnosticRequest =
