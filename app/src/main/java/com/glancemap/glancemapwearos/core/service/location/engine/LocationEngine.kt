@@ -19,6 +19,7 @@ import com.glancemap.glancemapwearos.core.service.location.filter.LocationOutput
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalTracker
+import com.glancemap.glancemapwearos.core.service.location.model.attachDeliveredSourceMode
 import com.glancemap.glancemapwearos.core.service.location.policy.FixAcceptancePolicy
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
@@ -177,13 +178,16 @@ internal class LocationEngine(
     fun filterLocationForOutput(
         location: Location,
         nowElapsedMs: Long,
+        deliveredSourceMode: LocationSourceMode? = currentSourceModeOrNull(),
     ): Location {
         val filtered = locationOutputFilter.filter(location = location, nowElapsedMs = nowElapsedMs)
-        return if (LocationFixPolicy.hasValidCoordinates(filtered)) {
-            filtered
-        } else {
-            Location(location)
-        }
+        val output =
+            if (LocationFixPolicy.hasValidCoordinates(filtered)) {
+                filtered
+            } else {
+                Location(location)
+            }
+        return output.attachDeliveredSourceMode(deliveredSourceMode)
     }
 
     fun resolveRequestSpec(

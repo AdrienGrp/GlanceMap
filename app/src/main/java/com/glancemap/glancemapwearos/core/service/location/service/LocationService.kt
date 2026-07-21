@@ -284,6 +284,7 @@ class LocationService : Service() {
                     )
                 },
                 endHighAccuracyBurstEarly = {
+                    immediateLocationCoordinator.onGoodStreamFixAccepted()
                     immediateLocationCoordinator.endHighAccuracyBurst(reason = "early_fix")
                 },
             )
@@ -293,6 +294,14 @@ class LocationService : Service() {
                 serviceScope = serviceScope,
                 engine = engine,
                 telemetry = telemetry,
+                readAndStoreLocationPermissions = { readAndStoreLocationPermissions() },
+                resolveFixAcceptancePolicy = { permissions, sourceMode ->
+                    resolveFixAcceptancePolicy(permissions, sourceMode)
+                },
+                strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
+                hardMaxAcceptedFixAgeMs = { hardMaxAcceptedFixAgeMs() },
+                currentLocationSourceMode = { currentLocationSourceMode() },
+                locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
                 requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
                 passiveExperimentSourceMode = {
                     currentLocationSourceMode().takeIf { sourceMode ->
@@ -301,6 +310,21 @@ class LocationService : Service() {
                             sourceMode == LocationSourceMode.PASSIVE_EXTERNAL
                     }
                 },
+                shouldRequestNavigateOneShot = { nowElapsedMs ->
+                    shouldRequestStaleNavigateOneShot(
+                        runtimeReason = latestRuntimeReason,
+                        sourceMode = currentLocationSourceMode(),
+                        signal = engine.gpsSignalSnapshot,
+                        nowElapsedMs = nowElapsedMs,
+                        freshnessMaxAgeMs = strictFreshMaxAgeMs(),
+                    )
+                },
+                emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
+                emitAcceptedImmediateLocation = { location, acceptedAtMs ->
+                    _currentLocation.value = location
+                    lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
+                },
+                navigateOneShotTimeoutMs = NAVIGATE_ONE_SHOT_TIMEOUT_MS,
             )
         requestCoordinator =
             LocationRequestCoordinator(
@@ -591,8 +615,7 @@ class LocationService : Service() {
         latestRuntimeBackgroundGps = backgroundGpsEnabled
         latestRuntimeReason = runtimeReason.ifBlank { "idle" }
         lastRuntimeStateChangedAtElapsedMs = SystemClock.elapsedRealtime()
-        pendingDebouncedImmediateLocationJob?.cancel()
-        pendingDebouncedImmediateLocationJob = null
+        cancelPendingImmediateWorkForRuntimeState(screenState, trackingEnabled)
         val effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled()
         updateTelemetryFixContext(effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled)
 
@@ -657,6 +680,19 @@ class LocationService : Service() {
                     requestLocationUpdateIfNeeded()
                 }
             }
+    }
+
+    private fun cancelPendingImmediateWorkForRuntimeState(
+        screenState: LocationScreenState,
+        trackingEnabled: Boolean,
+    ) {
+        pendingDebouncedImmediateLocationJob?.cancel()
+        pendingDebouncedImmediateLocationJob = null
+        navigateOneShotCancellationReason(
+            trackingEnabled = trackingEnabled,
+            screenState = screenState,
+            runtimeReason = latestRuntimeReason,
+        )?.let(immediateLocationCoordinator::cancelNavigateOneShot)
     }
 
     private fun isProlongedAutoPause(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Boolean =
@@ -1440,6 +1476,7 @@ class LocationService : Service() {
         const val EXTRA_SCREEN_STATE = "extra_screen_state"
         const val EXTRA_BACKGROUND_GPS_ENABLED = "extra_background_gps_enabled"
         const val EXTRA_RUNTIME_REASON = "extra_runtime_reason"
+        private const val NAVIGATE_ONE_SHOT_TIMEOUT_MS = 6_000L
         private const val HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS = 20_000L
         private const val HARD_STALE_FIX_MAX_AGE_PASSIVE_MS = 60_000L
         private const val SOURCE_MODE_WARMUP_MS = 1_500L

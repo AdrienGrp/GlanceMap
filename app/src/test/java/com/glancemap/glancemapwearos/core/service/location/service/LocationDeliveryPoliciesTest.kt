@@ -9,6 +9,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRunt
 import com.google.android.gms.location.Priority
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,6 +45,103 @@ class LocationDeliveryPoliciesTest {
                 intervalMs = 3_000L,
                 signal = freshSignal(fixElapsedMs = 90_000L),
                 nowElapsedMs = 100_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun ordinaryNavigateRequestsOneShotOnlyWhenFixIsMissingOrStale() {
+        assertTrue(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                signal = GpsSignalSnapshot(),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+        assertTrue(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                signal = freshSignal(fixElapsedMs = 90_000L),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+        assertFalse(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                signal = freshSignal(),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun recordingGuidanceAndNonFusedSourcesNeverRequestNavigateOneShot() {
+        assertFalse(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.RECORDING,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                signal = GpsSignalSnapshot(),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+        assertFalse(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.GUIDANCE_VISIBLE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                signal = GpsSignalSnapshot(),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+        assertFalse(
+            shouldRequestStaleNavigateOneShot(
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+                signal = GpsSignalSnapshot(),
+                nowElapsedMs = 100_000L,
+                freshnessMaxAgeMs = 6_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun navigateOneShotIsCancelledOutsideInteractiveOrdinaryNavigate() {
+        assertNull(
+            navigateOneShotCancellationReason(
+                trackingEnabled = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+            ),
+        )
+        assertEquals(
+            "screen_non_interactive",
+            navigateOneShotCancellationReason(
+                trackingEnabled = true,
+                screenState = LocationScreenState.SCREEN_OFF,
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
+            ),
+        )
+        assertEquals(
+            "navigate_not_visible",
+            navigateOneShotCancellationReason(
+                trackingEnabled = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                runtimeReason = NavigationRuntimeDemandReason.RECORDING,
+            ),
+        )
+        assertEquals(
+            "tracking_disabled",
+            navigateOneShotCancellationReason(
+                trackingEnabled = false,
+                screenState = LocationScreenState.INTERACTIVE,
+                runtimeReason = NavigationRuntimeDemandReason.NAVIGATE_VISIBLE,
             ),
         )
     }

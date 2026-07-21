@@ -6,13 +6,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.LocationSource
 import com.glancemap.glancemapwearos.presentation.features.navigate.moveLatLong
 import org.mapsforge.core.model.LatLong
 import kotlin.math.abs
-import kotlin.math.asin
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.exp
 import kotlin.math.max
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 internal data class MarkerMotionReading(
     val fixElapsedMs: Long,
@@ -50,48 +44,69 @@ internal data class MarkerMotionUpdate(
     val fixAccepted: Boolean,
 )
 
+internal data class MarkerVisualMotionStatus(
+    val isMoving: Boolean,
+    val isFresh: Boolean,
+)
+
 internal class MarkerMotionController(
     predictionFreshnessMaxAgeMs: Long,
     maxAcceptedFixAgeMs: Long,
     private val maxPredictionAccuracyM: Float = DEFAULT_MAX_PREDICTION_ACCURACY_M,
     private val minPredictionSpeedMps: Float = DEFAULT_MIN_PREDICTION_SPEED_MPS,
     private val correctionBlendDurationMs: Long = DEFAULT_CORRECTION_BLEND_DURATION_MS,
-    private val predictionTickMs: Long = DEFAULT_PREDICTION_TICK_MS,
+    expectedGpsIntervalMs: Long =
+        (predictionFreshnessMaxAgeMs * 2L / 3L).coerceAtLeast(MIN_EXPECTED_GPS_INTERVAL_MS),
 ) {
     private var predictionFreshnessMaxAgeMs = predictionFreshnessMaxAgeMs
     private val state = MarkerMotionState()
+    private val predictionCadence = MarkerPredictionCadence(expectedGpsIntervalMs)
+    private val predictionWindowFor: (Long) -> MarkerPredictionWindow = { serviceFreshnessMaxAgeMs ->
+        predictionCadence.predictionWindow(
+            configuredFreshnessMaxAgeMs = predictionFreshnessMaxAgeMs,
+            serviceFreshnessMaxAgeMs = serviceFreshnessMaxAgeMs,
+            startDelayMs = PREDICTION_START_DELAY_MS,
+        )
+    }
     private val fixProcessor =
         MarkerMotionGpsFixProcessor(
             state = state,
-            maxAcceptedFixAgeMs = maxAcceptedFixAgeMs,
-            maxVisualCorrectionAccuracyM = maxPredictionAccuracyM,
-            minPredictionSpeedMps = minPredictionSpeedMps,
-            correctionBlendDurationMs = correctionBlendDurationMs,
-            isBikeActivityProfile = false,
+            settings =
+                MarkerMotionGpsFixProcessorSettings(
+                    maxAcceptedFixAgeMs = maxAcceptedFixAgeMs,
+                    maxVisualCorrectionAccuracyM = maxPredictionAccuracyM,
+                    minPredictionSpeedMps = minPredictionSpeedMps,
+                    correctionBlendDurationMs = correctionBlendDurationMs,
+                ),
+            predictionWindowProvider = { predictionWindowFor(Long.MAX_VALUE) },
         )
 
     fun updateTiming(
         predictionFreshnessMaxAgeMs: Long,
         maxAcceptedFixAgeMs: Long,
+        expectedGpsIntervalMs: Long? = null,
     ) {
         this.predictionFreshnessMaxAgeMs = predictionFreshnessMaxAgeMs
         fixProcessor.updateMaxAcceptedFixAgeMs(maxAcceptedFixAgeMs)
+        expectedGpsIntervalMs?.let(predictionCadence::updateConfiguredInterval)
     }
 
     fun updateActivityProfile(isBikeActivityProfile: Boolean) {
         fixProcessor.updateActivityProfile(isBikeActivityProfile)
     }
 
-    fun reset(reason: String = "reset") {
+    fun reset(
+        reason: String = "reset",
+        nowElapsedMs: Long = state.lastAcceptedFix?.fixElapsedMs ?: 0L,
+    ) {
         state.lastAcceptedFix = null
         state.displayedLatLong = null
-        state.correctionBlend = null
-        state.smoothedSpeedMps = 0f
+        state.visualTrajectory.reset(nowElapsedMs).recordTelemetryInterruption()
         state.predictionRequiresFreshFix = true
-        state.predictionHeldBySafetyClamp = false
         state.clampedCorrectionStreak = 0
+        predictionCadence.resetObservedIntervals()
         MarkerMotionTelemetry.recordIdle(
-            nowElapsedMs = 0L,
+            nowElapsedMs = nowElapsedMs,
             reason = reason,
         )
     }
@@ -120,7 +135,6 @@ internal class MarkerMotionController(
         val sanitizedSpeed = sanitizeSpeed(seed.reading.speedMps)
         val motionAccuracyM = effectiveMotionAccuracy(seed.reading.accuracyM, seed.sourceMode)
         val fixElapsedMs = seed.reading.fixElapsedMs.coerceAtLeast(0L)
-        state.smoothedSpeedMps = sanitizedSpeed
         val motionFix =
             MotionFix(
                 latLong = seed.latLong,
@@ -132,9 +146,8 @@ internal class MarkerMotionController(
             )
         state.lastAcceptedFix = motionFix
         state.displayedLatLong = seed.latLong
-        state.correctionBlend = null
+        state.visualTrajectory.seed(motionFix.toVisualAnchor(seed.latLong)).recordTelemetryInterruption()
         state.predictionRequiresFreshFix = true
-        state.predictionHeldBySafetyClamp = false
         state.clampedCorrectionStreak = 0
         MarkerMotionTelemetry.recordSeedAnchor(
             nowElapsedMs = nowElapsedMs,
@@ -148,8 +161,6 @@ internal class MarkerMotionController(
 
     fun requireFreshFixForPrediction(reason: String = "await_fresh_fix") {
         state.predictionRequiresFreshFix = true
-        state.correctionBlend = null
-        state.smoothedSpeedMps = 0f
         state.clampedCorrectionStreak = 0
         MarkerMotionTelemetry.recordPredictionBlocked(
             reason = reason,
@@ -161,30 +172,64 @@ internal class MarkerMotionController(
         )
     }
 
-    /**
-     * Keep a prompt cadence even while prediction is temporarily blocked. This makes the first
-     * visible movement after a stop or weak fix deterministic; the caller still avoids redraws
-     * when the position did not materially change.
-     */
-    fun suggestedPredictionTickMs(nowElapsedMs: Long): Long =
-        if (hasActiveCorrectionBlend(nowElapsedMs)) {
-            DEFAULT_CORRECTION_BLEND_TICK_MS
-        } else {
-            predictionTickMs
-        }
+    fun hasPendingVisualCorrection(nowElapsedMs: Long): Boolean =
+        state.visualTrajectory.hasActiveCorrection(
+            nowElapsedMs = nowElapsedMs,
+            predictionWindow = predictionWindowFor(Long.MAX_VALUE),
+        )
 
-    private fun hasActiveCorrectionBlend(nowElapsedMs: Long): Boolean =
-        state.correctionBlend?.let { blend ->
-            val blendAgeMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
-            blendAgeMs < blend.durationMs
+    fun visualMotionStatus(
+        nowElapsedMs: Long,
+        serviceFreshnessMaxAgeMs: Long,
+    ): MarkerVisualMotionStatus =
+        state.visualTrajectory.currentAnchor()?.let { anchor ->
+            MarkerVisualMotionStatus(
+                isMoving = anchor.speedMps >= minPredictionSpeedMps && anchor.bearingDeg != null,
+                isFresh =
+                    (nowElapsedMs - anchor.fixElapsedMs).coerceAtLeast(0L) <=
+                        predictionWindowFor(serviceFreshnessMaxAgeMs).stopAtMs,
+            )
+        } ?: MarkerVisualMotionStatus(isMoving = false, isFresh = false)
+
+    fun canProduceVisualSample(
+        nowElapsedMs: Long,
+        serviceFreshnessMaxAgeMs: Long,
+        watchGpsDegraded: Boolean,
+    ): Boolean =
+        state.visualTrajectory.currentAnchor()?.let { anchor ->
+            val window = predictionWindowFor(serviceFreshnessMaxAgeMs)
+            val fixAgeMs = (nowElapsedMs - anchor.fixElapsedMs).coerceAtLeast(0L)
+            val hasActiveCorrection =
+                state.visualTrajectory.hasActiveCorrection(
+                    nowElapsedMs = nowElapsedMs,
+                    predictionWindow = window,
+                )
+            !watchGpsDegraded &&
+                !state.predictionRequiresFreshFix &&
+                fixAgeMs <= window.stopAtMs &&
+                (
+                    hasActiveCorrection ||
+                        (
+                            anchor.accuracyM <= maxPredictionAccuracyM &&
+                                anchor.speedMps >= minPredictionSpeedMps &&
+                                anchor.bearingDeg != null
+                        )
+                )
         } ?: false
 
     fun onGpsFix(fix: MarkerMotionGpsFix): MarkerMotionUpdate {
         val previousAcceptedFix = state.lastAcceptedFix
         val displayedLatLong = fixProcessor.onGpsFix(fix)
+        val acceptedFix = state.lastAcceptedFix
+        if (acceptedFix !== previousAcceptedFix && previousAcceptedFix != null && acceptedFix != null) {
+            predictionCadence.recordAcceptedFixGap(
+                gapMs = (acceptedFix.fixElapsedMs - previousAcceptedFix.fixElapsedMs).coerceAtLeast(0L),
+                sourceChanged = acceptedFix.sourceMode != previousAcceptedFix.sourceMode,
+            )
+        }
         return MarkerMotionUpdate(
             displayedLatLong = displayedLatLong,
-            fixAccepted = state.lastAcceptedFix !== previousAcceptedFix,
+            fixAccepted = acceptedFix !== previousAcceptedFix,
         )
     }
 
@@ -193,172 +238,134 @@ internal class MarkerMotionController(
         serviceFreshnessMaxAgeMs: Long,
         watchGpsDegraded: Boolean,
     ): LatLong? {
-        var currentDisplayed = state.displayedLatLong ?: state.lastAcceptedFix?.latLong ?: return null
+        val currentDisplayed = state.displayedLatLong ?: state.lastAcceptedFix?.latLong ?: return null
+        val anchor = state.visualTrajectory.currentAnchor() ?: return currentDisplayed
 
-        state.correctionBlend?.let { blend ->
-            val elapsedMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
-            val fraction =
-                (elapsedMs.toFloat() / blend.durationMs.coerceAtLeast(1L).toFloat())
-                    .coerceIn(0f, 1f)
-            val blended = lerpLatLong(blend.from, blend.to, fraction)
-            state.displayedLatLong = blended
-            state.lastAcceptedFix?.let { fix ->
-                MarkerMotionTelemetry.recordBlendState(
-                    nowElapsedMs = nowElapsedMs,
-                    fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L),
-                    accuracyM = fix.accuracyM,
-                    speedMps = fix.speedMps,
-                    bearingDeg = fix.bearingDeg,
-                    correctionDistanceM = distanceMeters(blended, blend.to),
-                )
-            }
-            if (fraction < 1f) {
-                return blended
-            }
-            state.correctionBlend = null
-            currentDisplayed = blended
-        }
-
-        if (watchGpsDegraded || state.predictionRequiresFreshFix || state.predictionHeldBySafetyClamp) {
-            val fix = state.lastAcceptedFix
+        if (watchGpsDegraded || state.predictionRequiresFreshFix) {
             MarkerMotionTelemetry.recordPredictionBlocked(
                 reason =
                     when {
                         watchGpsDegraded -> "degraded_gps"
-                        state.predictionHeldBySafetyClamp -> "safety_clamp"
                         else -> "await_fresh_fix"
                     },
                 nowElapsedMs = nowElapsedMs,
-                fixAgeMs = fix?.let { (nowElapsedMs - it.fixElapsedMs).coerceAtLeast(0L) },
-                accuracyM = fix?.accuracyM,
-                speedMps = fix?.speedMps,
-                bearingDeg = fix?.bearingDeg,
+                fixAgeMs = (nowElapsedMs - anchor.fixElapsedMs).coerceAtLeast(0L),
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
             )
             return currentDisplayed
         }
 
-        val fix = state.lastAcceptedFix ?: return currentDisplayed
-        val freshnessMaxAgeMs =
-            minOf(
-                predictionFreshnessMaxAgeMs,
-                serviceFreshnessMaxAgeMs.takeIf { it > 0L } ?: Long.MAX_VALUE,
-            )
-        val fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L)
-        if (fixAgeMs <= PREDICTION_START_DELAY_MS || fixAgeMs > freshnessMaxAgeMs) {
+        val window = predictionWindowFor(serviceFreshnessMaxAgeMs)
+        val fixAgeMs = (nowElapsedMs - anchor.fixElapsedMs).coerceAtLeast(0L)
+        if (fixAgeMs > window.stopAtMs) {
             MarkerMotionTelemetry.recordPredictionBlocked(
-                reason = if (fixAgeMs <= PREDICTION_START_DELAY_MS) "prediction_delay" else "stale",
+                reason = "stale",
                 nowElapsedMs = nowElapsedMs,
                 fixAgeMs = fixAgeMs,
-                accuracyM = fix.accuracyM,
-                speedMps = fix.speedMps,
-                bearingDeg = fix.bearingDeg,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
             )
             return currentDisplayed
         }
-        if (fix.accuracyM > maxPredictionAccuracyM) {
+        val hasPendingCorrection =
+            state.visualTrajectory.hasActiveCorrection(
+                nowElapsedMs = nowElapsedMs,
+                predictionWindow = window,
+            )
+        if (!hasPendingCorrection && anchor.accuracyM > maxPredictionAccuracyM) {
             MarkerMotionTelemetry.recordPredictionBlocked(
                 reason = "bad_accuracy",
                 nowElapsedMs = nowElapsedMs,
                 fixAgeMs = fixAgeMs,
-                accuracyM = fix.accuracyM,
-                speedMps = fix.speedMps,
-                bearingDeg = fix.bearingDeg,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
             )
             return currentDisplayed
         }
-        if (fix.speedMps < minPredictionSpeedMps) {
+        if (!hasPendingCorrection && anchor.speedMps < minPredictionSpeedMps) {
             MarkerMotionTelemetry.recordPredictionBlocked(
                 reason = "slow",
                 nowElapsedMs = nowElapsedMs,
                 fixAgeMs = fixAgeMs,
-                accuracyM = fix.accuracyM,
-                speedMps = fix.speedMps,
-                bearingDeg = fix.bearingDeg,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
             )
             return currentDisplayed
         }
-        val bearingDeg =
-            fix.bearingDeg ?: run {
-                MarkerMotionTelemetry.recordPredictionBlocked(
-                    reason = "no_bearing",
-                    nowElapsedMs = nowElapsedMs,
-                    fixAgeMs = fixAgeMs,
-                    accuracyM = fix.accuracyM,
-                    speedMps = fix.speedMps,
-                    bearingDeg = null,
-                )
-                return currentDisplayed
-            }
-
-        val effectivePredictionAgeMs = (fixAgeMs - PREDICTION_START_DELAY_MS).coerceAtLeast(0L)
-        val predictedDistanceM =
-            fix.speedMps * PREDICTION_SPEED_SCALE * (effectivePredictionAgeMs / 1000f)
-        val predicted =
-            moveLatLong(
-                start = fix.latLong,
-                bearing = bearingDeg,
-                distanceMeters = predictedDistanceM,
+        if (!hasPendingCorrection && anchor.bearingDeg == null) {
+            MarkerMotionTelemetry.recordPredictionBlocked(
+                reason = "no_bearing",
+                nowElapsedMs = nowElapsedMs,
+                fixAgeMs = fixAgeMs,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = null,
             )
-        MarkerMotionTelemetry.recordPredictionDisplayed(
-            nowElapsedMs = nowElapsedMs,
-            fixAgeMs = fixAgeMs,
-            accuracyM = fix.accuracyM,
-            speedMps = fix.speedMps,
-            bearingDeg = bearingDeg,
-            predictedDistanceM = predictedDistanceM,
-        )
-        state.displayedLatLong = predicted
-        return predicted
+            return currentDisplayed
+        }
+
+        val sample = state.visualTrajectory.sample(nowElapsedMs, window) ?: return currentDisplayed
+        if (sample.correctionActive) {
+            MarkerMotionTelemetry.recordBlendState(
+                nowElapsedMs = nowElapsedMs,
+                fixAgeMs = fixAgeMs,
+                anchor = anchor,
+                sample = sample,
+            )
+        }
+        sample.settledCorrectionDurationMs?.let { settledDurationMs ->
+            MarkerMotionTelemetry.recordCorrectionSettled(
+                reason = sample.correctionReason ?: "gps_correction",
+                durationMs = settledDurationMs,
+            )
+        }
+        if (!sample.correctionActive && sample.predictedDistanceM > 0f && anchor.bearingDeg != null) {
+            MarkerMotionTelemetry.recordPredictionDisplayed(
+                nowElapsedMs = nowElapsedMs,
+                fixAgeMs = fixAgeMs,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
+                predictedDistanceM = sample.predictedDistanceM,
+            )
+        } else if (!sample.correctionActive && fixAgeMs <= PREDICTION_START_DELAY_MS) {
+            MarkerMotionTelemetry.recordPredictionBlocked(
+                reason = "prediction_delay",
+                nowElapsedMs = nowElapsedMs,
+                fixAgeMs = fixAgeMs,
+                accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
+                bearingDeg = anchor.bearingDeg,
+            )
+        }
+        state.displayedLatLong = sample.latLong
+        return sample.latLong
     }
 }
 
 @Suppress("LargeClass", "TooManyFunctions")
 private class MarkerMotionGpsFixProcessor(
     private val state: MarkerMotionState,
-    private var maxAcceptedFixAgeMs: Long,
-    private val maxVisualCorrectionAccuracyM: Float,
-    private val minPredictionSpeedMps: Float,
-    private val correctionBlendDurationMs: Long,
-    private var isBikeActivityProfile: Boolean,
+    private val settings: MarkerMotionGpsFixProcessorSettings,
+    private val predictionWindowProvider: () -> MarkerPredictionWindow,
 ) {
     fun updateMaxAcceptedFixAgeMs(maxAcceptedFixAgeMs: Long) {
-        this.maxAcceptedFixAgeMs = maxAcceptedFixAgeMs
+        settings.maxAcceptedFixAgeMs = maxAcceptedFixAgeMs
     }
 
     fun updateActivityProfile(isBikeActivityProfile: Boolean) {
-        this.isBikeActivityProfile = isBikeActivityProfile
+        settings.isBikeActivityProfile = isBikeActivityProfile
     }
 
     fun onGpsFix(fix: MarkerMotionGpsFix): LatLong {
-        val candidateContext = buildGpsFixContext(fix)
-        rejectGpsFix(candidateContext)?.let { return it }
-
-        advanceActiveCorrectionBlend(fix.nowElapsedMs)
         val context = buildGpsFixContext(fix)
+        rejectGpsFix(context)?.let { return it }
         return acceptGpsFix(context)
-    }
-
-    private fun advanceActiveCorrectionBlend(nowElapsedMs: Long) {
-        val blend = state.correctionBlend ?: return
-        val elapsedMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
-        val fraction =
-            (elapsedMs.toFloat() / blend.durationMs.coerceAtLeast(1L).toFloat())
-                .coerceIn(0f, 1f)
-        val blended = lerpLatLong(blend.from, blend.to, fraction)
-        state.displayedLatLong = blended
-        state.lastAcceptedFix?.let { fix ->
-            MarkerMotionTelemetry.recordBlendState(
-                nowElapsedMs = nowElapsedMs,
-                fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L),
-                accuracyM = fix.accuracyM,
-                speedMps = fix.speedMps,
-                bearingDeg = fix.bearingDeg,
-                correctionDistanceM = distanceMeters(blended, blend.to),
-            )
-        }
-        if (fraction >= 1f) {
-            state.correctionBlend = null
-        }
     }
 
     private fun buildGpsFixContext(fix: MarkerMotionGpsFix): GpsFixContext {
@@ -377,6 +384,7 @@ private class MarkerMotionGpsFixProcessor(
             accuracyM = effectiveMotionAccuracy(fix.reading.accuracyM, fix.sourceMode),
             currentDisplayed = state.displayedLatLong,
             previousFix = state.lastAcceptedFix,
+            previousVisualBearingDeg = state.visualTrajectory.currentAnchor()?.bearingDeg,
         )
     }
 
@@ -406,7 +414,7 @@ private class MarkerMotionGpsFixProcessor(
 
     private fun isStaleGpsFix(context: GpsFixContext): Boolean {
         val hasDisplayedMarker = context.currentDisplayed != null
-        val fixIsTooOld = context.timing.fixAgeMs > maxAcceptedFixAgeMs
+        val fixIsTooOld = context.timing.fixAgeMs > settings.maxAcceptedFixAgeMs
         return hasDisplayedMarker && fixIsTooOld
     }
 
@@ -451,7 +459,6 @@ private class MarkerMotionGpsFixProcessor(
                 candidateFixElapsedMs = context.timing.reliableFixElapsedMs,
             )
         return if (previousFix != null && outlierDecision != null) {
-            state.correctionBlend = null
             state.clampedCorrectionStreak = 0
             MarkerMotionTelemetry.recordOutlierDropped(
                 nowElapsedMs = context.fix.nowElapsedMs,
@@ -521,17 +528,9 @@ private class MarkerMotionGpsFixProcessor(
                 derivedSpeedMps = derivedMotion?.speedMps,
                 accuracyM = context.accuracyM,
             )
-        state.smoothedSpeedMps =
-            smoothMotionSpeed(
-                resolvedSpeedMps = resolvedSpeedMps,
-                fixIntervalMs =
-                    context.previousFix
-                        ?.let { (context.timing.reliableFixElapsedMs - it.fixElapsedMs).coerceAtLeast(0L) }
-                        ?: 0L,
-                confirmedStop = confirmedStop,
-            )
+        val outputSpeedMps = if (confirmedStop) 0f else resolvedSpeedMps
         return ResolvedMotion(
-            speedMps = state.smoothedSpeedMps,
+            speedMps = outputSpeedMps,
             bearingDeg =
                 resolveMotionBearingDeg(
                     input =
@@ -541,36 +540,12 @@ private class MarkerMotionGpsFixProcessor(
                             bearingAccuracyDeg = context.fix.reading.bearingAccuracyDeg,
                             derivedMotion = derivedMotion,
                             fallbackBearingDeg = context.previousFix?.bearingDeg,
-                            resolvedSpeedMps = state.smoothedSpeedMps,
+                            resolvedSpeedMps = outputSpeedMps,
                             confirmedStop = confirmedStop,
                         ),
                 ),
         )
     }
-
-    private fun smoothMotionSpeed(
-        resolvedSpeedMps: Float,
-        fixIntervalMs: Long,
-        confirmedStop: Boolean,
-    ): Float =
-        when {
-            confirmedStop -> 0f
-            state.smoothedSpeedMps <= 0f || fixIntervalMs <= 0L -> resolvedSpeedMps
-            else -> {
-                val timeConstantMs =
-                    when {
-                        isBikeActivityProfile -> BIKE_SPEED_SMOOTHING_TIME_CONSTANT_MS
-                        resolvedSpeedMps > state.smoothedSpeedMps ->
-                            WALK_ACCELERATION_SMOOTHING_TIME_CONSTANT_MS
-                        else -> WALK_DECELERATION_SMOOTHING_TIME_CONSTANT_MS
-                    }
-                val alpha =
-                    (1.0 - exp(-fixIntervalMs.toDouble() / timeConstantMs.toDouble()))
-                        .toFloat()
-                        .coerceIn(0f, 1f)
-                alpha * resolvedSpeedMps + (1f - alpha) * state.smoothedSpeedMps
-            }
-        }
 
     private fun applyAcceptedGpsFix(
         context: GpsFixContext,
@@ -581,7 +556,8 @@ private class MarkerMotionGpsFixProcessor(
                 val correction =
                     CorrectionContext(
                         currentDisplayed = currentDisplayed,
-                        correctionDistanceM = distanceMeters(currentDisplayed, context.fix.latLong),
+                        correctionDistanceM =
+                            MarkerMotionGeometry.distanceMeters(currentDisplayed, context.fix.latLong),
                     )
                 acceptCorrection(context, motion, correction)
             }
@@ -592,7 +568,14 @@ private class MarkerMotionGpsFixProcessor(
         motion: ResolvedMotion,
     ): LatLong {
         state.displayedLatLong = context.fix.latLong
-        state.correctionBlend = null
+        state.visualTrajectory
+            .seed(
+                visualAnchor(
+                    context = context,
+                    motion = motion,
+                    latLong = context.fix.latLong,
+                ),
+            ).recordTelemetryInterruption()
         state.clampedCorrectionStreak = 0
         recordFixAccepted(
             context = context,
@@ -614,8 +597,8 @@ private class MarkerMotionGpsFixProcessor(
         correction: CorrectionContext,
     ): LatLong =
         when {
-            shouldHoldWeakAutoFusedCorrection(context) ->
-                acceptWeakAutoFusedCorrection(context, motion, correction)
+            shouldHoldWeakNonWatchCorrection(context) ->
+                acceptWeakNonWatchCorrection(context, motion, correction)
             shouldFreezeStationaryJitter(correction.correctionDistanceM, context.accuracyM, motion.speedMps) ->
                 acceptStationaryJitter(context, motion, correction)
             correction.correctionDistanceM <= correctionDeadbandMeters(context.accuracyM, motion.speedMps) ->
@@ -623,17 +606,17 @@ private class MarkerMotionGpsFixProcessor(
             else -> startCorrectionBlend(context, motion, correction)
         }
 
-    private fun shouldHoldWeakAutoFusedCorrection(context: GpsFixContext): Boolean =
-        context.fix.sourceMode == LocationSourceMode.AUTO_FUSED &&
-            context.accuracyM > maxVisualCorrectionAccuracyM
+    private fun shouldHoldWeakNonWatchCorrection(context: GpsFixContext): Boolean =
+        context.fix.sourceMode != LocationSourceMode.WATCH_GPS &&
+            context.accuracyM > settings.maxVisualCorrectionAccuracyM
 
-    private fun acceptWeakAutoFusedCorrection(
+    private fun acceptWeakNonWatchCorrection(
         context: GpsFixContext,
         motion: ResolvedMotion,
         correction: CorrectionContext,
     ): LatLong {
+        refreshHeldVisualMotionIfUsable(context, motion, correction.currentDisplayed)
         state.displayedLatLong = correction.currentDisplayed
-        state.correctionBlend = null
         state.clampedCorrectionStreak = 0
         recordFixAccepted(
             context = context,
@@ -649,12 +632,44 @@ private class MarkerMotionGpsFixProcessor(
         return correction.currentDisplayed
     }
 
+    private fun refreshHeldVisualMotionIfUsable(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        displayedLatLong: LatLong,
+    ) {
+        val previousVisualAnchor = state.visualTrajectory.currentAnchor()
+        val canContinueTrustedMotion =
+            previousVisualAnchor != null &&
+                previousVisualAnchor.accuracyM <= settings.maxVisualCorrectionAccuracyM &&
+                motion.speedMps >= settings.minPredictionSpeedMps &&
+                motion.bearingDeg != null
+        if (!canContinueTrustedMotion) return
+        state.visualTrajectory
+            .seed(
+                MarkerVisualAnchor(
+                    latLong = displayedLatLong,
+                    fixElapsedMs = context.timing.reliableFixElapsedMs,
+                    accuracyM = previousVisualAnchor.accuracyM,
+                    speedMps = motion.speedMps,
+                    bearingDeg = motion.bearingDeg,
+                ),
+            ).recordTelemetryInterruption()
+    }
+
     private fun acceptStationaryJitter(
         context: GpsFixContext,
         motion: ResolvedMotion,
         correction: CorrectionContext,
     ): LatLong {
-        state.correctionBlend = null
+        state.visualTrajectory
+            .seed(
+                visualAnchor(
+                    context = context,
+                    motion = motion.copy(speedMps = 0f, bearingDeg = null),
+                    latLong = correction.currentDisplayed,
+                ),
+            ).recordTelemetryInterruption()
+        state.displayedLatLong = correction.currentDisplayed
         state.clampedCorrectionStreak = 0
         recordFixAccepted(
             context = context,
@@ -675,8 +690,20 @@ private class MarkerMotionGpsFixProcessor(
         motion: ResolvedMotion,
         correction: CorrectionContext,
     ): LatLong {
-        state.displayedLatLong = context.fix.latLong
-        state.correctionBlend = null
+        rebaseVisualTrajectory(
+            context = context,
+            motion = motion,
+            request =
+                VisualTrajectoryRebaseRequest(
+                    targetLatLong = context.fix.latLong,
+                    displayedLatLong = correction.currentDisplayed,
+                    correctionPlan =
+                        MarkerVisualCorrectionPlan(
+                            durationMs = SMALL_CORRECTION_DURATION_MS,
+                            reason = "deadband_snap",
+                        ),
+                ),
+        )
         state.clampedCorrectionStreak = 0
         recordFixAccepted(
             context = context,
@@ -689,7 +716,7 @@ private class MarkerMotionGpsFixProcessor(
                     blendDurationMs = null,
                 ),
         )
-        return context.fix.latLong
+        return correction.currentDisplayed
     }
 
     private fun startCorrectionBlend(
@@ -734,20 +761,34 @@ private class MarkerMotionGpsFixProcessor(
         correctionTarget: CorrectionTargetDecision,
         sustainedLagCatchUpReason: String?,
     ): LatLong {
-        state.displayedLatLong = correctionTarget.targetLatLong
-        state.correctionBlend = null
+        val displayedLatLong = state.displayedLatLong ?: correctionTarget.targetLatLong
+        val correctionReason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget)
+        rebaseVisualTrajectory(
+            context = context,
+            motion = motion,
+            request =
+                VisualTrajectoryRebaseRequest(
+                    targetLatLong = correctionTarget.targetLatLong,
+                    displayedLatLong = displayedLatLong,
+                    correctionPlan =
+                        MarkerVisualCorrectionPlan(
+                            durationMs = FAST_REANCHOR_CORRECTION_DURATION_MS,
+                            reason = correctionReason,
+                        ),
+                ),
+        )
         recordFixAccepted(
             context = context,
             motion = motion,
             event =
                 FixAcceptedTelemetry(
-                    mode = MarkerMotionMode.FIXED,
-                    reason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget),
+                    mode = MarkerMotionMode.BLEND,
+                    reason = correctionReason,
                     correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
-                    blendDurationMs = null,
+                    blendDurationMs = FAST_REANCHOR_CORRECTION_DURATION_MS,
                 ),
         )
-        return correctionTarget.targetLatLong
+        return displayedLatLong
     }
 
     private fun beginCorrectionBlend(
@@ -757,26 +798,79 @@ private class MarkerMotionGpsFixProcessor(
         correctionTarget: CorrectionTargetDecision,
         sustainedLagCatchUpReason: String?,
     ): LatLong {
-        state.correctionBlend =
-            CorrectionBlend(
-                from = correction.currentDisplayed,
-                to = correctionTarget.targetLatLong,
-                startElapsedMs = context.fix.nowElapsedMs,
-                durationMs = correctionBlendDurationMs,
-            )
+        val durationMs = correctionDurationMs(context, correction)
+        val correctionReason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget)
+        rebaseVisualTrajectory(
+            context = context,
+            motion = motion,
+            request =
+                VisualTrajectoryRebaseRequest(
+                    targetLatLong = correctionTarget.targetLatLong,
+                    displayedLatLong = correction.currentDisplayed,
+                    correctionPlan =
+                        MarkerVisualCorrectionPlan(
+                            durationMs = durationMs,
+                            reason = correctionReason,
+                        ),
+                ),
+        )
         recordFixAccepted(
             context = context,
             motion = motion,
             event =
                 FixAcceptedTelemetry(
                     mode = MarkerMotionMode.BLEND,
-                    reason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget),
+                    reason = correctionReason,
                     correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
-                    blendDurationMs = correctionBlendDurationMs,
+                    blendDurationMs = durationMs,
                 ),
         )
         return correction.currentDisplayed
     }
+
+    private fun correctionDurationMs(
+        context: GpsFixContext,
+        correction: CorrectionContext,
+    ): Long {
+        val fixGapMs =
+            context.previousFix
+                ?.let { (context.timing.reliableFixElapsedMs - it.fixElapsedMs).coerceAtLeast(0L) }
+                ?: DEFAULT_EXPECTED_GPS_INTERVAL_MS
+        val cadenceDurationMs = (fixGapMs * CORRECTION_CADENCE_FRACTION).toLong()
+        val distanceDurationMs =
+            (correction.correctionDistanceM * CORRECTION_DURATION_PER_METER_MS).toLong()
+        return maxOf(settings.correctionBlendDurationMs, cadenceDurationMs, distanceDurationMs)
+            .coerceIn(MIN_CONTINUOUS_CORRECTION_DURATION_MS, MAX_CONTINUOUS_CORRECTION_DURATION_MS)
+    }
+
+    private fun rebaseVisualTrajectory(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        request: VisualTrajectoryRebaseRequest,
+    ) {
+        state.visualTrajectory
+            .rebase(
+                anchor = visualAnchor(context, motion, request.targetLatLong),
+                displayedAtRebase = request.displayedLatLong,
+                nowElapsedMs = context.fix.nowElapsedMs,
+                predictionWindow = predictionWindowProvider(),
+                correctionPlan = request.correctionPlan,
+            ).recordTelemetryInterruption()
+        state.displayedLatLong = request.displayedLatLong
+    }
+
+    private fun visualAnchor(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        latLong: LatLong,
+    ): MarkerVisualAnchor =
+        MarkerVisualAnchor(
+            latLong = latLong,
+            fixElapsedMs = context.timing.reliableFixElapsedMs,
+            accuracyM = context.accuracyM,
+            speedMps = motion.speedMps,
+            bearingDeg = motion.bearingDeg,
+        )
 
     private fun updateClampTelemetry(
         context: GpsFixContext,
@@ -785,7 +879,6 @@ private class MarkerMotionGpsFixProcessor(
         correctionTarget: CorrectionTargetDecision,
     ) {
         if (correctionTarget.wasClamped) {
-            state.predictionHeldBySafetyClamp = true
             state.clampedCorrectionStreak += 1
             MarkerMotionTelemetry.recordCorrectionClamped(
                 event =
@@ -799,7 +892,6 @@ private class MarkerMotionGpsFixProcessor(
                     ),
             )
         } else {
-            state.predictionHeldBySafetyClamp = false
             state.clampedCorrectionStreak = 0
         }
     }
@@ -833,6 +925,22 @@ private class MarkerMotionGpsFixProcessor(
         motion: ResolvedMotion,
         event: FixAcceptedTelemetry,
     ) {
+        context.currentDisplayed?.let { displayed ->
+            val residualDistanceM = MarkerMotionGeometry.distanceMeters(displayed, context.fix.latLong)
+            val components =
+                context.previousVisualBearingDeg?.let { bearingDeg ->
+                    MarkerMotionGeometry.correctionComponents(
+                        from = displayed,
+                        to = context.fix.latLong,
+                        travelBearingDeg = bearingDeg,
+                    )
+                }
+            MarkerMotionTelemetry.recordNextFixPredictionResidual(
+                residualDistanceM = residualDistanceM,
+                alongTrackErrorM = components?.alongTrackM,
+                crossTrackErrorM = components?.crossTrackM,
+            )
+        }
         MarkerMotionTelemetry.recordFixAccepted(
             mode = event.mode,
             reason = event.reason,
@@ -845,7 +953,7 @@ private class MarkerMotionGpsFixProcessor(
             blendDurationMs = event.blendDurationMs,
             innovationDistanceM =
                 context.currentDisplayed?.let { displayed ->
-                    distanceMeters(displayed, context.fix.latLong)
+                    MarkerMotionGeometry.distanceMeters(displayed, context.fix.latLong)
                 },
             fixGapMs =
                 context.previousFix?.let { previous ->
@@ -866,7 +974,7 @@ private class MarkerMotionGpsFixProcessor(
         if (dtMs < OUTLIER_MIN_WINDOW_MS) return null
         val dtSec = dtMs / 1000f
 
-        val jumpMeters = distanceMeters(latLong, candidate)
+        val jumpMeters = MarkerMotionGeometry.distanceMeters(latLong, candidate)
         val impliedSpeedMps = jumpMeters / dtSec
         val allowedJumpMeters =
             max(
@@ -931,7 +1039,11 @@ private class MarkerMotionGpsFixProcessor(
             if (wasClamped) {
                 moveLatLong(
                     start = request.currentDisplayed,
-                    bearing = bearingBetweenDegrees(request.currentDisplayed, request.targetLatLong),
+                    bearing =
+                        MarkerMotionGeometry.bearingBetweenDegrees(
+                            request.currentDisplayed,
+                            request.targetLatLong,
+                        ),
                     distanceMeters = visibleCorrectionDistanceM,
                 )
             } else {
@@ -992,7 +1104,7 @@ private class MarkerMotionGpsFixProcessor(
                 ?.coerceAtMost(DERIVED_WALKING_SPEED_CAP_MPS)
         val trustedBikeDerivedSpeed =
             trustedDerivedSpeed
-                ?.takeIf { isBikeActivityProfile }
+                ?.takeIf { settings.isBikeActivityProfile }
                 ?.takeIf { accuracyM <= DERIVED_BIKE_SPEED_MAX_ACCURACY_M }
                 ?.takeIf { it in DERIVED_BIKE_SPEED_MIN_MPS..DERIVED_BIKE_SPEED_MAX_MPS }
                 ?.coerceAtMost(DERIVED_BIKE_SPEED_CAP_MPS)
@@ -1013,21 +1125,10 @@ private class MarkerMotionGpsFixProcessor(
         val usableRawSpeed = trustedRawSpeed.takeUnless { rawSpeedAccuracyIsPoor }
 
         return when {
-            shouldPreferDerivedSpeed(usableRawSpeed, profileDerivedSpeed) -> profileDerivedSpeed ?: 0f
             usableRawSpeed != null -> usableRawSpeed
             profileDerivedSpeed != null -> profileDerivedSpeed
             else -> 0f
         }
-    }
-
-    private fun shouldPreferDerivedSpeed(
-        rawSpeedMps: Float?,
-        derivedSpeedMps: Float?,
-    ): Boolean {
-        if (rawSpeedMps == null || derivedSpeedMps == null) return rawSpeedMps == null && derivedSpeedMps != null
-        val rawLooksLow = rawSpeedMps <= LOW_RAW_SPEED_OVERRIDE_MAX_MPS
-        val derivedPullsAhead = derivedSpeedMps >= rawSpeedMps + LOW_RAW_SPEED_OVERRIDE_GAIN_MPS
-        return rawLooksLow && derivedPullsAhead
     }
 
     private fun isConfirmedStop(
@@ -1064,7 +1165,7 @@ private class MarkerMotionGpsFixProcessor(
                 max(sanitizeSpeed(input.rawSpeedMps), input.resolvedSpeedMps) >= GPS_BEARING_MIN_SPEED_MPS
         val derivedBearingIsUsable =
             input.derivedMotion?.bearingDeg != null &&
-                max(input.derivedMotion.speedMps, input.resolvedSpeedMps) >= minPredictionSpeedMps
+                max(input.derivedMotion.speedMps, input.resolvedSpeedMps) >= settings.minPredictionSpeedMps
         return when {
             rawBearingIsUsable -> normalize360(input.rawBearingDeg)
             derivedBearingIsUsable -> input.derivedMotion.bearingDeg
@@ -1076,12 +1177,18 @@ private class MarkerMotionGpsFixProcessor(
 private class MarkerMotionState {
     var lastAcceptedFix: MotionFix? = null
     var displayedLatLong: LatLong? = null
-    var correctionBlend: CorrectionBlend? = null
-    var smoothedSpeedMps: Float = 0f
+    val visualTrajectory = MarkerVisualTrajectory()
     var predictionRequiresFreshFix: Boolean = true
-    var predictionHeldBySafetyClamp: Boolean = false
     var clampedCorrectionStreak: Int = 0
 }
+
+private data class MarkerMotionGpsFixProcessorSettings(
+    var maxAcceptedFixAgeMs: Long,
+    val maxVisualCorrectionAccuracyM: Float,
+    val minPredictionSpeedMps: Float,
+    val correctionBlendDurationMs: Long,
+    var isBikeActivityProfile: Boolean = false,
+)
 
 private data class MotionFix(
     val latLong: LatLong,
@@ -1103,6 +1210,7 @@ private data class GpsFixContext(
     val accuracyM: Float,
     val currentDisplayed: LatLong?,
     val previousFix: MotionFix?,
+    val previousVisualBearingDeg: Float?,
 )
 
 private data class ResolvedMotion(
@@ -1115,18 +1223,17 @@ private data class CorrectionContext(
     val correctionDistanceM: Float,
 )
 
+private data class VisualTrajectoryRebaseRequest(
+    val targetLatLong: LatLong,
+    val displayedLatLong: LatLong,
+    val correctionPlan: MarkerVisualCorrectionPlan,
+)
+
 private data class FixAcceptedTelemetry(
     val mode: MarkerMotionMode,
     val reason: String,
     val correctionDistanceM: Float?,
     val blendDurationMs: Long?,
-)
-
-private data class CorrectionBlend(
-    val from: LatLong,
-    val to: LatLong,
-    val startElapsedMs: Long,
-    val durationMs: Long,
 )
 
 private data class DerivedMotion(
@@ -1165,6 +1272,15 @@ private data class CorrectionTargetRequest(
     val allowLargeCorrection: Boolean,
 )
 
+private fun MotionFix.toVisualAnchor(latLong: LatLong = this.latLong): MarkerVisualAnchor =
+    MarkerVisualAnchor(
+        latLong = latLong,
+        fixElapsedMs = fixElapsedMs,
+        accuracyM = accuracyM,
+        speedMps = speedMps,
+        bearingDeg = bearingDeg,
+    )
+
 private fun MotionFix.deriveMotionTo(
     target: LatLong,
     targetFixElapsedMs: Long,
@@ -1173,11 +1289,11 @@ private fun MotionFix.deriveMotionTo(
     if (dtMs < DERIVED_MOTION_MIN_WINDOW_MS) return null
     val dtSec = dtMs / 1000f
     if (dtSec <= 0f) return null
-    val distanceM = distanceMeters(latLong, target)
+    val distanceM = MarkerMotionGeometry.distanceMeters(latLong, target)
     val speedMps = distanceM / dtSec
     return DerivedMotion(
         speedMps = speedMps,
-        bearingDeg = bearingBetweenDegrees(latLong, target),
+        bearingDeg = MarkerMotionGeometry.bearingBetweenDegrees(latLong, target),
     )
 }
 
@@ -1216,7 +1332,8 @@ private fun isDuplicateMotionFix(
     val fixTimeDeltaMs = candidateFixElapsedMs - previousFix.fixElapsedMs
     val isSameTime = fixTimeDeltaMs <= DUPLICATE_FIX_TIME_EPSILON_MS
     val isSameAccuracy = abs(previousFix.accuracyM - candidateAccuracyM) <= DUPLICATE_FIX_ACCURACY_EPSILON_M
-    val isSamePosition = distanceMeters(previousFix.latLong, candidate) <= DUPLICATE_FIX_DISTANCE_EPSILON_M
+    val isSamePosition =
+        MarkerMotionGeometry.distanceMeters(previousFix.latLong, candidate) <= DUPLICATE_FIX_DISTANCE_EPSILON_M
     return isSameTime && isSameAccuracy && isSamePosition
 }
 
@@ -1231,56 +1348,23 @@ private fun normalize360(angleDeg: Float): Float {
     return normalized
 }
 
-private fun bearingBetweenDegrees(
-    from: LatLong,
-    to: LatLong,
-): Float {
-    val lat1 = Math.toRadians(from.latitude)
-    val lat2 = Math.toRadians(to.latitude)
-    val dLon = Math.toRadians(to.longitude - from.longitude)
-    val y = sin(dLon) * cos(lat2)
-    val x =
-        cos(lat1) * sin(lat2) -
-            sin(lat1) * cos(lat2) * cos(dLon)
-    val bearingDeg = Math.toDegrees(atan2(y, x)).toFloat()
-    return normalize360(bearingDeg)
+private fun MarkerVisualCorrectionEnd?.recordTelemetryInterruption() {
+    this?.let { interruption ->
+        MarkerMotionTelemetry.recordCorrectionInterrupted(
+            reason = interruption.reason,
+            durationMs = interruption.durationMs,
+        )
+    }
 }
 
-private fun distanceMeters(
-    from: LatLong,
-    to: LatLong,
-): Float {
-    val lat1 = Math.toRadians(from.latitude)
-    val lat2 = Math.toRadians(to.latitude)
-    val dLat = lat2 - lat1
-    val dLon = Math.toRadians(to.longitude - from.longitude)
-    val a =
-        sin(dLat / 2.0) * sin(dLat / 2.0) +
-            cos(lat1) * cos(lat2) * sin(dLon / 2.0) * sin(dLon / 2.0)
-    val c = 2.0 * asin(sqrt(a))
-    return (EARTH_RADIUS_METERS * c).toFloat()
-}
-
-private fun lerpLatLong(
-    from: LatLong,
-    to: LatLong,
-    fraction: Float,
-): LatLong =
-    LatLong(
-        from.latitude + (to.latitude - from.latitude) * fraction,
-        from.longitude + (to.longitude - from.longitude) * fraction,
-    )
-
-private const val EARTH_RADIUS_METERS = 6_371_000.0
 private const val DEFAULT_UNKNOWN_ACCURACY_M = 99f
 private const val DEFAULT_MAX_PREDICTION_ACCURACY_M = 35f
 private const val WATCH_GPS_FLOOR_MOTION_ACCURACY_M = 18f
 private const val DEFAULT_MIN_PREDICTION_SPEED_MPS = 0.35f
-private const val DEFAULT_CORRECTION_BLEND_DURATION_MS = 350L
-private const val DEFAULT_PREDICTION_TICK_MS = 250L
-private const val DEFAULT_CORRECTION_BLEND_TICK_MS = 100L
+private const val DEFAULT_CORRECTION_BLEND_DURATION_MS = 1_200L
+private const val DEFAULT_EXPECTED_GPS_INTERVAL_MS = 3_000L
+private const val MIN_EXPECTED_GPS_INTERVAL_MS = 1_000L
 private const val PREDICTION_START_DELAY_MS = 50L
-private const val PREDICTION_SPEED_SCALE = 0.9f
 private const val DUPLICATE_FIX_TIME_EPSILON_MS = 250L
 private const val DUPLICATE_FIX_DISTANCE_EPSILON_M = 0.25f
 private const val DUPLICATE_FIX_ACCURACY_EPSILON_M = 0.1f
@@ -1291,9 +1375,6 @@ private const val WATCH_GPS_CATCH_UP_MAX_ACCURACY_M = 25f
 private const val AUTO_FUSED_CATCH_UP_MIN_LAG_M = 35f
 private const val AUTO_FUSED_CATCH_UP_MIN_SPEED_MPS = 0.8f
 private const val AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M = 12f
-private const val WALK_ACCELERATION_SMOOTHING_TIME_CONSTANT_MS = 3_500L
-private const val WALK_DECELERATION_SMOOTHING_TIME_CONSTANT_MS = 7_000L
-private const val BIKE_SPEED_SMOOTHING_TIME_CONSTANT_MS = 4_000L
 private const val GPS_BEARING_MIN_SPEED_MPS = 0.45f
 private const val MAX_TRUSTED_SPEED_ACCURACY_MPS = 1.5f
 private const val MAX_SPEED_ACCURACY_RATIO = 0.75f
@@ -1311,8 +1392,6 @@ private const val DERIVED_BIKE_SPEED_MAX_ACCURACY_M = 25f
 private const val DERIVED_BIKE_SPEED_MIN_MPS = 0.5f
 private const val DERIVED_BIKE_SPEED_MAX_MPS = 20f
 private const val DERIVED_BIKE_SPEED_CAP_MPS = 15f
-private const val LOW_RAW_SPEED_OVERRIDE_MAX_MPS = 0.75f
-private const val LOW_RAW_SPEED_OVERRIDE_GAIN_MPS = 0.2f
 private const val OUTLIER_MIN_WINDOW_MS = 1_000L
 private const val MIN_OUTLIER_JUMP_M = 24f
 private const val OUTLIER_JUMP_MARGIN_M = 10f
@@ -1323,6 +1402,12 @@ private const val STATIONARY_JITTER_MAX_SPEED_MPS = 0.35f
 private const val STATIONARY_JITTER_MIN_RADIUS_M = 3f
 private const val STATIONARY_JITTER_MAX_RADIUS_M = 10f
 private const val MOVING_CORRECTION_DEADBAND_M = 1.2f
+private const val SMALL_CORRECTION_DURATION_MS = 500L
+private const val FAST_REANCHOR_CORRECTION_DURATION_MS = 600L
+private const val MIN_CONTINUOUS_CORRECTION_DURATION_MS = 600L
+private const val MAX_CONTINUOUS_CORRECTION_DURATION_MS = 1_800L
+private const val CORRECTION_CADENCE_FRACTION = 0.35
+private const val CORRECTION_DURATION_PER_METER_MS = 100f
 private const val LARGE_CORRECTION_MIN_DISTANCE_M = 18f
 private const val LARGE_CORRECTION_MIN_ACCURACY_M = 14f
 private const val LARGE_CORRECTION_FORCE_CLAMP_DISTANCE_M = 26f

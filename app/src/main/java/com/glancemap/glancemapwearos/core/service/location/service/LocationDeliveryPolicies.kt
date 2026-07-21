@@ -4,6 +4,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.SCREEN_OFF_REC
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
+import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
@@ -29,6 +30,35 @@ internal fun shouldSuppressImmediateBurstForFreshStream(
         signal.lastFixAccuracyM.isFinite() &&
         signal.lastFixAccuracyM <= 35f
 }
+
+internal fun shouldRequestStaleNavigateOneShot(
+    runtimeReason: String,
+    sourceMode: LocationSourceMode,
+    signal: GpsSignalSnapshot,
+    nowElapsedMs: Long,
+    freshnessMaxAgeMs: Long,
+): Boolean {
+    val fixAgeMs =
+        signal.lastFixElapsedRealtimeMs
+            .takeIf { it > 0L }
+            ?.let { (nowElapsedMs - it).coerceAtLeast(0L) }
+            ?: Long.MAX_VALUE
+    return runtimeReason == NavigationRuntimeDemandReason.NAVIGATE_VISIBLE &&
+        sourceMode == LocationSourceMode.AUTO_FUSED &&
+        fixAgeMs > freshnessMaxAgeMs
+}
+
+internal fun navigateOneShotCancellationReason(
+    trackingEnabled: Boolean,
+    screenState: LocationScreenState,
+    runtimeReason: String,
+): String? =
+    when {
+        !trackingEnabled -> "tracking_disabled"
+        screenState.isNonInteractive -> "screen_non_interactive"
+        runtimeReason != NavigationRuntimeDemandReason.NAVIGATE_VISIBLE -> "navigate_not_visible"
+        else -> null
+    }
 
 internal fun resolveMaxUpdateDelayMs(
     screenState: LocationScreenState,

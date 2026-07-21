@@ -332,6 +332,35 @@ internal class LocationServiceTelemetry(
         log("getCurrentLocation: failed source=$source backend=$backend errorType=$errorType$detailSuffix")
     }
 
+    fun logNavigateOneShotRequested(
+        source: String,
+        backend: String,
+        maxUpdateAgeMs: Long,
+        timeoutMs: Long,
+    ) {
+        log(
+            "navigateOneShot: requested source=$source backend=$backend " +
+                "maxUpdateAgeMs=$maxUpdateAgeMs timeoutMs=$timeoutMs",
+        )
+    }
+
+    @Suppress("LongParameterList")
+    fun logNavigateOneShotOutcome(
+        source: String,
+        backend: String,
+        outcome: String,
+        reason: String,
+        durationMs: Long,
+        fixAgeMs: Long?,
+        accuracyM: Float?,
+    ) {
+        log(
+            "navigateOneShot: outcome=$outcome source=$source backend=$backend " +
+                "reason=$reason durationMs=$durationMs fixAgeMs=${fixAgeMs ?: "na"} " +
+                "accuracyM=${accuracyM?.format(1) ?: "na"}",
+        )
+    }
+
     fun logRequestUpdatesFailed(
         priority: Int,
         intervalMs: Long,

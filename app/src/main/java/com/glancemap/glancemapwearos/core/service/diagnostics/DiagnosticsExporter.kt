@@ -20,6 +20,8 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeScreen
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionMetricSummary
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import java.io.File
 import java.time.Duration
@@ -559,7 +561,7 @@ object DiagnosticsExporter {
         val demDownloadSummary = DemDownloadDiagnostics.summary()
         val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
         val demDownloadDroppedLines = DemDownloadDiagnostics.droppedLineCount()
-        val markerMotionSummary = MarkerMotionTelemetry.summary()
+        val markerMotionSummary = MarkerMotionTelemetry.summary(android.os.SystemClock.elapsedRealtime())
         val markerMotionSnapshot = MarkerMotionTelemetry.latestSnapshot()
         val mapHotPathSummary = MapHotPathDiagnostics.summary()
         val mapHotPathLines = MapHotPathDiagnostics.snapshotLines()
@@ -858,9 +860,30 @@ object DiagnosticsExporter {
                     (markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"),
             )
             writer.appendLine(
+                "markerMotionActiveRenderIntervalP50Ms=" +
+                    (markerMotionSummary.activeRenderIntervalP50Ms?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalP95Ms=" +
+                    (markerMotionSummary.activeRenderIntervalP95Ms?.toString() ?: "na"),
+            )
+            writer.appendLine(
                 "markerMotionActiveRenderIntervalMaxMs=" +
                     (markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"),
             )
+            writer.appendLine(
+                "markerMotionNextFixResidualM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
+            )
+            writer.appendLine(
+                "markerMotionRenderStepPx=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementPx, digits = 2),
+            )
+            writer.appendLine(
+                "markerMotionCorrectionSettleMs=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionSettleDurationMs, digits = 0),
+            )
+            writer.appendLine("markerMotionCorrectionInterrupted=${markerMotionSummary.correctionInterruptedCount}")
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
@@ -1917,8 +1940,61 @@ object DiagnosticsExporter {
                 "activeRenderIntervalMeanMs=${markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"}",
             )
             writer.appendLine(
+                "activeRenderIntervalP50Ms=${markerMotionSummary.activeRenderIntervalP50Ms?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "activeRenderIntervalP95Ms=${markerMotionSummary.activeRenderIntervalP95Ms?.toString() ?: "na"}",
+            )
+            writer.appendLine(
                 "activeRenderIntervalMaxMs=${markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"}",
             )
+            writer.appendLine(
+                "nextFixPredictionResidualM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
+            )
+            writer.appendLine("correctionComponentSamples=${markerMotionSummary.correctionComponentSamples}")
+            writer.appendLine(
+                "correctionAlongTrackMeanM=" +
+                    TelemetryFormatters.decimalOrNa(markerMotionSummary.correctionAlongTrackMeanM, 1),
+            )
+            writer.appendLine(
+                "correctionCrossTrackMeanM=" +
+                    TelemetryFormatters.decimalOrNa(markerMotionSummary.correctionCrossTrackMeanM, 1),
+            )
+            writer.appendLine(
+                "correctionAlongTrackAbsM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionAlongTrackAbsM, digits = 1),
+            )
+            writer.appendLine(
+                "correctionCrossTrackAbsM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionCrossTrackAbsM, digits = 1),
+            )
+            writer.appendLine(
+                "renderDisplacementM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementM, digits = 2),
+            )
+            writer.appendLine(
+                "renderDisplacementPx=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementPx, digits = 2),
+            )
+            writer.appendLine(
+                "correctionSettleDurationMs=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionSettleDurationMs, digits = 0),
+            )
+            writer.appendLine("correctionInterruptedCount=${markerMotionSummary.correctionInterruptedCount}")
+            writer.appendLine(
+                "rawFilteredPositionOffsetM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredPositionOffsetM, digits = 1),
+            )
+            writer.appendLine(
+                "rawFilteredSpeedOffsetMps=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredSpeedOffsetMps, digits = 2),
+            )
+            writer.appendLine(
+                "rawFilteredBearingOffsetDeg=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredBearingOffsetDeg, digits = 1),
+            )
+            writer.appendLine("modeDwellMs=${formatMarkerMotionModeDwell(markerMotionSummary.modeDwellMs)}")
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
@@ -1959,6 +2035,9 @@ object DiagnosticsExporter {
                 "latestCorrectionDistanceM=${
                     TelemetryFormatters.decimalOrNa(markerMotionSnapshot.correctionDistanceM, 1)
                 }",
+            )
+            writer.appendLine(
+                "latestCorrectionAgeMs=${markerMotionSnapshot.correctionAgeMs?.toString() ?: "na"}",
             )
             writer.appendLine("latestUpdatedAtElapsedMs=${markerMotionSnapshot.updatedAtElapsedMs}")
             writer.appendLine()
@@ -2298,6 +2377,30 @@ object DiagnosticsExporter {
                 .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
                 .joinToString(separator = ",") { (reason, count) -> "$reason:$count" }
         }
+
+    private fun formatMarkerMotionMetricSummary(
+        summary: MarkerMotionMetricSummary,
+        digits: Int,
+    ): String =
+        if (summary.samples <= 0) {
+            "samples:0"
+        } else {
+            buildString {
+                append("samples:${summary.samples}")
+                append(",mean:${TelemetryFormatters.decimalOrNa(summary.mean, digits)}")
+                append(",p50:${TelemetryFormatters.decimalOrNa(summary.p50, digits)}")
+                append(",p95:${TelemetryFormatters.decimalOrNa(summary.p95, digits)}")
+                append(",max:${TelemetryFormatters.decimalOrNa(summary.max, digits)}")
+            }
+        }
+
+    private fun formatMarkerMotionModeDwell(modeDwellMs: Map<MarkerMotionMode, Long>): String =
+        modeDwellMs.entries
+            .filter { (_, dwellMs) -> dwellMs > 0L }
+            .sortedBy { (mode, _) -> mode.ordinal }
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(separator = ",") { (mode, dwellMs) -> "${mode.label}:$dwellMs" }
+            ?: "none"
 }
 
 internal fun normalizeThreadtimeLogcatLine(
