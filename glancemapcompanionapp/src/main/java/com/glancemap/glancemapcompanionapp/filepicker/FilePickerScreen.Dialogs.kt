@@ -411,8 +411,9 @@ internal fun FilePickerQuickGuideDialog(
                                 "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface to configure it.",
                             lines =
                                 listOf(
-                                    "Create or join a group.",
-                                    "In Settings, set participant name, GPS update frequency, alert emails, and no-movement alerts.",
+                                    "Tap Set up live tracking.",
+                                    "Connect to an existing private group or create one.",
+                                    "Add your name, GPS update frequency, and safety alerts.",
                                 ),
                         ),
                         QuickGuidePage(
