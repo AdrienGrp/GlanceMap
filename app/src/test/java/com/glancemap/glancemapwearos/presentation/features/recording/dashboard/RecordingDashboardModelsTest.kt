@@ -412,6 +412,48 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun bikeRecordingRecapPlacesElevationAndHeartRateBeforeSpeed() {
+        val snapshot =
+            RecordingDashboardSnapshot(
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+                durationSeconds = 3_723.0,
+                distanceMeters = 1_234.0,
+                elevationGainMeters = 120.0,
+                elevationLossMeters = 95.0,
+                currentElevationMeters = null,
+                currentSpeedMps = null,
+                averageSpeedMps = 2.0,
+                gpsAccuracyMeters = null,
+                pointCount = 42,
+                gpsActiveDurationSeconds = 3_700.0,
+                recordingGapCount = 0,
+                recordingMaxGapSeconds = 0.0,
+            )
+
+        val labels = recordingRecapMetricsForSnapshot(snapshot, isMetric = true).map { it.label }
+
+        assertEquals(
+            listOf(
+                "Distance",
+                "Cal (Total)",
+                "Cal (Active)",
+                "Cal (Rest)",
+                "Time (Active)",
+                "Time (Total)",
+                "Elev +",
+                "Elev -",
+                "HR (Avg)",
+                "Max HR",
+                "Speed (Avg)",
+                "Max speed",
+                "Power (Avg)",
+                "Max Power",
+            ),
+            labels,
+        )
+    }
+
+    @Test
     fun metricPickerOptionsAreAlphabetical() {
         val labels =
             recordingMetricPickerOptionsForProfile(SettingsRepository.ACTIVITY_PROFILE_HIKE)
