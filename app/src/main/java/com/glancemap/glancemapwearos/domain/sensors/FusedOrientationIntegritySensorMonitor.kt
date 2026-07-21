@@ -23,6 +23,10 @@ internal class FusedOrientationIntegritySensorMonitor(
     private val gameRotationMatrix = FloatArray(9)
 
     private var started = false
+
+    @Volatile private var gameRotationVectorRegistered = false
+
+    @Volatile private var magnetometerRegistered = false
     private var onRelativeHeading: ((RelativeHeadingWitness, Long) -> Unit)? = null
     private var onMagneticField: ((Float, Long) -> Unit)? = null
 
@@ -35,6 +39,7 @@ internal class FusedOrientationIntegritySensorMonitor(
     fun start(
         handler: Handler,
         lowPower: Boolean,
+        enableRelativeWitness: Boolean,
         onRelativeHeading: (RelativeHeadingWitness, Long) -> Unit,
         onMagneticField: (Float, Long) -> Unit,
     ) {
@@ -46,19 +51,32 @@ internal class FusedOrientationIntegritySensorMonitor(
         val magneticPeriodUs =
             if (lowPower) INTEGRITY_LOW_POWER_PERIOD_US else INTEGRITY_MAGNETIC_PERIOD_US
         val relativeRegistered =
-            gameRotationVector?.let { sensor ->
+            gameRotationVector?.takeIf { enableRelativeWitness }?.let { sensor ->
                 sensorManager.registerListener(this, sensor, relativePeriodUs, handler)
             } == true
         val magneticRegistered =
             magnetometer?.let { sensor ->
                 sensorManager.registerListener(this, sensor, magneticPeriodUs, handler)
             } == true
-        started = relativeRegistered || magneticRegistered
+        gameRotationVectorRegistered = relativeRegistered
+        magnetometerRegistered = magneticRegistered
+        started = gameRotationVectorRegistered || magnetometerRegistered
+    }
+
+    /** Stops the high-rate relative witness while preserving the low-rate magnetic integrity feed. */
+    fun disableRelativeHeading(): Boolean {
+        if (!gameRotationVectorRegistered) return false
+        gameRotationVector?.let { sensor -> sensorManager.unregisterListener(this, sensor) }
+        gameRotationVectorRegistered = false
+        onRelativeHeading = null
+        return true
     }
 
     fun stop() {
         if (started) sensorManager.unregisterListener(this)
         started = false
+        gameRotationVectorRegistered = false
+        magnetometerRegistered = false
         onRelativeHeading = null
         onMagneticField = null
     }
@@ -69,8 +87,12 @@ internal class FusedOrientationIntegritySensorMonitor(
             (event.timestamp / NANOS_PER_MILLISECOND).takeIf { it > 0L }
                 ?: SystemClock.elapsedRealtime()
         when (event.sensor.type) {
-            Sensor.TYPE_GAME_ROTATION_VECTOR -> publishRelativeHeading(event, atElapsedMs)
-            Sensor.TYPE_MAGNETIC_FIELD -> publishMagneticField(event, atElapsedMs)
+            Sensor.TYPE_GAME_ROTATION_VECTOR -> {
+                if (gameRotationVectorRegistered) publishRelativeHeading(event, atElapsedMs)
+            }
+            Sensor.TYPE_MAGNETIC_FIELD -> {
+                if (magnetometerRegistered) publishMagneticField(event, atElapsedMs)
+            }
         }
     }
 
