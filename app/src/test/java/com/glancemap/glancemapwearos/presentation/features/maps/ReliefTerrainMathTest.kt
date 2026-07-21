@@ -96,6 +96,19 @@ class ReliefTerrainMathTest {
         assertEquals(detailedTile, resolveDemFile(listOf(detailedRoot, standardRoot), "N45E006"))
     }
 
+    @Test
+    fun standardSelectionFallsBackToDetailedTerrain() {
+        val detailedRoot = temporaryFolder.newFolder("detailed")
+        val standardRoot = temporaryFolder.newFolder("standard")
+        val detailedTile = writeTilePlaceholder(detailedRoot)
+
+        assertEquals(detailedTile, resolveDemFile(listOf(standardRoot, detailedRoot), "N45E006"))
+        assertEquals(
+            listOf(DemSource.MAPSFORGE_DEM3, DemSource.MAPZEN_SKADI_1S),
+            DemSource.MAPSFORGE_DEM3.readFallbackOrder(),
+        )
+    }
+
     private fun writeTilePlaceholder(root: File): File {
         val folder = File(root, "N45").apply { mkdirs() }
         return File(folder, "N45E006.hgt").apply { createNewFile() }

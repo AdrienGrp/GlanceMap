@@ -21,8 +21,10 @@ import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryI
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupReason
+import com.glancemap.glancemapwearos.presentation.features.maps.theme.DemMapReadiness
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import kotlinx.coroutines.launch
 
@@ -45,6 +47,8 @@ fun MapSettingsScreen(
     val scope = rememberCoroutineScope()
     var showDemSetupDialog by remember { mutableStateOf(false) }
     var demSetupReason by remember { mutableStateOf(DemSetupReason.GENERIC) }
+    var fallbackTerrainNotice by remember { mutableStateOf<DemMapReadiness?>(null) }
+    var fallbackTerrainNoticeKey by remember { mutableStateOf<String?>(null) }
     val markerPositionOptions =
         listOf(
             SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER to stringResource(R.string.marker_position_middle),
@@ -92,6 +96,24 @@ fun MapSettingsScreen(
             demSetupReason = DemSetupReason.GENERIC
         },
     )
+    fallbackTerrainNotice?.let { readiness ->
+        val fallbackSource =
+            readiness
+                .selectedSource
+                .readFallbackOrder()
+                .first { source -> source != readiness.selectedSource }
+        WearActionDialog(
+            visible = true,
+            title = "Using available terrain",
+            message =
+                "${readiness.selectedSource.displayName} is not fully downloaded for this map. " +
+                    "Live elevation is using ${fallbackSource.displayName} where needed. " +
+                    "Download ${readiness.selectedSource.displayName} in Maps to use it instead.",
+            confirmText = "OK",
+            onConfirm = { fallbackTerrainNotice = null },
+            onDismissRequest = { fallbackTerrainNotice = null },
+        )
+    }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
@@ -136,9 +158,14 @@ fun MapSettingsScreen(
                         viewModel.setLiveElevation(false)
                     } else {
                         scope.launch {
-                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
-                            if (demReady) {
+                            val readiness = themeViewModel.demReadinessForMap(selectedMapPath)
+                            if (readiness.isReady) {
                                 viewModel.setLiveElevation(true)
+                                val noticeKey = "${selectedMapPath.orEmpty()}:${readiness.selectedSource.id}"
+                                if (readiness.usesFallbackTerrain && fallbackTerrainNoticeKey != noticeKey) {
+                                    fallbackTerrainNoticeKey = noticeKey
+                                    fallbackTerrainNotice = readiness
+                                }
                             } else {
                                 viewModel.setLiveElevation(false)
                                 demSetupReason = DemSetupReason.LIVE_ELEVATION
@@ -170,7 +197,7 @@ fun MapSettingsScreen(
                         themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
                     } else {
                         scope.launch {
-                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
+                            val demReady = themeViewModel.demReadinessForMap(selectedMapPath).isReady
                             if (demReady) {
                                 themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, true)
                             } else {
@@ -193,7 +220,7 @@ fun MapSettingsScreen(
                         themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
                     } else {
                         scope.launch {
-                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
+                            val demReady = themeViewModel.demReadinessForMap(selectedMapPath).isReady
                             if (demReady) {
                                 themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, true)
                             } else {

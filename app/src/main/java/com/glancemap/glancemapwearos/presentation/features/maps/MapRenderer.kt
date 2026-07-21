@@ -377,6 +377,12 @@ class MapRenderer(
             currentReliefOverlayEnabled = reliefOverlayEnabled
             currentDemSource = demSource
             currentThemeSignature = newSignature
+            if (demSourceChanged) {
+                liveElevationSampler?.let { sampler ->
+                    runCatching { sampler.onDestroy() }
+                }
+                liveElevationSampler = null
+            }
             if (!currentHillShadingEnabled || demSourceChanged) {
                 destroyHillsRenderConfig()
             }

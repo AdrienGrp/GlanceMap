@@ -45,12 +45,14 @@ enum class DemSource(
 
     fun localFileName(tileId: String): String = remoteFileName(tileId)
 
-    /** Read the selected terrain first, then standard terrain as the universal fallback. */
+    /**
+     * Read the selected terrain first, then any other downloaded terrain as a runtime fallback.
+     *
+     * The selected source remains the user's preference. A fallback only prevents DEM-backed
+     * features from being unavailable while another complete terrain dataset is already present.
+     */
     fun readFallbackOrder(): List<DemSource> =
-        when (this) {
-            MAPZEN_SKADI_1S -> listOf(MAPZEN_SKADI_1S, MAPSFORGE_DEM3)
-            MAPSFORGE_DEM3 -> listOf(MAPSFORGE_DEM3)
-        }
+        listOf(this) + entries.filterNot { it == this }
 
     fun remoteUrl(tileId: String): String {
         val safeTileId = tileId.uppercase(Locale.ROOT)

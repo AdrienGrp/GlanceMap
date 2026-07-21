@@ -68,6 +68,12 @@ data class DemDownloadUiState(
             )
 }
 
+data class DemMapReadiness(
+    val isReady: Boolean,
+    val selectedSource: DemSource,
+    val usesFallbackTerrain: Boolean,
+)
+
 internal fun demDownloadProgressPercent(
     totalTiles: Int,
     completedTiles: Int,
@@ -439,12 +445,37 @@ class ThemeViewModel(
         job.cancel(CancellationException("DEM download cancelled"))
     }
 
-    suspend fun isDemReadyForMap(mapPath: String?): Boolean =
+    suspend fun demReadinessForMap(mapPath: String?): DemMapReadiness =
         withContext(Dispatchers.IO) {
-            Dem3CoverageUtils.isReadyForMap(
-                context = appContext,
-                mapPath = mapPath,
-                sources = demSource.value.readFallbackOrder(),
+            // Do not rely on demSource.value here. This ViewModel intentionally keeps that flow
+            // WhileSubscribed, so a newly opened Map settings screen can otherwise momentarily
+            // use the default Standard terrain instead of the saved user selection.
+            val selectedSource = settingsRepository.demSource.first()
+            val mapFile =
+                mapPath
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::File)
+                    ?: return@withContext DemMapReadiness(
+                        isReady = false,
+                        selectedSource = selectedSource,
+                        usesFallbackTerrain = false,
+                    )
+            val selectedCoverage =
+                Dem3CoverageUtils.coverageForMap(
+                    context = appContext,
+                    mapFile = mapFile,
+                    sources = listOf(selectedSource),
+                )
+            val runtimeCoverage =
+                Dem3CoverageUtils.coverageForMap(
+                    context = appContext,
+                    mapFile = mapFile,
+                    sources = selectedSource.readFallbackOrder(),
+                )
+            DemMapReadiness(
+                isReady = runtimeCoverage.isReady,
+                selectedSource = selectedSource,
+                usesFallbackTerrain = runtimeCoverage.isReady && !selectedCoverage.isReady,
             )
         }
 
