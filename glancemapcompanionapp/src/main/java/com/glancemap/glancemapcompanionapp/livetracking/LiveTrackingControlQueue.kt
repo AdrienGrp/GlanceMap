@@ -81,6 +81,7 @@ internal object LiveTrackingControlQueue {
             .put("notificationEmails", notificationEmails)
             .put("alertEmails", alertEmails)
             .put("stuckAlarmMinutes", stuckAlarmMinutes)
+            .put("start", start)
             .put("pause", pause)
             .put("resume", resume)
             .put("dateId", dateId)
@@ -103,7 +104,7 @@ internal object LiveTrackingControlQueue {
                 notificationEmails = optString("notificationEmails"),
                 alertEmails = optString("alertEmails"),
                 stuckAlarmMinutes = optString("stuckAlarmMinutes"),
-                start = false,
+                start = optBoolean("start"),
                 stop = false,
                 pause = optBoolean("pause"),
                 resume = optBoolean("resume"),
