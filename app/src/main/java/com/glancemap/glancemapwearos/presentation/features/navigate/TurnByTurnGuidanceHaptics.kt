@@ -35,6 +35,7 @@ internal fun TurnByTurnGuidanceHapticEffect(
         state.alertGpsDeliveryIntervalMs ?: SettingsRepository.DEFAULT_GPS_INTERVAL_MS
     val turnAlertTracker = remember(routeKey) { TurnHapticAlertTracker() }
     var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
+    var offRouteEpisodeActive by remember(routeKey) { mutableStateOf(false) }
 
     LaunchedEffect(state.active, state.trackTitle) {
         if (!state.active) {
@@ -115,6 +116,35 @@ internal fun TurnByTurnGuidanceHapticEffect(
             delay(offRouteRepeatSeconds.coerceAtLeast(OFF_ROUTE_MIN_REPEAT_SECONDS) * 1_000L)
         }
     }
+
+    LaunchedEffect(
+        state.active,
+        state.mode,
+        state.offRoute,
+        hapticsEnabled,
+        offRouteAlertsEnabled,
+    ) {
+        if (!state.active || state.mode != GuidanceMode.FOLLOW_ROUTE) {
+            offRouteEpisodeActive = false
+            return@LaunchedEffect
+        }
+        if (!hapticsEnabled || !offRouteAlertsEnabled) {
+            offRouteEpisodeActive = false
+            return@LaunchedEffect
+        }
+        if (state.offRoute) {
+            offRouteEpisodeActive = true
+            return@LaunchedEffect
+        }
+        if (!offRouteEpisodeActive) return@LaunchedEffect
+
+        offRouteEpisodeActive = false
+        DebugTelemetry.log(
+            "TurnByTurn",
+            "haptic=back_on_route distanceToRouteM=${state.distanceToRouteMeters?.toInt() ?: "na"}",
+        )
+        vibrator?.vibrate(BACK_ON_ROUTE_ALERT_EFFECT)
+    }
 }
 
 private fun TurnHapticAlertEvent.telemetryMessage(vibratorAvailable: Boolean): String =
@@ -160,6 +190,9 @@ private val STRONG_TURN_ALERT_EFFECT: VibrationEffect =
 
 private val OFF_ROUTE_ALERT_EFFECT: VibrationEffect =
     VibrationEffect.createWaveform(longArrayOf(0L, 120L, 80L, 120L, 80L, 120L), -1)
+
+private val BACK_ON_ROUTE_ALERT_EFFECT: VibrationEffect =
+    VibrationEffect.createOneShot(70L, VibrationEffect.DEFAULT_AMPLITUDE)
 
 private val ARRIVAL_ALERT_EFFECT: VibrationEffect =
     VibrationEffect.createWaveform(longArrayOf(0L, 90L, 70L, 90L, 70L, 180L), -1)
