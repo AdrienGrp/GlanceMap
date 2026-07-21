@@ -133,6 +133,8 @@ class MainActivity : ComponentActivity() {
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
             val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
             val recordingStartWarning by appContainer.traceRecordingViewModel.startWarning.collectAsState()
+            val recordingLocationStartWarning by
+                appContainer.traceRecordingViewModel.locationStartWarning.collectAsState()
             val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
             val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
             val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
@@ -152,6 +154,14 @@ class MainActivity : ComponentActivity() {
             val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
             val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
             val activityProfile by appContainer.settingsViewModel.activityProfile.collectAsState()
+
+            LaunchedEffect(recordingLocationStartWarning) {
+                if (recordingLocationStartWarning != null) {
+                    appContainer.locationViewModel.requestImmediateLocation(
+                        source = "ui_recording_start_missing_location",
+                    )
+                }
+            }
 
             val isAmbient = ambientState.isAmbient
             val ambientTickMs = ambientState.ambientTickMs
@@ -1029,6 +1039,14 @@ class MainActivity : ComponentActivity() {
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+                WearActionDialog(
+                    visible = recordingLocationStartWarning != null,
+                    title = "GPS needed",
+                    message = "Wait for a fresh GPS position, then start REC again.",
+                    confirmText = "OK",
+                    onConfirm = appContainer.traceRecordingViewModel::cancelStartRecordingWithoutLocation,
+                    onDismissRequest = appContainer.traceRecordingViewModel::cancelStartRecordingWithoutLocation,
+                )
             }
         }
     }

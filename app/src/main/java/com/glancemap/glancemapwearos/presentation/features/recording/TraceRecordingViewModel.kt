@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
@@ -46,6 +47,8 @@ class TraceRecordingViewModel(
     val uiState: StateFlow<TraceRecordingUiState> = _uiState.asStateFlow()
     private val _startWarning = MutableStateFlow<RecordingStartWarning?>(null)
     val startWarning: StateFlow<RecordingStartWarning?> = _startWarning.asStateFlow()
+    private val _locationStartWarning = MutableStateFlow<RecordingLocationStartWarning?>(null)
+    val locationStartWarning: StateFlow<RecordingLocationStartWarning?> = _locationStartWarning.asStateFlow()
 
     private var sampleIntervalSeconds = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
     private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
@@ -116,6 +119,8 @@ class TraceRecordingViewModel(
     private var smoothedPointCount = 0
     private var smoothedAdjustmentMeters = 0.0
     private var maxSmoothedAdjustmentMeters = 0.0
+    private var latestRecordingStartLocation: Location? = null
+    private var latestGpsSignalSnapshot = GpsSignalSnapshot()
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
@@ -219,9 +224,19 @@ class TraceRecordingViewModel(
     }
 
     fun startRecording() {
-        val state = _uiState.value
-        if (state.active || state.saving || _startWarning.value != null) return
+        if (isRecordingStartBlocked()) return
+        if (ensureLocationReadyForRecordingStart(source = "rec_tap")) {
+            startRecordingAfterLocationPreflight()
+        }
+    }
 
+    private fun isRecordingStartBlocked(): Boolean {
+        val state = _uiState.value
+        if (state.active || state.saving) return true
+        return _startWarning.value != null || _locationStartWarning.value != null
+    }
+
+    private fun startRecordingAfterLocationPreflight() {
         val heartRateAvailability =
             ExternalSensorConnectionStatus.availabilitySummary(recordingExternalHeartRateAddress)
         val runPodAvailability =
@@ -279,7 +294,9 @@ class TraceRecordingViewModel(
             "event=external_sensor_start_warning_confirmed " +
                 "unlinked=${warning.unlinkedDevices.size} disconnected=${warning.disconnectedDevices.size}",
         )
-        startRecordingNow()
+        if (ensureLocationReadyForRecordingStart(source = "external_sensor_warning_confirm")) {
+            startRecordingNow()
+        }
     }
 
     fun switchUnavailableSensorSourcesToWatchAndStartRecording() {
@@ -303,7 +320,9 @@ class TraceRecordingViewModel(
             settingsRepository.setRecordingSpeedSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
             settingsRepository.setRecordingDistanceSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
             settingsRepository.setRecordingStepsSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
-            startRecordingNow()
+            if (ensureLocationReadyForRecordingStart(source = "external_sensor_warning_use_watch")) {
+                startRecordingNow()
+            }
         }
     }
 
@@ -311,6 +330,16 @@ class TraceRecordingViewModel(
         if (_startWarning.value == null) return
         _startWarning.value = null
         DebugTelemetry.log("TraceRecording", "event=external_sensor_start_warning_cancelled")
+    }
+
+    fun cancelStartRecordingWithoutLocation() {
+        if (_locationStartWarning.value == null) return
+        _locationStartWarning.value = null
+        DebugTelemetry.log("TraceRecording", "event=location_start_warning_cancelled")
+    }
+
+    fun onGpsSignalSnapshot(snapshot: GpsSignalSnapshot) {
+        latestGpsSignalSnapshot = snapshot
     }
 
     private fun startRecordingNow() {
@@ -345,6 +374,7 @@ class TraceRecordingViewModel(
     }
 
     fun onLocation(location: Location?) {
+        latestRecordingStartLocation = location
         if (location == null) return
         val state = _uiState.value
         if (!state.active || state.saving) return
@@ -679,6 +709,25 @@ class TraceRecordingViewModel(
                 persistDraft(state = updatedState, reason = "point")
             }
         }
+    }
+
+    private fun ensureLocationReadyForRecordingStart(source: String): Boolean {
+        val location = latestRecordingStartLocation
+        val hasUsableLocation = location?.let(::isUsableLocation) == true
+        if (isRecordingStartLocationReady(hasUsableLocation, latestGpsSignalSnapshot)) {
+            return true
+        }
+        _locationStartWarning.value =
+            RecordingLocationStartWarning
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=start_blocked_no_fresh_location source=$source " +
+                "locationPresent=${location != null} usableLocation=$hasUsableLocation " +
+                "locationAvailable=${latestGpsSignalSnapshot.isLocationAvailable} " +
+                "lastFixFresh=${latestGpsSignalSnapshot.lastFixFresh} " +
+                "lastFixAgeMs=${latestGpsSignalSnapshot.lastFixAgeMs}",
+        )
+        return false
     }
 
     fun onSensorMetrics(metrics: RecordingSensorMetrics) {

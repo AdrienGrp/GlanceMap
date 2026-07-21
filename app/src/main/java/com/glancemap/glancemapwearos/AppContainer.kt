@@ -173,9 +173,12 @@ class DefaultAppContainer(
     private fun startRecordingLocationBridge(traceRecordingViewModel: TraceRecordingViewModel) {
         coroutineScope.launch {
             locationViewModel.currentLocation.collectLatest { location ->
-                if (traceRecordingViewModel.uiState.value.active) {
-                    traceRecordingViewModel.onLocation(location)
-                }
+                traceRecordingViewModel.onLocation(location)
+            }
+        }
+        coroutineScope.launch {
+            locationViewModel.gpsSignalSnapshot.collectLatest { snapshot ->
+                traceRecordingViewModel.onGpsSignalSnapshot(snapshot)
             }
         }
     }
