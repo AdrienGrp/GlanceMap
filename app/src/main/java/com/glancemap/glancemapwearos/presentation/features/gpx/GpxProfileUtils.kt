@@ -115,12 +115,16 @@ internal fun buildProfile(
         val b = pts[i + 1]
 
         val d =
-            haversine(
-                a.latLong.latitude,
-                a.latLong.longitude,
-                b.latLong.latitude,
-                b.latLong.longitude,
-            )
+            if (b.startsNewSegment) {
+                0.0
+            } else {
+                haversine(
+                    a.latLong.latitude,
+                    a.latLong.longitude,
+                    b.latLong.latitude,
+                    b.latLong.longitude,
+                )
+            }
 
         segLen[i] = d
         dist += d
@@ -213,6 +217,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var currentDesc: String? = null
     var currentSym: String? = null
     var currentBrouterVoiceHint: String? = null
+    var currentStartsNewSegment = false
+    var nextTrackPointStartsNewSegment = false
 
     return try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -226,8 +232,12 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                         val tagName = parser.name
                         when (tagName.localXmlName()) {
                             "trk" -> {
+                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
                                 inTrk = true
                                 trkDepth = parser.depth
+                            }
+                            "trkseg" -> {
+                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
                             }
                             "metadata" -> {
                                 inMetadata = true
@@ -332,6 +342,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             }
                             "trkpt" -> {
                                 inTrackPoint = true
+                                currentStartsNewSegment = nextTrackPointStartsNewSegment
+                                nextTrackPointStartsNewSegment = false
                                 currentLat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                                 currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                                 currentElevation = null
@@ -470,6 +482,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                             TrackPoint(
                                                 latLong = latLong,
                                                 elevation = currentElevation,
+                                                startsNewSegment = currentStartsNewSegment,
                                                 hasTimestamp = currentHasTimestamp,
                                                 timeMillis = currentTimestampMillis,
                                                 accuracyMeters = currentAccuracyMeters,
@@ -487,7 +500,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                     ),
                                             )
 
-                                        lastPoint?.let { previous ->
+                                        lastPoint?.takeUnless { currentStartsNewSegment }?.let { previous ->
                                             totalDistance +=
                                                 haversine(
                                                     previous.latitude,
@@ -522,6 +535,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentDesc = null
                                 currentSym = null
                                 currentBrouterVoiceHint = null
+                                currentStartsNewSegment = false
                             }
                         }
                     }

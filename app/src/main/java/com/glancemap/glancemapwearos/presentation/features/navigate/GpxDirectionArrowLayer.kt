@@ -40,25 +40,31 @@ internal class GpxDirectionArrowLayer(
         val tileSize = displayModel.tileSize
         val mapSize = getCachedMapSize(zoomLevel, tileSize)
         trackLods.forEach { (trackId, lod) ->
-            val geometry =
-                cachedDirectionArrowGeometry(
+            val geometries =
+                cachedDirectionArrowGeometries(
                     trackId = trackId,
                     lod = lod,
                     zoom = zoom,
                     tileSize = tileSize,
-                ) ?: return@forEach
-            val arrows =
-                buildVisibleGpxDirectionArrows(
-                    geometry = geometry,
-                    boundingBox = boundingBox,
                 )
-            arrows.forEach { arrow ->
-                drawArrow(
-                    arrow = arrow,
-                    canvas = canvas,
-                    topLeft = topLeft,
-                    mapSize = mapSize,
-                )
+            var remainingArrows = MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK
+            for (geometry in geometries) {
+                if (remainingArrows <= 0) break
+                val arrows =
+                    buildVisibleGpxDirectionArrows(
+                        geometry = geometry,
+                        boundingBox = boundingBox,
+                        maxArrows = remainingArrows,
+                    )
+                arrows.forEach { arrow ->
+                    drawArrow(
+                        arrow = arrow,
+                        canvas = canvas,
+                        topLeft = topLeft,
+                        mapSize = mapSize,
+                    )
+                }
+                remainingArrows -= arrows.size
             }
         }
     }
@@ -68,12 +74,12 @@ internal class GpxDirectionArrowLayer(
         super.onDestroy()
     }
 
-    private fun cachedDirectionArrowGeometry(
+    private fun cachedDirectionArrowGeometries(
         trackId: String,
         lod: TrackLodLevels,
         zoom: Int,
         tileSize: Int,
-    ): GpxDirectionArrowGeometry? {
+    ): List<GpxDirectionArrowGeometry> {
         val cached = directionArrowGeometryCache[trackId]
         val cacheMatches =
             cached?.let {
@@ -81,23 +87,26 @@ internal class GpxDirectionArrowLayer(
                     it.zoom == zoom &&
                     it.tileSize == tileSize
             } ?: false
-        if (cacheMatches) return cached.geometry
-        val geometry =
-            buildGpxDirectionArrowGeometry(
-                points = lod.pointsForZoom(zoom),
+        if (cacheMatches) return cached.geometries
+        val geometries =
+            lod
+                .pointsForZoom(zoom)
+                .splitTrackSegments()
+                .mapNotNull { segment ->
+                    buildGpxDirectionArrowGeometry(
+                        points = segment,
+                        zoom = zoom,
+                        tileSize = tileSize,
+                    )
+                }
+        directionArrowGeometryCache[trackId] =
+            CachedDirectionArrowGeometry(
+                sourceSignature = lod.sourceSignature,
                 zoom = zoom,
                 tileSize = tileSize,
+                geometries = geometries,
             )
-        geometry?.let {
-            directionArrowGeometryCache[trackId] =
-                CachedDirectionArrowGeometry(
-                    sourceSignature = lod.sourceSignature,
-                    zoom = zoom,
-                    tileSize = tileSize,
-                    geometry = it,
-                )
-        }
-        return geometry
+        return geometries
     }
 
     private fun drawArrow(
@@ -141,5 +150,5 @@ private data class CachedDirectionArrowGeometry(
     val sourceSignature: Long,
     val zoom: Int,
     val tileSize: Int,
-    val geometry: GpxDirectionArrowGeometry,
+    val geometries: List<GpxDirectionArrowGeometry>,
 )

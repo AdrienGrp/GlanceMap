@@ -512,7 +512,16 @@ class TraceRecordingViewModel(
             }
             return
         }
-        val startsNewSegmentForPoint = startNewSegmentOnNextPoint || fixQualityResult.startsNewSegment
+        val startsNewSegmentAfterGpsGap =
+            recordingGapRequiresNewSegment(
+                elapsedSinceAcceptedMs = elapsedSinceAcceptedMs,
+                gapThresholdMillis = recordingGapThresholdMillis(),
+                hasRecordedPoints = state.points.isNotEmpty(),
+            )
+        val startsNewSegmentForPoint =
+            startNewSegmentOnNextPoint ||
+                fixQualityResult.startsNewSegment ||
+                startsNewSegmentAfterGpsGap
         startNewSegmentOnNextPoint = false
         if (fixQualityResult.reason == RecordingFixQualityReason.CONFIRMED_RELOCATION) {
             qualityRelocationCount += 1
@@ -520,6 +529,14 @@ class TraceRecordingViewModel(
                 "TraceRecording",
                 "event=fix_quality_confirmed_relocation count=$qualityRelocationCount " +
                     "action=new_segment accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
+            )
+        }
+        if (fixQualityResult.reason == RecordingFixQualityReason.CONFIRMED_SUSTAINED_MOVEMENT) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=fix_quality_confirmed_sustained_movement action=continue_segment " +
+                    "speedMps=${livePoint.speedMps?.formatTelemetry(2) ?: "na"} " +
+                    "accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
             )
         }
         if (forceAcceptReason == null && elapsedSinceAcceptedMs >= recordingGapThresholdMillis()) {
@@ -532,6 +549,13 @@ class TraceRecordingViewModel(
                     "sampleIntervalSeconds=$sampleIntervalSeconds " +
                     "provider=${sanitizeTelemetryValue(location.provider ?: "na")} " +
                     "accuracyMeters=${livePoint.accuracyMeters?.toInt() ?: -1}",
+            )
+        }
+        if (startsNewSegmentAfterGpsGap) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=gps_loss_segment elapsedSinceAcceptedMs=$elapsedSinceAcceptedMs " +
+                    "thresholdMs=${recordingGapThresholdMillis()} action=new_segment",
             )
         }
         if (forceAcceptReason != null) {
@@ -1836,6 +1860,15 @@ internal fun recordingJitterDistanceToSuppress(
     val distanceMeters = haversineMeters(previous.latLong, candidate.latLong)
     return distanceMeters.takeIf { it <= deadbandMeters }
 }
+
+internal fun recordingGapRequiresNewSegment(
+    elapsedSinceAcceptedMs: Long,
+    gapThresholdMillis: Long,
+    hasRecordedPoints: Boolean,
+): Boolean =
+    hasRecordedPoints &&
+        gapThresholdMillis > 0L &&
+        elapsedSinceAcceptedMs >= gapThresholdMillis
 
 private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Double, Double> {
     var gain = 0.0

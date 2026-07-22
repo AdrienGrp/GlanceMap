@@ -51,8 +51,7 @@ enum class DemSource(
      * The selected source remains the user's preference. A fallback only prevents DEM-backed
      * features from being unavailable while another complete terrain dataset is already present.
      */
-    fun readFallbackOrder(): List<DemSource> =
-        listOf(this) + entries.filterNot { it == this }
+    fun readFallbackOrder(): List<DemSource> = listOf(this) + entries.filterNot { it == this }
 
     fun remoteUrl(tileId: String): String {
         val safeTileId = tileId.uppercase(Locale.ROOT)

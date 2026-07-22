@@ -87,8 +87,8 @@ internal fun buildTrackLodLevels(points: List<TrackPoint>): TrackLodLevels {
         )
     }
 
-    val low = simplifyTrackRdpMeters(points, toleranceMeters = 24.0)
-    val medium = simplifyTrackRdpMeters(points, toleranceMeters = 8.0)
+    val low = simplifyTrackSegments(points, toleranceMeters = 24.0)
+    val medium = simplifyTrackSegments(points, toleranceMeters = 8.0)
     return TrackLodLevels(
         sourceSignature = signature,
         low = low,
@@ -98,6 +98,24 @@ internal fun buildTrackLodLevels(points: List<TrackPoint>): TrackLodLevels {
 }
 
 internal fun List<TrackPoint>.latLongs(): List<LatLong> = map { it.latLong }
+
+internal fun List<TrackPoint>.splitTrackSegments(): List<List<TrackPoint>> =
+    buildList {
+        var current = mutableListOf<TrackPoint>()
+        this@splitTrackSegments.forEach { point ->
+            if (point.startsNewSegment && current.isNotEmpty()) {
+                add(current)
+                current = mutableListOf()
+            }
+            current += point
+        }
+        if (current.isNotEmpty()) add(current)
+    }
+
+internal fun List<TrackPoint>.latLongSegments(): List<List<LatLong>> =
+    splitTrackSegments()
+        .filter { it.size >= 2 }
+        .map { segment -> segment.map(TrackPoint::latLong) }
 
 internal fun buildGpxDirectionArrows(
     points: List<TrackPoint>,
@@ -473,6 +491,7 @@ private fun latLongListSignature(points: List<TrackPoint>): Long {
         h = (h xor ll.latitude.toBits()) * prime
         h = (h xor ll.longitude.toBits()) * prime
         h = (h xor (point.elevation?.toBits() ?: 0L)) * prime
+        h = (h xor if (point.startsNewSegment) 1L else 0L) * prime
     }
     return h
 }
@@ -537,6 +556,14 @@ private fun simplifyTrackRdpMeters(
     }
     return if (out.size >= 2) out else listOf(points.first(), points.last())
 }
+
+private fun simplifyTrackSegments(
+    points: List<TrackPoint>,
+    toleranceMeters: Double,
+): List<TrackPoint> =
+    points
+        .splitTrackSegments()
+        .flatMap { segment -> simplifyTrackRdpMeters(segment, toleranceMeters) }
 
 private fun toLocalMeters(points: List<TrackPoint>): List<XY> {
     val r = 6_371_000.0

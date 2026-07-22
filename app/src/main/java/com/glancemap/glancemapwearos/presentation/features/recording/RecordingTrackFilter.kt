@@ -7,7 +7,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
 
-internal const val RECORDING_TRACK_FILTER_VERSION = 2
+internal const val RECORDING_TRACK_FILTER_VERSION = 3
 internal const val EARTH_RADIUS_METERS = 6_371_000.0
 
 internal data class RecordingFixSample(
@@ -28,6 +28,7 @@ internal enum class RecordingFixQualityStatus {
 internal enum class RecordingFixQualityReason {
     FIRST_FIX,
     GOOD_FIX,
+    CONFIRMED_SUSTAINED_MOVEMENT,
     NON_MONOTONIC,
     POOR_ACCURACY,
     IMPLAUSIBLE_JUMP,
@@ -52,11 +53,13 @@ internal class RecordingFixQualityGate {
     private var lastSeenElapsedRealtimeMillis = Long.MIN_VALUE
     private var lastAccepted: RecordingFixSample? = null
     private var pendingImplausible: RecordingFixSample? = null
+    private var sustainedMovementValidUntilElapsedRealtimeMillis = Long.MIN_VALUE
 
     fun reset() {
         lastSeenElapsedRealtimeMillis = Long.MIN_VALUE
         lastAccepted = null
         pendingImplausible = null
+        sustainedMovementValidUntilElapsedRealtimeMillis = Long.MIN_VALUE
     }
 
     @Suppress("ReturnCount")
@@ -87,24 +90,22 @@ internal class RecordingFixQualityGate {
             return accept(candidate, RecordingFixQualityReason.FIRST_FIX)
         }
 
+        if (
+            candidate.elapsedRealtimeMillis <= sustainedMovementValidUntilElapsedRealtimeMillis &&
+            isPlausibleConfirmedSustainedTransition(previous, candidate, activityProfile)
+        ) {
+            extendSustainedMovementWindow(candidate)
+            return accept(candidate, RecordingFixQualityReason.GOOD_FIX)
+        }
+        sustainedMovementValidUntilElapsedRealtimeMillis = Long.MIN_VALUE
+
         val pending = pendingImplausible
         if (pending != null) {
-            if (isPlausibleTransition(previous, candidate, activityProfile)) {
-                pendingImplausible = null
-                return accept(candidate, RecordingFixQualityReason.GOOD_FIX)
-            }
-            if (isPlausibleTransition(pending, candidate, activityProfile)) {
-                pendingImplausible = null
-                return accept(
-                    candidate = candidate,
-                    reason = RecordingFixQualityReason.CONFIRMED_RELOCATION,
-                    startsNewSegment = true,
-                )
-            }
-            pendingImplausible = candidate
-            return RecordingFixQualityResult(
-                status = RecordingFixQualityStatus.HELD,
-                reason = RecordingFixQualityReason.IMPLAUSIBLE_JUMP,
+            return evaluateCandidateAfterHeldFix(
+                previous = previous,
+                pending = pending,
+                candidate = candidate,
+                activityProfile = activityProfile,
             )
         }
 
@@ -129,6 +130,41 @@ internal class RecordingFixQualityGate {
             status = RecordingFixQualityStatus.ACCEPTED,
             reason = reason,
             startsNewSegment = startsNewSegment,
+        )
+    }
+
+    private fun extendSustainedMovementWindow(candidate: RecordingFixSample) {
+        sustainedMovementValidUntilElapsedRealtimeMillis =
+            candidate.elapsedRealtimeMillis + RECORDING_FIX_SUSTAINED_CONFIRMATION_WINDOW_MS
+    }
+
+    @Suppress("ReturnCount")
+    private fun evaluateCandidateAfterHeldFix(
+        previous: RecordingFixSample,
+        pending: RecordingFixSample,
+        candidate: RecordingFixSample,
+        activityProfile: String,
+    ): RecordingFixQualityResult {
+        if (isPlausibleTransition(previous, candidate, activityProfile)) {
+            pendingImplausible = null
+            return accept(candidate, RecordingFixQualityReason.GOOD_FIX)
+        }
+        if (isConfirmedSustainedMovement(previous, pending, candidate, activityProfile)) {
+            extendSustainedMovementWindow(candidate)
+            return accept(candidate, RecordingFixQualityReason.CONFIRMED_SUSTAINED_MOVEMENT)
+        }
+        if (isPlausibleTransition(pending, candidate, activityProfile)) {
+            pendingImplausible = null
+            return accept(
+                candidate = candidate,
+                reason = RecordingFixQualityReason.CONFIRMED_RELOCATION,
+                startsNewSegment = true,
+            )
+        }
+        pendingImplausible = candidate
+        return RecordingFixQualityResult(
+            status = RecordingFixQualityStatus.HELD,
+            reason = RecordingFixQualityReason.IMPLAUSIBLE_JUMP,
         )
     }
 }
@@ -275,12 +311,7 @@ private fun isPlausibleTransition(
     val elapsedSeconds =
         (candidate.elapsedRealtimeMillis - previous.elapsedRealtimeMillis) / 1_000.0
     if (!elapsedSeconds.isFinite() || elapsedSeconds <= 0.0) return false
-    val baseMaximumSpeed =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
-            RECORDING_FIX_MAX_BIKE_SPEED_MPS
-        } else {
-            RECORDING_FIX_MAX_HIKE_SPEED_MPS
-        }
+    val baseMaximumSpeed = recordingFixProfileSpeedLimit(activityProfile)
     val minimumModeledSpeed =
         if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             RECORDING_FIX_MIN_MODELED_BIKE_SPEED_MPS
@@ -454,17 +485,15 @@ private fun recordingSmoothingMaximumIntervalMillis(sampleIntervalSeconds: Int):
     (sampleIntervalSeconds.coerceAtLeast(1) * 1_000L * RECORDING_SMOOTHING_INTERVAL_MULTIPLIER)
         .coerceIn(RECORDING_SMOOTHING_MIN_MAX_INTERVAL_MS, RECORDING_SMOOTHING_ABSOLUTE_MAX_INTERVAL_MS)
 
-private const val RECORDING_FIX_MAX_HIKE_SPEED_MPS = 8.0
-private const val RECORDING_FIX_MAX_BIKE_SPEED_MPS = 45.0
 private const val RECORDING_FIX_MIN_MODELED_HIKE_SPEED_MPS = 3.5
 private const val RECORDING_FIX_MIN_MODELED_BIKE_SPEED_MPS = 12.0
-private const val RECORDING_FIX_MAX_REPORTED_SPEED_FACTOR = 1.25
+internal const val RECORDING_FIX_MAX_REPORTED_SPEED_FACTOR = 1.25
 private const val RECORDING_FIX_MAX_HIKE_ACCURACY_M = 35f
 private const val RECORDING_FIX_MAX_BIKE_ACCURACY_M = 50f
-private const val RECORDING_FIX_FALLBACK_ACCURACY_M = 12.0
-private const val RECORDING_FIX_ACCURACY_ALLOWANCE_FACTOR = 0.75
-private const val RECORDING_FIX_BASE_ALLOWANCE_M = 5.0
-private const val RECORDING_FIX_SPEED_ACCURACY_MULTIPLIER = 3.0
+internal const val RECORDING_FIX_FALLBACK_ACCURACY_M = 12.0
+internal const val RECORDING_FIX_ACCURACY_ALLOWANCE_FACTOR = 0.75
+internal const val RECORDING_FIX_BASE_ALLOWANCE_M = 5.0
+internal const val RECORDING_FIX_SPEED_ACCURACY_MULTIPLIER = 3.0
 private const val RECORDING_SMOOTHING_INTERVAL_MULTIPLIER = 3L
 private const val RECORDING_SMOOTHING_MIN_MAX_INTERVAL_MS = 5_000L
 private const val RECORDING_SMOOTHING_ABSOLUTE_MAX_INTERVAL_MS = 30_000L

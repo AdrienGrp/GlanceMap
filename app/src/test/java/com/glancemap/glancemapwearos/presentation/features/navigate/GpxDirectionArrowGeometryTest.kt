@@ -267,12 +267,56 @@ class GpxDirectionArrowGeometryTest {
         assertTrue(firstKeys.intersect(pannedKeys).isNotEmpty())
     }
 
+    @Test
+    fun lodPreservesTrackSegmentBoundaries() {
+        val points =
+            buildList {
+                repeat(80) { index ->
+                    add(trackPoint(lat = 45.0, lon = 6.0 + index * 0.00001))
+                }
+                repeat(80) { index ->
+                    add(
+                        trackPoint(
+                            lat = 46.0,
+                            lon = 7.0 + index * 0.00001,
+                            startsNewSegment = index == 0,
+                        ),
+                    )
+                }
+            }
+
+        val lod = buildTrackLodLevels(points)
+
+        listOf(lod.low, lod.medium, lod.full).forEach { level ->
+            val segments = level.splitTrackSegments()
+            assertEquals(2, segments.size)
+            assertEquals(
+                45.0,
+                segments
+                    .first()
+                    .first()
+                    .latLong.latitude,
+                0.0,
+            )
+            assertEquals(
+                46.0,
+                segments
+                    .last()
+                    .first()
+                    .latLong.latitude,
+                0.0,
+            )
+        }
+    }
+
     private fun trackPoint(
         lat: Double,
         lon: Double,
+        startsNewSegment: Boolean = false,
     ) = TrackPoint(
         latLong = LatLong(lat, lon),
         elevation = null,
+        startsNewSegment = startsNewSegment,
     )
 
     private fun Double.roundKey(): Int = (this * 1_000_000).roundToInt()
