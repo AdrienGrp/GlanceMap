@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.location.filter
 
 import android.location.Location
+import android.os.Build
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
 import kotlin.math.abs
@@ -96,9 +97,16 @@ internal class LocationOutputFilter(
 
     private fun Location.applyResolvedOutput(output: ResolvedLocationOutput) {
         output.speed?.let { speed = it.value } ?: removeSpeed()
-        if (!output.accuracyRetention.retainSpeedAccuracy) removeSpeedAccuracy()
         output.bearing?.let { bearing = it.value } ?: removeBearing()
-        if (!output.accuracyRetention.retainBearingAccuracy) removeBearingAccuracy()
+        removeUnretainedAccuracy(output.accuracyRetention)
+    }
+
+    private fun Location.removeUnretainedAccuracy(retention: LocationOutputAccuracyRetention) {
+        // Android exposes removal APIs only from API 33. Earlier releases retain copied
+        // accuracy metadata; the speed/bearing fields above still correctly express validity.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (!retention.retainSpeedAccuracy) removeSpeedAccuracy()
+        if (!retention.retainBearingAccuracy) removeBearingAccuracy()
     }
 
     private fun recordTelemetry(
