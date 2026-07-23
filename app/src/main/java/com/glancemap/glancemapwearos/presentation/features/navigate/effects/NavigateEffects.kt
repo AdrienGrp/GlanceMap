@@ -13,9 +13,13 @@ import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceRenderSample
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassHeadingDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
@@ -27,14 +31,14 @@ import com.glancemap.glancemapwearos.domain.sensors.hasRecentGoogleFusedCachedHe
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
 import org.mapsforge.map.android.view.MapView
 import java.io.File
+import java.util.Collections
 import java.util.Locale
+import java.util.WeakHashMap
 import kotlin.math.abs
 
 /**
@@ -59,6 +63,8 @@ fun NavigationOrientationEffect(
     val mv = mapView ?: return
     val marker = locationMarker
     val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
+    val latestOnRenderedHeadingChanged = rememberUpdatedState(onRenderedHeadingChanged)
+    val latestOnRenderedMapRotationChanged = rememberUpdatedState(onRenderedMapRotationChanged)
 
     val navMode =
         remember(isCompassMode, isAutoCentering) {
@@ -72,6 +78,26 @@ fun NavigationOrientationEffect(
     val displayedHeading = remember { mutableFloatStateOf(normalize360(renderStateFlow.value.headingDeg)) }
     val displayedMapRot = remember { mutableFloatStateOf(0f) }
     val frozenRotationDeg = remember { mutableFloatStateOf(0f) }
+    val lastMapsforgeRotationAppliedAtMs = remember(mv) { mutableLongStateOf(Long.MIN_VALUE) }
+    val lastOuterUiPublishAtMs = remember(mv) { mutableLongStateOf(Long.MIN_VALUE) }
+
+    fun publishRenderedState(
+        force: Boolean = false,
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        if (
+            !shouldPublishRenderedCompassUiState(
+                nowElapsedMs = nowElapsedMs,
+                lastPublishedAtElapsedMs = lastOuterUiPublishAtMs.longValue,
+                force = force,
+            )
+        ) {
+            return
+        }
+        lastOuterUiPublishAtMs.longValue = nowElapsedMs
+        latestOnRenderedHeadingChanged.value(displayedHeading.floatValue)
+        latestOnRenderedMapRotationChanged.value(displayedMapRot.floatValue)
+    }
 
     fun syncDisplayedMapRotationFromMap(): Float {
         val actualRotationDeg = mv.mapRotation.degrees
@@ -90,20 +116,52 @@ fun NavigationOrientationEffect(
         }
     }
 
-    fun applyMapRotation(targetRotationDeg: Float) {
+    fun applyMapRotation(
+        targetRotationDeg: Float,
+        highFrequencyRotation: Boolean = false,
+    ) {
         recenterLowerMarkerAnchor()
         val currentRotationDeg = syncDisplayedMapRotationFromMap()
-        if (abs(angleDeltaDeg(targetRotationDeg, currentRotationDeg)) < MAP_ROTATION_APPLY_EPSILON_DEG) {
+        val resolvedTargetRotationDeg =
+            if (navMode == NavMode.COMPASS_FOLLOW) {
+                resolveCompassVisualTargetAngle(
+                    currentAngleDeg = currentRotationDeg,
+                    targetAngleDeg = targetRotationDeg,
+                )
+            } else {
+                targetRotationDeg
+            }
+        val applyEpsilonDeg =
+            if (highFrequencyRotation) {
+                MAP_ROTATION_ACTIVE_TURN_APPLY_EPSILON_DEG
+            } else {
+                MAP_ROTATION_APPLY_EPSILON_DEG
+            }
+        if (abs(angleDeltaDeg(resolvedTargetRotationDeg, currentRotationDeg)) < applyEpsilonDeg) {
             CompassRenderPerfTelemetry.recordRotationSkipped(navMode)
-            onRenderedMapRotationChanged(currentRotationDeg)
+            publishRenderedState()
+            return
+        }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        if (
+            shouldThrottleMapsforgeRotation(
+                navMode = navMode,
+                nowElapsedMs = nowElapsedMs,
+                lastAppliedAtElapsedMs = lastMapsforgeRotationAppliedAtMs.longValue,
+                highFrequencyRotation = highFrequencyRotation,
+            )
+        ) {
+            CompassRenderPerfTelemetry.recordRotationThrottled(navMode)
+            publishRenderedState(nowElapsedMs = nowElapsedMs)
             return
         }
         val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
-        if (mv.trySetMapsforgeRotation(targetRotationDeg, anchor)) {
+        if (mv.trySetMapsforgeRotation(resolvedTargetRotationDeg, anchor)) {
+            lastMapsforgeRotationAppliedAtMs.longValue = nowElapsedMs
             CompassRenderPerfTelemetry.recordRotationApplied(navMode)
-            val appliedRotationDeg = syncDisplayedMapRotationFromMap()
-            onRenderedMapRotationChanged(appliedRotationDeg)
+            syncDisplayedMapRotationFromMap()
         }
+        publishRenderedState(nowElapsedMs = nowElapsedMs)
     }
 
     fun applyMarkersForMode(targetNavMode: NavMode) {
@@ -125,7 +183,8 @@ fun NavigationOrientationEffect(
     LaunchedEffect(mv) {
         // Clear any legacy Android view rotation so map orientation is driven only by Mapsforge.
         mv.rotation = 0f
-        onRenderedMapRotationChanged(syncDisplayedMapRotationFromMap())
+        syncDisplayedMapRotationFromMap()
+        publishRenderedState(force = true)
     }
 
     LaunchedEffect(
@@ -137,6 +196,7 @@ fun NavigationOrientationEffect(
         val renderStateNow = renderStateFlow.value
         val headingNow = normalize360(renderStateNow.headingDeg)
         val shouldDriveHeadingNow = shouldDriveHeadingForNavMode(navMode, renderStateNow)
+        val mapOrientationWasInitialized = hasInitializedMapOrientation(mv)
         val shouldSeedCachedHeading =
             when (navMode) {
                 NavMode.COMPASS_FOLLOW ->
@@ -151,18 +211,39 @@ fun NavigationOrientationEffect(
                     )
                 NavMode.PANNING -> false
             }
-        if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
+        if (
+            navMode == NavMode.NORTH_UP_FOLLOW &&
+            (shouldDriveHeadingNow || shouldSeedCachedHeading)
+        ) {
             displayedHeading.floatValue = headingNow
-            onRenderedHeadingChanged(headingNow)
         }
 
         when (navMode) {
             NavMode.COMPASS_FOLLOW -> {
-                if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
-                    val rot = -displayedHeading.floatValue
-                    applyMapRotation(rot)
+                if (
+                    !mapOrientationWasInitialized &&
+                    (shouldDriveHeadingNow || shouldSeedCachedHeading)
+                ) {
+                    // A new MapView has no visible orientation to preserve. Seed its first
+                    // bounded movement from the available heading instead of correcting from
+                    // an artificial north-up start.
+                    displayedHeading.floatValue = headingNow
+                    recenterLowerMarkerAnchor()
+                    val anchor =
+                        mv.resolveNavigationMarkerScreenAnchor(
+                            latestNavigationMarkerAnchorMode.value,
+                        )
+                    if (mv.trySetMapsforgeRotation(-headingNow, anchor)) {
+                        lastMapsforgeRotationAppliedAtMs.longValue = SystemClock.elapsedRealtime()
+                        CompassRenderPerfTelemetry.recordRotationApplied(navMode)
+                    }
+                    syncDisplayedMapRotationFromMap()
                 } else {
-                    onRenderedMapRotationChanged(syncDisplayedMapRotationFromMap())
+                    // On wake or mode-effect recreation, preserve the exact visible map
+                    // orientation. The frame animation then converges toward the live heading.
+                    val heldMapRotation = syncDisplayedMapRotationFromMap()
+                    val heldHeading = normalize360(-heldMapRotation)
+                    displayedHeading.floatValue = heldHeading
                 }
             }
 
@@ -176,6 +257,8 @@ fun NavigationOrientationEffect(
                 applyMapRotation(frozen)
             }
         }
+        markMapOrientationInitialized(mv)
+        publishRenderedState(force = true)
 
         requestMapRedraw()
     }
@@ -203,22 +286,52 @@ fun NavigationOrientationEffect(
         navigationMarkerAnchorMode,
     ) {
         // Local var: safe because both coroutines run on Main (single-threaded).
-        var liveTarget = normalize360(renderStateFlow.value.headingDeg)
+        var liveTarget = displayedHeading.floatValue
         var latestRenderState = renderStateFlow.value
+        var lastTargetUpdateAtElapsedMs = SystemClock.elapsedRealtime()
+        var fastTurnUntilElapsedMs = 0L
+        var activeMapTurnUntilElapsedMs = 0L
+        var previousRawHeading: Float? = null
 
         // Keep liveTarget current without blocking the animation loop.
         launch {
-            renderStateFlow
-                .map { state ->
-                    latestRenderState = state
-                    normalize360(state.headingDeg)
-                }.distinctUntilChanged()
-                .collect { heading ->
-                    if (shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
-                        liveTarget = heading
-                        CompassRenderPerfTelemetry.recordTargetUpdate(navMode)
+            renderStateFlow.collect { state ->
+                latestRenderState = state
+                val canDriveHeading = shouldDriveHeadingForNavMode(navMode, state)
+                if (!canDriveHeading) {
+                    fastTurnUntilElapsedMs = 0L
+                    activeMapTurnUntilElapsedMs = 0L
+                    previousRawHeading = null
+                    return@collect
+                }
+                val heading = normalize360(state.headingDeg)
+                val nowElapsedMs = SystemClock.elapsedRealtime()
+                val elapsedSinceTargetMs = nowElapsedMs - lastTargetUpdateAtElapsedMs
+                previousRawHeading?.let { previous ->
+                    if (
+                        isFastHeadingTurn(
+                            previousHeadingDeg = previous,
+                            nextHeadingDeg = heading,
+                            elapsedMs = elapsedSinceTargetMs,
+                        )
+                    ) {
+                        fastTurnUntilElapsedMs = nowElapsedMs + FAST_TURN_RENDER_HOLD_MS
+                    }
+                    if (
+                        isActiveMapHeadingTurn(
+                            previousHeadingDeg = previous,
+                            nextHeadingDeg = heading,
+                            elapsedMs = elapsedSinceTargetMs,
+                        )
+                    ) {
+                        activeMapTurnUntilElapsedMs = nowElapsedMs + ACTIVE_MAP_TURN_RENDER_HOLD_MS
                     }
                 }
+                liveTarget = heading
+                previousRawHeading = heading
+                lastTargetUpdateAtElapsedMs = nowElapsedMs
+                CompassRenderPerfTelemetry.recordTargetUpdate(navMode)
+            }
         }
 
         // Animate toward liveTarget on every display frame.
@@ -229,18 +342,61 @@ fun NavigationOrientationEffect(
                     return@withFrameNanos
                 }
                 CompassRenderPerfTelemetry.recordFrame(navMode)
+                val nowElapsedMs = SystemClock.elapsedRealtime()
                 val current = displayedHeading.floatValue
                 val diff = angleDeltaDeg(liveTarget, current)
-                if (abs(diff) < HEADING_ANIMATION_DONE_DEG) return@withFrameNanos
+                if (abs(diff) < HEADING_ANIMATION_DONE_DEG) {
+                    val mapCatchupDeltaDeg =
+                        if (navMode == NavMode.COMPASS_FOLLOW) {
+                            abs(angleDeltaDeg(-current, displayedMapRot.floatValue))
+                        } else {
+                            0f
+                        }
+                    if (mapCatchupDeltaDeg >= MAP_ROTATION_ACTIVE_TURN_APPLY_EPSILON_DEG) {
+                        applyMapRotation(
+                            targetRotationDeg = -current,
+                            highFrequencyRotation = true,
+                        )
+                        if (CompassDeepTraceDiagnostics.state.value.active) {
+                            CompassDeepTraceDiagnostics.recordRenderSample(
+                                CompassDeepTraceRenderSample(
+                                    targetHeadingDeg = liveTarget,
+                                    renderedHeadingDeg = current,
+                                    mapRotationDeg = displayedMapRot.floatValue,
+                                    continuityActive = false,
+                                    continuityOffsetDeg = 0f,
+                                    atElapsedMs = nowElapsedMs,
+                                ),
+                            )
+                        }
+                        CompassHeadingDiagnostics.recordRenderSample(
+                            targetHeadingDeg = liveTarget,
+                            renderedHeadingDeg = current,
+                            mapRotationDeg = displayedMapRot.floatValue,
+                            atElapsedMs = nowElapsedMs,
+                        )
+                        requestMapRedraw()
+                        CompassRenderPerfTelemetry.recordRedraw(navMode)
+                    }
+                    return@withFrameNanos
+                }
 
-                val next = normalize360(current + diff * HEADING_ANIMATION_ALPHA)
+                val animationDelta =
+                    resolveHeadingAnimationDelta(
+                        diffDeg = diff,
+                        fastTurn = nowElapsedMs <= fastTurnUntilElapsedMs,
+                    )
+                val next = normalize360(current + animationDelta)
                 displayedHeading.floatValue = next
-                onRenderedHeadingChanged(next)
                 CompassRenderPerfTelemetry.recordHeadingRender(navMode)
 
                 when (navMode) {
                     NavMode.COMPASS_FOLLOW -> {
-                        applyMapRotation(-next)
+                        applyMapRotation(
+                            targetRotationDeg = -next,
+                            highFrequencyRotation =
+                                nowElapsedMs <= activeMapTurnUntilElapsedMs,
+                        )
                     }
                     NavMode.NORTH_UP_FOLLOW -> {
                         applyMapRotation(0f)
@@ -248,6 +404,24 @@ fun NavigationOrientationEffect(
                     }
                     NavMode.PANNING -> Unit
                 }
+                if (CompassDeepTraceDiagnostics.state.value.active) {
+                    CompassDeepTraceDiagnostics.recordRenderSample(
+                        CompassDeepTraceRenderSample(
+                            targetHeadingDeg = liveTarget,
+                            renderedHeadingDeg = next,
+                            mapRotationDeg = displayedMapRot.floatValue,
+                            continuityActive = false,
+                            continuityOffsetDeg = 0f,
+                            atElapsedMs = nowElapsedMs,
+                        ),
+                    )
+                }
+                CompassHeadingDiagnostics.recordRenderSample(
+                    targetHeadingDeg = liveTarget,
+                    renderedHeadingDeg = next,
+                    mapRotationDeg = displayedMapRot.floatValue,
+                    atElapsedMs = nowElapsedMs,
+                )
                 requestMapRedraw()
                 CompassRenderPerfTelemetry.recordRedraw(navMode)
             }
@@ -262,6 +436,7 @@ private object CompassRenderPerfTelemetry {
     private var headingRenderCount: Int = 0
     private var rotationAppliedCount: Int = 0
     private var rotationSkippedCount: Int = 0
+    private var rotationThrottledCount: Int = 0
     private var markerUpdateCount: Int = 0
     private var redrawCount: Int = 0
 
@@ -274,6 +449,8 @@ private object CompassRenderPerfTelemetry {
     fun recordRotationApplied(navMode: NavMode) = record(navMode) { rotationAppliedCount += 1 }
 
     fun recordRotationSkipped(navMode: NavMode) = record(navMode) { rotationSkippedCount += 1 }
+
+    fun recordRotationThrottled(navMode: NavMode) = record(navMode) { rotationThrottledCount += 1 }
 
     fun recordMarkerUpdate(navMode: NavMode) = record(navMode) { markerUpdateCount += 1 }
 
@@ -300,6 +477,7 @@ private object CompassRenderPerfTelemetry {
                 "targetUpdates=$targetUpdateCount headingRenders=$headingRenderCount " +
                 "renderHz=${(headingRenderCount / seconds).formatTelemetry(1)} " +
                 "rotationApplied=$rotationAppliedCount rotationSkipped=$rotationSkippedCount " +
+                "rotationThrottled=$rotationThrottledCount " +
                 "markerUpdates=$markerUpdateCount redraws=$redrawCount",
         )
         reset(now)
@@ -312,6 +490,7 @@ private object CompassRenderPerfTelemetry {
         headingRenderCount = 0
         rotationAppliedCount = 0
         rotationSkippedCount = 0
+        rotationThrottledCount = 0
         markerUpdateCount = 0
         redrawCount = 0
     }
@@ -329,32 +508,27 @@ private fun angleDeltaDeg(
 
 internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boolean {
     if (renderState.headingSource == HeadingSource.NONE) return false
-    if (renderState.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) return false
-    if (renderState.providerType == CompassProviderType.GOOGLE_FUSED) {
-        if (renderState.headingSource == HeadingSource.FUSED_ORIENTATION) {
-            if (renderState.headingSampleStale || renderState.headingSampleElapsedRealtimeMs == null) {
-                return false
-            }
-        } else {
-            return true
-        }
+    return if (renderState.providerType == CompassProviderType.GOOGLE_FUSED) {
+        renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+            renderState.headingSampleElapsedRealtimeMs != null &&
+            !renderState.headingSampleStale &&
+            renderState.headingRenderable
+    } else {
+        renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
     }
-    return true
 }
 
 internal fun shouldDriveMarkerHeading(renderState: CompassRenderState): Boolean {
-    val hasBaseHeading =
-        renderState.headingSource != HeadingSource.NONE &&
+    if (renderState.headingSource == HeadingSource.NONE) return false
+    return when (renderState.providerType) {
+        CompassProviderType.SENSOR_MANAGER ->
             renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
-    val providerAllowsMarkerHeading =
-        when (renderState.providerType) {
-            CompassProviderType.SENSOR_MANAGER -> true
-            CompassProviderType.GOOGLE_FUSED ->
-                renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-                    renderState.headingSampleElapsedRealtimeMs != null &&
-                    !renderState.headingSampleStale
-        }
-    return hasBaseHeading && providerAllowsMarkerHeading
+        CompassProviderType.GOOGLE_FUSED ->
+            renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+                renderState.headingSampleElapsedRealtimeMs != null &&
+                !renderState.headingSampleStale &&
+                renderState.headingRenderable
+    }
 }
 
 internal fun shouldDriveHeadingForNavMode(
@@ -405,20 +579,152 @@ internal fun resolveNavigateInitialRenderedHeadingDeg(
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 
+internal fun shouldPublishRenderedCompassUiState(
+    nowElapsedMs: Long,
+    lastPublishedAtElapsedMs: Long,
+    force: Boolean = false,
+): Boolean =
+    force ||
+        lastPublishedAtElapsedMs == Long.MIN_VALUE ||
+        nowElapsedMs - lastPublishedAtElapsedMs >= RENDERED_COMPASS_UI_PUBLISH_INTERVAL_MS
+
+internal fun shouldThrottleMapsforgeRotation(
+    navMode: NavMode,
+    nowElapsedMs: Long,
+    lastAppliedAtElapsedMs: Long,
+    highFrequencyRotation: Boolean = false,
+): Boolean {
+    val minimumIntervalMs =
+        if (highFrequencyRotation) {
+            MAP_ROTATION_ACTIVE_TURN_MIN_APPLY_INTERVAL_MS
+        } else {
+            MAP_ROTATION_MIN_APPLY_INTERVAL_MS
+        }
+    return navMode == NavMode.COMPASS_FOLLOW &&
+        lastAppliedAtElapsedMs != Long.MIN_VALUE &&
+        nowElapsedMs - lastAppliedAtElapsedMs < minimumIntervalMs
+}
+
+internal fun isFastHeadingTurn(
+    previousHeadingDeg: Float,
+    nextHeadingDeg: Float,
+    elapsedMs: Long,
+): Boolean =
+    isHeadingTurnAtLeastRate(
+        previousHeadingDeg = previousHeadingDeg,
+        nextHeadingDeg = nextHeadingDeg,
+        elapsedMs = elapsedMs,
+        minimumRateDegPerSec = FAST_TURN_MIN_RATE_DEG_PER_SEC,
+    )
+
+internal fun isActiveMapHeadingTurn(
+    previousHeadingDeg: Float,
+    nextHeadingDeg: Float,
+    elapsedMs: Long,
+): Boolean =
+    isHeadingTurnAtLeastRate(
+        previousHeadingDeg = previousHeadingDeg,
+        nextHeadingDeg = nextHeadingDeg,
+        elapsedMs = elapsedMs,
+        minimumRateDegPerSec = ACTIVE_MAP_TURN_MIN_RATE_DEG_PER_SEC,
+    )
+
+private fun isHeadingTurnAtLeastRate(
+    previousHeadingDeg: Float,
+    nextHeadingDeg: Float,
+    elapsedMs: Long,
+    minimumRateDegPerSec: Float,
+): Boolean {
+    if (!previousHeadingDeg.isFinite() || !nextHeadingDeg.isFinite()) return false
+    if (elapsedMs <= 0L || elapsedMs > FAST_TURN_MAX_SAMPLE_GAP_MS) return false
+    val rotationRateDegPerSec =
+        abs(angleDeltaDeg(nextHeadingDeg, previousHeadingDeg)) * 1_000f / elapsedMs.toFloat()
+    return rotationRateDegPerSec >= minimumRateDegPerSec
+}
+
+internal fun resolveHeadingAnimationAlpha(
+    diffDeg: Float,
+    fastTurn: Boolean,
+): Float =
+    when {
+        !diffDeg.isFinite() -> 0f
+        fastTurn && abs(diffDeg) >= FAST_TURN_LARGE_ERROR_DEG -> FAST_TURN_LARGE_ERROR_ALPHA
+        fastTurn -> FAST_TURN_ANIMATION_ALPHA
+        else -> HEADING_ANIMATION_ALPHA
+    }
+
+internal fun resolveHeadingAnimationDelta(
+    diffDeg: Float,
+    fastTurn: Boolean,
+): Float {
+    if (!diffDeg.isFinite()) return 0f
+    val animatedDelta = diffDeg * resolveHeadingAnimationAlpha(diffDeg = diffDeg, fastTurn = fastTurn)
+    return animatedDelta.coerceIn(
+        minimumValue = -HEADING_ANIMATION_MAX_STEP_DEG,
+        maximumValue = HEADING_ANIMATION_MAX_STEP_DEG,
+    )
+}
+
+internal fun resolveCompassVisualTargetAngle(
+    currentAngleDeg: Float,
+    targetAngleDeg: Float,
+    maxStepDeg: Float = HEADING_ANIMATION_MAX_STEP_DEG,
+): Float {
+    if (!currentAngleDeg.isFinite() || !targetAngleDeg.isFinite()) return currentAngleDeg
+    val boundedStepDeg = maxStepDeg.coerceAtLeast(0f)
+    val deltaDeg =
+        angleDeltaDeg(targetAngleDeg, currentAngleDeg).coerceIn(
+            minimumValue = -boundedStepDeg,
+            maximumValue = boundedStepDeg,
+        )
+    return currentAngleDeg + deltaDeg
+}
+
 // Small heading noise is visible as left/right map shimmer in compass-follow.
 // Keep the compass pipeline responsive, but avoid applying sub-degree Mapsforge rotations.
 private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.8f
+private const val MAP_ROTATION_ACTIVE_TURN_APPLY_EPSILON_DEG = 0.35f
+
+// Animate the Compose heading every display frame, but avoid asking Mapsforge to redraw/rotate
+// more than 30 times per second while stationary. During a deliberate turn, temporarily allow
+// display-rate rotation so a 360-degree sweep stays fluid, then fall back to the lower-power rate.
+private const val MAP_ROTATION_MIN_APPLY_INTERVAL_MS = 33L
+private const val MAP_ROTATION_ACTIVE_TURN_MIN_APPLY_INTERVAL_MS = 16L
+
+// Keep the frame-rate interpolation local to the map, while publishing the surrounding Compose
+// screen state at the same 25fps cadence as the existing map-overlay redraw flow.
+private const val RENDERED_COMPASS_UI_PUBLISH_INTERVAL_MS = 40L
 
 // Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
 // updates with at most 1-2 frames of visual lag.
 private const val HEADING_ANIMATION_ALPHA = 0.5f
+private const val FAST_TURN_ANIMATION_ALPHA = 0.78f
+private const val FAST_TURN_LARGE_ERROR_ALPHA = 0.9f
+private const val FAST_TURN_LARGE_ERROR_DEG = 25f
+private const val FAST_TURN_MIN_RATE_DEG_PER_SEC = 55f
+private const val ACTIVE_MAP_TURN_MIN_RATE_DEG_PER_SEC = 24f
+private const val FAST_TURN_MAX_SAMPLE_GAP_MS = 250L
+private const val FAST_TURN_RENDER_HOLD_MS = 180L
+private const val ACTIVE_MAP_TURN_RENDER_HOLD_MS = 180L
+private const val HEADING_ANIMATION_MAX_STEP_DEG = 12f
 
 // Stop animating when within this threshold — below the useful visual precision of a watch map.
 private const val HEADING_ANIMATION_DONE_DEG = 0.2f
 private const val GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS = 30_000L
 private const val COMPASS_RENDER_PERF_LOG_WINDOW_MS = 5_000L
 private const val MAP_CENTER_UPDATE_EPSILON_DEG2 = 1e-11
+
+private val initializedOrientationMapViews =
+    Collections.synchronizedMap(WeakHashMap<MapView, Boolean>())
+
+private fun hasInitializedMapOrientation(
+    mapView: MapView,
+): Boolean = initializedOrientationMapViews.containsKey(mapView)
+
+private fun markMapOrientationInitialized(mapView: MapView) {
+    initializedOrientationMapViews[mapView] = true
+}
 
 private fun Float.formatTelemetry(decimals: Int): String = "%.${decimals}f".format(Locale.US, this)
 

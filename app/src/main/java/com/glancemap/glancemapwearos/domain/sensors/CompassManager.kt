@@ -127,10 +127,9 @@ class CompassManager private constructor(
 
     @Synchronized
     fun updateDeclinationFromLocation(location: Location) {
-        lastDeclinationLocation = Location(location)
-        providers.values.forEach { provider ->
-            provider.updateDeclinationFromLocation(location)
-        }
+        val locationSnapshot = Location(location)
+        lastDeclinationLocation = locationSnapshot
+        activeProvider.value.updateDeclinationFromLocation(locationSnapshot)
     }
 
     @Synchronized
@@ -153,13 +152,11 @@ class CompassManager private constructor(
                 longitude = longitude,
                 altitudeM = altitudeM,
             )
-        providers.values.forEach { provider ->
-            provider.primeDeclinationFromApproximateLocation(
-                latitude = latitude,
-                longitude = longitude,
-                altitudeM = altitudeM,
-            )
-        }
+        activeProvider.value.primeDeclinationFromApproximateLocation(
+            latitude = latitude,
+            longitude = longitude,
+            altitudeM = altitudeM,
+        )
     }
 
     @Synchronized

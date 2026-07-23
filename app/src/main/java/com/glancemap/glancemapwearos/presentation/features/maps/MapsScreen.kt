@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -250,7 +251,7 @@ fun MapsScreen(
     }
     LaunchedEffect(demDownloadState.lastCompletedAtMillis) {
         if (demDownloadState.lastCompletedAtMillis <= 0L) return@LaunchedEffect
-        mapViewModel.loadMapFiles()
+        mapViewModel.loadMapFiles(preserveExistingCoverage = false)
         if (demDownloadState.downloadedTiles > 0) {
             mapViewModel.refreshMapLayer()
         }
@@ -829,9 +830,16 @@ fun MapsScreen(
                     if (demDownloadState.isDownloading) {
                         RouteToolBusySpinner(size = 30.dp)
 
-                        if (demDownloadState.totalTiles > 0) {
+                        val progressPercent = demDownloadState.progressPercent
+                        if (progressPercent != null) {
                             Text(
-                                text = "Elevation ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
+                                text =
+                                    stringResource(
+                                        R.string.map_dem_download_progress,
+                                        progressPercent,
+                                        demDownloadState.processedTiles,
+                                        demDownloadState.totalTiles,
+                                    ),
                                 style = MaterialTheme.typography.labelSmall,
                                 textAlign = TextAlign.Center,
                             )

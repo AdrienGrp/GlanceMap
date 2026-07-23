@@ -55,6 +55,7 @@ data class GpxExportUiState(
 data class TrackPoint(
     val latLong: LatLong,
     val elevation: Double?,
+    val startsNewSegment: Boolean = false,
     val hasTimestamp: Boolean = false,
     val timeMillis: Long? = null,
     val accuracyMeters: Float? = null,

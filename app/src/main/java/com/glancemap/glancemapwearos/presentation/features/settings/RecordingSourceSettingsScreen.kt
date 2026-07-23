@@ -45,6 +45,12 @@ fun RecordingSourceSettingsScreen(
     val elevationSourceOptions = RECORDING_ELEVATION_SOURCE_OPTIONS.map { it to recordingElevationSourceLabel(it) }
     val heartRateSourceOptions = RECORDING_HEART_RATE_SOURCE_OPTIONS.map { it to recordingHeartRateSourceLabel(it) }
     val sensorSourceOptions = RECORDING_SENSOR_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it, isBikeProfile) }
+    val cadenceSourceOptions =
+        if (isBikeProfile) {
+            listOf(SettingsRepository.RECORDING_SENSOR_SOURCE_POD to "Bike sensor")
+        } else {
+            sensorSourceOptions
+        }
     val stepsSourceOptions = RECORDING_STEPS_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it, isBikeProfile) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -93,13 +99,22 @@ fun RecordingSourceSettingsScreen(
             RecordingSourceSplitSetting(
                 label = "Cadence",
                 source = cadenceSource,
-                defaultSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
-                options = sensorSourceOptions,
+                defaultSource =
+                    if (isBikeProfile) {
+                        SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+                    } else {
+                        SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE
+                    },
+                options = cadenceSourceOptions,
                 secondaryLabel =
-                    recordingMetricSourceSecondaryLabel(
-                        cadenceSource,
-                        linkedSensorLabel,
-                    ),
+                    if (isBikeProfile && cadenceSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD) {
+                        "Bike sensor required"
+                    } else {
+                        recordingMetricSourceSecondaryLabel(
+                            cadenceSource,
+                            linkedSensorLabel,
+                        )
+                    },
                 onSourceChange = viewModel::setRecordingCadenceSource,
             )
         }
@@ -131,19 +146,21 @@ fun RecordingSourceSettingsScreen(
                 onSourceChange = viewModel::setRecordingDistanceSource,
             )
         }
-        item {
-            RecordingSourceSplitSetting(
-                label = "Steps",
-                source = stepsSource,
-                defaultSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
-                options = stepsSourceOptions,
-                secondaryLabel =
-                    recordingMetricSourceSecondaryLabel(
-                        stepsSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
-                    ),
-                onSourceChange = viewModel::setRecordingStepsSource,
-            )
+        if (!isBikeProfile) {
+            item {
+                RecordingSourceSplitSetting(
+                    label = "Steps",
+                    source = stepsSource,
+                    defaultSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
+                    options = stepsSourceOptions,
+                    secondaryLabel =
+                        recordingMetricSourceSecondaryLabel(
+                            stepsSource,
+                            if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
+                        ),
+                    onSourceChange = viewModel::setRecordingStepsSource,
+                )
+            }
         }
     }
 }
@@ -182,7 +199,7 @@ private fun RecordingSourceSplitSetting(
     val enabled = source.isRecordingSourceEnabled()
     SettingsOptionPickerHost(
         title = dialogTitle,
-        selectedValue = source.takeIf { enabled } ?: defaultSource,
+        selectedValue = selectedRecordingSourceValue(source, enabled, options, defaultSource),
         options = options,
         onSelect = onSourceChange,
     ) { openPicker ->
@@ -237,6 +254,13 @@ private fun RecordingSourceSplitSetting(
         )
     }
 }
+
+private fun selectedRecordingSourceValue(
+    source: String,
+    enabled: Boolean,
+    options: List<Pair<String, String>>,
+    defaultSource: String,
+): String = source.takeIf { enabled && options.any { option -> option.first == source } } ?: defaultSource
 
 private fun String.isRecordingSourceEnabled(): Boolean = this != SettingsRepository.RECORDING_SOURCE_DISABLED
 

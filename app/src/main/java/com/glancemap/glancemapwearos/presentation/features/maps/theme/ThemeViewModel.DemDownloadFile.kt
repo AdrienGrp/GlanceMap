@@ -21,20 +21,32 @@ internal data class DemDownloadResponse(
     val expectedTotalBytes: Long?,
 )
 
+internal data class DemDownloadRequest(
+    val url: String,
+    val target: File,
+    val demRoot: File,
+    val userAgent: String,
+)
+
 internal fun downloadDemFile(
-    url: String,
-    target: File,
-    demRoot: File,
-    userAgent: String,
+    request: DemDownloadRequest,
     onConnectionOpened: (HttpURLConnection) -> Unit = {},
+    onProgress: (bytesDone: Long, totalBytes: Long?) -> Unit = { _, _ -> },
 ) {
-    val context = buildDemDownloadContext(url = url, target = target)
+    val context = buildDemDownloadContext(url = request.url, target = request.target)
     recordResumeAttempt(context)
-    val connection = openDemConnection(context = context, userAgent = userAgent)
+    val connection = openDemConnection(context = context, userAgent = request.userAgent)
     onConnectionOpened(connection)
     try {
-        val response = prepareDemResponse(connection = connection, context = context, demRoot = demRoot)
-        copyDemResponse(connection = connection, context = context, response = response)
+        val response = prepareDemResponse(connection = connection, context = context, demRoot = request.demRoot)
+        val startingBytes = if (response.append) context.resumeOffset else 0L
+        onProgress(startingBytes, response.expectedTotalBytes)
+        copyDemResponse(
+            connection = connection,
+            context = context,
+            response = response,
+            onProgress = onProgress,
+        )
         promoteAndValidateDemPart(context)
         recordSavedDemTile(context = context, response = response)
     } finally {

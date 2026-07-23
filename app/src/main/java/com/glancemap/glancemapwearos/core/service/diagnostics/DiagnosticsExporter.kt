@@ -7,13 +7,21 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveBundleDownloadTelemetrySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveCompassHeadingTelemetrySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeBundleDownloadSummarySection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassDeepTraceSection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassHeadingTelemetrySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDownloadSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeLineDumpSection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeScreenStateSummarySection
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionMetricSummary
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import java.io.File
 import java.time.Duration
@@ -44,11 +52,13 @@ data class DiagnosticsSettingsSnapshot(
     val keepAppOpen: Boolean,
     val gpsInAmbientMode: Boolean,
     val gpsDebugTelemetry: Boolean,
+    val diagnosticsCaptureMode: String = SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE,
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
     val recordingScreenOffSampleIntervalSeconds: Int = SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
     val recordingAutoPauseMode: String = SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE,
+    val recordingTrackSmoothingMode: String = SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE,
     val recordingElevationSource: String = "na",
     val recordingHeartRateSource: String = "na",
     val recordingCadenceSource: String = "na",
@@ -78,6 +88,8 @@ data class DiagnosticsSettingsSnapshot(
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
     val turnByTurnOffRouteRepeatSeconds: Int = 0,
     val turnByTurnGpsInAmbientMode: Boolean = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
+    val turnByTurnScreenOffBatchingEnabled: Boolean =
+        SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED,
     val turnByTurnBrouterGuideBackEnabled: Boolean = false,
     val turnByTurnRouteStartBehavior: String = "na",
     val turnByTurnReverseSuggestionMode: String = "na",
@@ -98,6 +110,17 @@ object DiagnosticsExporter {
         val unknownScreenAvgMs: Long? = null,
         val unknownScreenMaxMs: Long = 0L,
         val delayedCount: Int = 0,
+    )
+
+    internal data class RecordingTrackFilterInsights(
+        val smoothingMode: String? = null,
+        val filterVersion: Int? = null,
+        val qualityHeldFixCount: Int? = null,
+        val qualityRejectedFixCount: Int? = null,
+        val qualityRelocationCount: Int? = null,
+        val smoothedPointCount: Int? = null,
+        val smoothedAdjustmentMeters: String? = null,
+        val maxSmoothedAdjustmentMeters: String? = null,
     )
 
     internal data class TelemetryInsights(
@@ -343,6 +366,11 @@ object DiagnosticsExporter {
         var fixGapBuckets: FixGapBuckets = FixGapBuckets()
         var externalHeartRateReconnectScheduledCount: Int = 0
         var externalHeartRateReconnectAttemptCount: Int = 0
+        var turnByTurnTurnAlertFiredCount: Int = 0
+        var turnByTurnTurnAlertFilteredCount: Int = 0
+        var turnByTurnTurnAlertOffRouteCount: Int = 0
+        var turnByTurnTurnAlertMissedWindowCount: Int = 0
+        var recordingTrackFilter: RecordingTrackFilterInsights = RecordingTrackFilterInsights()
     }
 
     internal data class CompassTelemetryInsights(
@@ -350,6 +378,7 @@ object DiagnosticsExporter {
         val managerStopScheduledCount: Int = 0,
         val managerStopRequestedCount: Int = 0,
         val headingSampleCount: Int = 0,
+        val headingDiagnosticSampleCount: Int = 0,
         val largeJumpPendingCount: Int = 0,
         val largeJumpAcceptedCount: Int = 0,
         val staleSampleCount: Int = 0,
@@ -359,12 +388,25 @@ object DiagnosticsExporter {
         val startupSummaryCount: Int = 0,
         val startupHeadingSpanMaxDeg: Float? = null,
         val startupMaxJumpMaxDeg: Float? = null,
+        val startupVisibleHeadingJumpMaxDeg: Float? = null,
+        val startupVisibleMapRotationJumpMaxDeg: Float? = null,
+        val startupSourceHandoffCount: Int = 0,
+        val startupSourceHandoffMaxJumpDeg: Float? = null,
         val startupStable3Count: Int = 0,
         val startupStable5Count: Int = 0,
-        val startupOverlapSummaryCount: Int = 0,
-        val startupOverlapFinalDeltaAvgDeg: Float? = null,
-        val startupOverlapRestartComparisonCount: Int = 0,
-        val startupOverlapRestartImprovedCount: Int = 0,
+        val fusedFirstUsableCount: Int = 0,
+        val fusedFirstUsableLatencyMaxMs: Long? = null,
+        val fusedReadyCount: Int = 0,
+        val fusedReadyLatencyMaxMs: Long? = null,
+        val fusedWarmupRelockCount: Int = 0,
+        val fusedWarmupRelockStepMaxDeg: Float? = null,
+        val fusedReadyAfterRelockCount: Int = 0,
+        val fusedFallbackActivationCount: Int = 0,
+        val continuityStartCount: Int = 0,
+        val continuityCompleteCount: Int = 0,
+        val continuityCancelCount: Int = 0,
+        val continuityInitialOffsetMaxDeg: Float? = null,
+        val continuityDurationMaxMs: Long? = null,
         val headingLooksWrongReportCount: Int = 0,
         val fusedPerfEventCount: Int = 0,
         val fusedPerfCallbackCount: Int = 0,
@@ -379,6 +421,7 @@ object DiagnosticsExporter {
         val renderPerfHeadingRenderCount: Int = 0,
         val renderPerfRotationAppliedCount: Int = 0,
         val renderPerfRotationSkippedCount: Int = 0,
+        val renderPerfRotationThrottledCount: Int = 0,
         val renderPerfMarkerUpdateCount: Int = 0,
         val renderPerfRedrawCount: Int = 0,
         val renderPerfFrameHzMax: Float? = null,
@@ -490,7 +533,9 @@ object DiagnosticsExporter {
                 captureWindowEndEpochMs = captureWindowEndEpochMs,
             )
         val compassTelemetryInsights = deriveCompassTelemetryInsights(telemetryLines)
+        val compassHeadingTelemetrySummary = deriveCompassHeadingTelemetrySummary(telemetryLines)
         val acceptedFixSummaries = deriveAcceptedFixSummaries(telemetryLines)
+        val bundleDownloadSummary = deriveBundleDownloadTelemetrySummary(telemetryLines)
         val captureDurationMs =
             captureDurationMs(
                 startedAtMs = captureSession.startedAtMs,
@@ -510,10 +555,13 @@ object DiagnosticsExporter {
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
         val energySummary = EnergyDiagnostics.summary()
+        val batteryBenchmarkValidity = EnergyDiagnostics.batteryBenchmarkValidity()
+        val compassDeepTraceSnapshot = CompassDeepTraceDiagnostics.snapshot()
+        val screenStateSummary = ScreenStateDiagnostics.summary()
         val demDownloadSummary = DemDownloadDiagnostics.summary()
         val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
         val demDownloadDroppedLines = DemDownloadDiagnostics.droppedLineCount()
-        val markerMotionSummary = MarkerMotionTelemetry.summary()
+        val markerMotionSummary = MarkerMotionTelemetry.summary(android.os.SystemClock.elapsedRealtime())
         val markerMotionSnapshot = MarkerMotionTelemetry.latestSnapshot()
         val mapHotPathSummary = MapHotPathDiagnostics.summary()
         val mapHotPathLines = MapHotPathDiagnostics.snapshotLines()
@@ -657,6 +705,7 @@ object DiagnosticsExporter {
             writer.appendLine("keepAppOpen=${settings.keepAppOpen}")
             writer.appendLine("gpsInAmbientMode=${settings.gpsInAmbientMode}")
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
+            writer.appendLine("diagnosticsCaptureMode=${settings.diagnosticsCaptureMode}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
@@ -664,6 +713,7 @@ object DiagnosticsExporter {
                 "recordingScreenOffSampleIntervalSeconds=${settings.recordingScreenOffSampleIntervalSeconds}",
             )
             writer.appendLine("recordingAutoPauseMode=${settings.recordingAutoPauseMode}")
+            writer.appendLine("recordingTrackSmoothingMode=${settings.recordingTrackSmoothingMode}")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("recordingHeartRateSource=${settings.recordingHeartRateSource}")
             writer.appendLine("recordingCadenceSource=${settings.recordingCadenceSource}")
@@ -707,6 +757,9 @@ object DiagnosticsExporter {
             )
             writer.appendLine("turnByTurnOffRouteRepeatSeconds=${settings.turnByTurnOffRouteRepeatSeconds}")
             writer.appendLine("turnByTurnGpsInAmbientMode=${settings.turnByTurnGpsInAmbientMode}")
+            writer.appendLine(
+                "turnByTurnScreenOffBatchingEnabled=${settings.turnByTurnScreenOffBatchingEnabled}",
+            )
             writer.appendLine("turnByTurnBrouterGuideBackEnabled=${settings.turnByTurnBrouterGuideBackEnabled}")
             writer.appendLine("turnByTurnRouteStartBehavior=${settings.turnByTurnRouteStartBehavior}")
             writer.appendLine("turnByTurnReverseSuggestionMode=${settings.turnByTurnReverseSuggestionMode}")
@@ -716,6 +769,33 @@ object DiagnosticsExporter {
             writer.appendLine("locationCoarsePermissionGranted=${locationPermission.hasCoarsePermission}")
             writer.appendLine("locationPermissionMode=${locationPermission.mode}")
             writer.appendLine("gpsPositionFilterEnabled=$ENABLE_STRICT_FIX_FILTERING")
+            writer.appendLine()
+            writer.appendLine("Battery Benchmark Context")
+            val batteryBenchmarkMode =
+                settings.diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+            writer.appendLine(
+                "batteryBenchmarkValidity=${
+                    when {
+                        !batteryBenchmarkMode -> "NOT_APPLICABLE"
+                        batteryBenchmarkValidity.valid -> "VALID"
+                        else -> "INVALID"
+                    }
+                }",
+            )
+            writer.appendLine(
+                "batteryBenchmarkInvalidReasons=${
+                    batteryBenchmarkValidity.invalidReasons.ifEmpty { listOf("none") }.joinToString(",")
+                }",
+            )
+            writer.appendLine("compassDeepTraceObserved=${compassDeepTraceSnapshot.sessionCount > 0}")
+            writer.appendLine("compassDeepTraceAggregateWindows=${compassDeepTraceSnapshot.windowCount}")
+            writer.appendLine("recordingSessionObserved=${recordingSessionObserved(telemetryInsights)}")
+            writer.appendLine("recordingSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
+            writer.appendLine("externalSensorsObserved=${observedExternalSensors(telemetryInsights)}")
+            writer.appendLine("externalHeartRateObserved=${telemetryInsights.externalHeartRateSampleCount > 0}")
+            writer.appendLine("externalHeartRateSampleCount=${telemetryInsights.externalHeartRateSampleCount}")
+            writer.appendLine("externalRunPodObserved=${telemetryInsights.externalRunPodSampleCount > 0}")
+            writer.appendLine("externalRunPodSampleCount=${telemetryInsights.externalRunPodSampleCount}")
             writer.appendLine()
             writer.appendLine("GPS Capability")
             writer.appendLine("locationManagerAvailable=${gpsCapability.locationManagerAvailable}")
@@ -763,6 +843,47 @@ object DiagnosticsExporter {
             writer.appendLine("demDownloadTruncated=$demDownloadTruncated")
             writer.appendLine("markerMotionAcceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("markerMotionPredictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("markerMotionRenderedUpdates=${markerMotionSummary.renderedMotionUpdates}")
+            writer.appendLine("markerMotionFirstRenderDelaySamples=${markerMotionSummary.firstRenderDelaySamples}")
+            writer.appendLine(
+                "markerMotionFirstRenderDelayMeanMs=${markerMotionSummary.firstRenderDelayMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "markerMotionFirstRenderDelayMaxMs=${markerMotionSummary.firstRenderDelayMaxMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalSamples=" +
+                    markerMotionSummary.activeRenderIntervalSamples,
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalMeanMs=" +
+                    (markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalP50Ms=" +
+                    (markerMotionSummary.activeRenderIntervalP50Ms?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalP95Ms=" +
+                    (markerMotionSummary.activeRenderIntervalP95Ms?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionActiveRenderIntervalMaxMs=" +
+                    (markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"),
+            )
+            writer.appendLine(
+                "markerMotionNextFixResidualM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
+            )
+            writer.appendLine(
+                "markerMotionRenderStepPx=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementPx, digits = 2),
+            )
+            writer.appendLine(
+                "markerMotionCorrectionSettleMs=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionSettleDurationMs, digits = 0),
+            )
+            writer.appendLine("markerMotionCorrectionInterrupted=${markerMotionSummary.correctionInterruptedCount}")
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
@@ -949,6 +1070,10 @@ object DiagnosticsExporter {
             writer.appendLine("managerStopScheduledCount=${compassTelemetryInsights.managerStopScheduledCount}")
             writer.appendLine("managerStopRequestedCount=${compassTelemetryInsights.managerStopRequestedCount}")
             writer.appendLine("headingSampleCount=${compassTelemetryInsights.headingSampleCount}")
+            writer.appendLine(
+                "headingDiagnosticSampleCount=${compassTelemetryInsights.headingDiagnosticSampleCount}",
+            )
+            writer.appendLine("headingSampleCountScope=throttled_debug_lines_not_sensor_callbacks")
             writer.appendLine("largeJumpPendingCount=${compassTelemetryInsights.largeJumpPendingCount}")
             writer.appendLine("largeJumpAcceptedCount=${compassTelemetryInsights.largeJumpAcceptedCount}")
             writer.appendLine(
@@ -995,26 +1120,79 @@ object DiagnosticsExporter {
                     } ?: "na"
                 }",
             )
-            writer.appendLine("startupStable3Count=${compassTelemetryInsights.startupStable3Count}")
-            writer.appendLine("startupStable5Count=${compassTelemetryInsights.startupStable5Count}")
             writer.appendLine(
-                "startupOverlapSummaryCount=${compassTelemetryInsights.startupOverlapSummaryCount}",
-            )
-            writer.appendLine(
-                "startupOverlapFinalDeltaAvgDeg=${
-                    compassTelemetryInsights.startupOverlapFinalDeltaAvgDeg?.let {
+                "startupVisibleHeadingJumpMaxDeg=${
+                    compassTelemetryInsights.startupVisibleHeadingJumpMaxDeg?.let {
                         TelemetryFormatters.decimal(it, 1)
                     } ?: "na"
                 }",
             )
             writer.appendLine(
-                "startupOverlapRestartComparisonCount=${
-                    compassTelemetryInsights.startupOverlapRestartComparisonCount
+                "startupVisibleMapRotationJumpMaxDeg=${
+                    compassTelemetryInsights.startupVisibleMapRotationJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
                 }",
             )
             writer.appendLine(
-                "startupOverlapRestartImprovedCount=${
-                    compassTelemetryInsights.startupOverlapRestartImprovedCount
+                "startupSourceHandoffCount=${compassTelemetryInsights.startupSourceHandoffCount}",
+            )
+            writer.appendLine(
+                "startupSourceHandoffMaxJumpDeg=${
+                    compassTelemetryInsights.startupSourceHandoffMaxJumpDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine("startupStable3Count=${compassTelemetryInsights.startupStable3Count}")
+            writer.appendLine("startupStable5Count=${compassTelemetryInsights.startupStable5Count}")
+            writer.appendLine(
+                "fusedFirstUsableCount=${compassTelemetryInsights.fusedFirstUsableCount}",
+            )
+            writer.appendLine(
+                "fusedFirstUsableLatencyMaxMs=${
+                    compassTelemetryInsights.fusedFirstUsableLatencyMaxMs ?: "na"
+                }",
+            )
+            writer.appendLine("fusedReadyCount=${compassTelemetryInsights.fusedReadyCount}")
+            writer.appendLine(
+                "fusedReadyLatencyMaxMs=${
+                    compassTelemetryInsights.fusedReadyLatencyMaxMs ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "fusedWarmupRelockCount=${compassTelemetryInsights.fusedWarmupRelockCount}",
+            )
+            writer.appendLine(
+                "fusedWarmupRelockStepMaxDeg=${
+                    compassTelemetryInsights.fusedWarmupRelockStepMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "fusedReadyAfterRelockCount=${compassTelemetryInsights.fusedReadyAfterRelockCount}",
+            )
+            writer.appendLine(
+                "fusedFallbackActivationCount=${compassTelemetryInsights.fusedFallbackActivationCount}",
+            )
+            writer.appendLine("continuityStartCount=${compassTelemetryInsights.continuityStartCount}")
+            writer.appendLine(
+                "continuityCompleteCount=${compassTelemetryInsights.continuityCompleteCount}",
+            )
+            writer.appendLine(
+                "continuityCancelCount=${compassTelemetryInsights.continuityCancelCount}",
+            )
+            writer.appendLine(
+                "continuityInitialOffsetMaxDeg=${
+                    compassTelemetryInsights.continuityInitialOffsetMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "continuityDurationMaxMs=${
+                    compassTelemetryInsights.continuityDurationMaxMs ?: "na"
                 }",
             )
             writer.appendLine(
@@ -1056,6 +1234,11 @@ object DiagnosticsExporter {
                 "renderPerfRotationSkippedCount=${compassTelemetryInsights.renderPerfRotationSkippedCount}",
             )
             writer.appendLine(
+                "renderPerfRotationThrottledCount=${
+                    compassTelemetryInsights.renderPerfRotationThrottledCount
+                }",
+            )
+            writer.appendLine(
                 "renderPerfMarkerUpdateCount=${compassTelemetryInsights.renderPerfMarkerUpdateCount}",
             )
             writer.appendLine("renderPerfRedrawCount=${compassTelemetryInsights.renderPerfRedrawCount}")
@@ -1073,6 +1256,7 @@ object DiagnosticsExporter {
                     } ?: "na"
                 }",
             )
+            writer.writeCompassHeadingTelemetrySummary(compassHeadingTelemetrySummary)
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
             writer.appendLine(
@@ -1197,6 +1381,18 @@ object DiagnosticsExporter {
             writer.appendLine("turnByTurnTurnHapticCount=${telemetryInsights.turnByTurnTurnHapticCount}")
             writer.appendLine("turnByTurnOffRouteHapticCount=${telemetryInsights.turnByTurnOffRouteHapticCount}")
             writer.appendLine(
+                "turnByTurnTurnAlertFiredCount=${telemetryInsights.turnByTurnTurnAlertFiredCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertFilteredCount=${telemetryInsights.turnByTurnTurnAlertFilteredCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertOffRouteCount=${telemetryInsights.turnByTurnTurnAlertOffRouteCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertMissedWindowCount=${telemetryInsights.turnByTurnTurnAlertMissedWindowCount}",
+            )
+            writer.appendLine(
                 "turnByTurnMaxDistanceToRouteMeters=${
                     telemetryInsights.turnByTurnMaxDistanceToRouteMeters?.toString() ?: "na"
                 }",
@@ -1307,6 +1503,44 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "recordingGapRecoveryAcceptCount=${
                     telemetryInsights.recordingGapRecoveryAcceptCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingTrackSmoothingMode=${telemetryInsights.recordingTrackFilter.smoothingMode ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingTrackFilterVersion=${
+                    telemetryInsights.recordingTrackFilter.filterVersion?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityHeldFixCount=${
+                    telemetryInsights.recordingTrackFilter.qualityHeldFixCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityRejectedFixCount=${
+                    telemetryInsights.recordingTrackFilter.qualityRejectedFixCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingQualityRelocationCount=${
+                    telemetryInsights.recordingTrackFilter.qualityRelocationCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSmoothedPointCount=${
+                    telemetryInsights.recordingTrackFilter.smoothedPointCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSmoothedAdjustmentMeters=${
+                    telemetryInsights.recordingTrackFilter.smoothedAdjustmentMeters ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingMaxSmoothedAdjustmentMeters=${
+                    telemetryInsights.recordingTrackFilter.maxSmoothedAdjustmentMeters ?: "na"
                 }",
             )
             writer.appendLine(
@@ -1659,12 +1893,15 @@ object DiagnosticsExporter {
                         gnssInsights = gnssInsights,
                     ),
             )
+            writer.writeBundleDownloadSummarySection(bundleDownloadSummary)
             writer.writeLineDumpSection(
                 title = "Telemetry",
                 emptyMessage = "No telemetry captured yet. Enable diagnostics capture and reproduce.",
                 lines = telemetryLines,
             )
             writer.writeEnergyByModeSummarySection(energySummary)
+            writer.writeCompassDeepTraceSection(compassDeepTraceSnapshot)
+            writer.writeScreenStateSummarySection(screenStateSummary)
             writer.writeLineDumpSection(
                 title = "Energy Diagnostics",
                 emptyMessage = "No energy diagnostics samples yet.",
@@ -1690,9 +1927,87 @@ object DiagnosticsExporter {
             writer.appendLine("acceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("outlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("predictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("renderedMotionUpdates=${markerMotionSummary.renderedMotionUpdates}")
+            writer.appendLine("firstRenderDelaySamples=${markerMotionSummary.firstRenderDelaySamples}")
+            writer.appendLine(
+                "firstRenderDelayMeanMs=${markerMotionSummary.firstRenderDelayMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "firstRenderDelayMaxMs=${markerMotionSummary.firstRenderDelayMaxMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("activeRenderIntervalSamples=${markerMotionSummary.activeRenderIntervalSamples}")
+            writer.appendLine(
+                "activeRenderIntervalMeanMs=${markerMotionSummary.activeRenderIntervalMeanMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "activeRenderIntervalP50Ms=${markerMotionSummary.activeRenderIntervalP50Ms?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "activeRenderIntervalP95Ms=${markerMotionSummary.activeRenderIntervalP95Ms?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "activeRenderIntervalMaxMs=${markerMotionSummary.activeRenderIntervalMaxMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "nextFixPredictionResidualM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
+            )
+            writer.appendLine("correctionComponentSamples=${markerMotionSummary.correctionComponentSamples}")
+            writer.appendLine(
+                "correctionAlongTrackMeanM=" +
+                    TelemetryFormatters.decimalOrNa(markerMotionSummary.correctionAlongTrackMeanM, 1),
+            )
+            writer.appendLine(
+                "correctionCrossTrackMeanM=" +
+                    TelemetryFormatters.decimalOrNa(markerMotionSummary.correctionCrossTrackMeanM, 1),
+            )
+            writer.appendLine(
+                "correctionAlongTrackAbsM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionAlongTrackAbsM, digits = 1),
+            )
+            writer.appendLine(
+                "correctionCrossTrackAbsM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionCrossTrackAbsM, digits = 1),
+            )
+            writer.appendLine(
+                "renderDisplacementM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementM, digits = 2),
+            )
+            writer.appendLine(
+                "renderDisplacementPx=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementPx, digits = 2),
+            )
+            writer.appendLine(
+                "correctionSettleDurationMs=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.correctionSettleDurationMs, digits = 0),
+            )
+            writer.appendLine("correctionInterruptedCount=${markerMotionSummary.correctionInterruptedCount}")
+            writer.appendLine(
+                "rawFilteredPositionOffsetM=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredPositionOffsetM, digits = 1),
+            )
+            writer.appendLine(
+                "rawFilteredSpeedOffsetMps=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredSpeedOffsetMps, digits = 2),
+            )
+            writer.appendLine(
+                "rawFilteredBearingOffsetDeg=" +
+                    formatMarkerMotionMetricSummary(markerMotionSummary.rawFilteredBearingOffsetDeg, digits = 1),
+            )
+            writer.appendLine("modeDwellMs=${formatMarkerMotionModeDwell(markerMotionSummary.modeDwellMs)}")
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
+            writer.appendLine("innovationSamples=${markerMotionSummary.innovationSamples}")
+            writer.appendLine(
+                "innovationMeanM=${TelemetryFormatters.decimalOrNa(markerMotionSummary.innovationMeanM, 1)}",
+            )
+            writer.appendLine(
+                "innovationMaxM=${TelemetryFormatters.decimalOrNa(markerMotionSummary.innovationMaxM, 1)}",
+            )
+            writer.appendLine("fixGapSamples=${markerMotionSummary.fixGapSamples}")
+            writer.appendLine("fixGapMeanMs=${markerMotionSummary.fixGapMeanMs?.toString() ?: "na"}")
+            writer.appendLine("fixGapMaxMs=${markerMotionSummary.fixGapMaxMs?.toString() ?: "na"}")
             writer.appendLine(
                 "blockedReasons=${
                     formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)
@@ -1720,6 +2035,9 @@ object DiagnosticsExporter {
                 "latestCorrectionDistanceM=${
                     TelemetryFormatters.decimalOrNa(markerMotionSnapshot.correctionDistanceM, 1)
                 }",
+            )
+            writer.appendLine(
+                "latestCorrectionAgeMs=${markerMotionSnapshot.correctionAgeMs?.toString() ?: "na"}",
             )
             writer.appendLine("latestUpdatedAtElapsedMs=${markerMotionSnapshot.updatedAtElapsedMs}")
             writer.appendLine()
@@ -1980,9 +2298,24 @@ object DiagnosticsExporter {
         settings: DiagnosticsSettingsSnapshot,
         insights: TelemetryInsights,
     ): String =
-        when {
+        initialExternalRunPodStatus(settings, insights)
+            ?: connectedExternalRunPodStatus(insights)
+
+    private fun initialExternalRunPodStatus(
+        settings: DiagnosticsSettingsSnapshot,
+        insights: TelemetryInsights,
+    ): String? {
+        val runPodSelected = isRunPodSelected(settings)
+        return when {
             !settings.recordingExternalRunPodLinked -> "not_linked"
+            !runPodSelected && insights.externalRunPodBridgeStartCount == 0 -> "linked_not_selected"
             insights.externalRunPodBridgeStartCount == 0 -> "linked_not_started"
+            else -> null
+        }
+    }
+
+    private fun connectedExternalRunPodStatus(insights: TelemetryInsights): String =
+        when {
             insights.externalRunPodConnectSkippedCount > 0 ->
                 "connect_skipped_${insights.externalRunPodLastConnectSkippedReason ?: "unknown"}"
             insights.externalRunPodConnectRequestedCount == 0 -> "not_requested"
@@ -1995,6 +2328,11 @@ object DiagnosticsExporter {
             else -> "connected_no_samples"
         }
 
+    private fun isRunPodSelected(settings: DiagnosticsSettingsSnapshot): Boolean =
+        settings.recordingCadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            settings.recordingSpeedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            settings.recordingDistanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+
     private fun hasBluetoothScanPermission(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) ==
@@ -2006,11 +2344,7 @@ object DiagnosticsExporter {
             PackageManager.PERMISSION_GRANTED
 
     private fun recordingGuidanceSessionMode(insights: TelemetryInsights): String {
-        val recordingObserved =
-            insights.recordingStartCount > 0 ||
-                insights.recordingPointSampleCount > 0 ||
-                insights.recordingSaveStartCount > 0 ||
-                insights.recordingSaveSuccessCount > 0
+        val recordingObserved = recordingSessionObserved(insights)
         val guidanceObserved = insights.turnByTurnActiveSampleCount > 0
         return when {
             recordingObserved && guidanceObserved -> "recordingAndGuidance"
@@ -2018,6 +2352,21 @@ object DiagnosticsExporter {
             guidanceObserved -> "guidanceOnly"
             else -> "none"
         }
+    }
+
+    private fun recordingSessionObserved(insights: TelemetryInsights): Boolean =
+        insights.recordingStartCount > 0 ||
+            insights.recordingRecoveredCount > 0 ||
+            insights.recordingPointSampleCount > 0 ||
+            insights.recordingSaveStartCount > 0 ||
+            insights.recordingSaveSuccessCount > 0 ||
+            insights.recordingDiscardCount > 0
+
+    private fun observedExternalSensors(insights: TelemetryInsights): String {
+        val observedSensors = mutableListOf<String>()
+        if (insights.externalHeartRateSampleCount > 0) observedSensors += "heart_rate"
+        if (insights.externalRunPodSampleCount > 0) observedSensors += "run_pod"
+        return observedSensors.ifEmpty { listOf("none") }.joinToString(",")
     }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
@@ -2028,6 +2377,30 @@ object DiagnosticsExporter {
                 .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
                 .joinToString(separator = ",") { (reason, count) -> "$reason:$count" }
         }
+
+    private fun formatMarkerMotionMetricSummary(
+        summary: MarkerMotionMetricSummary,
+        digits: Int,
+    ): String =
+        if (summary.samples <= 0) {
+            "samples:0"
+        } else {
+            buildString {
+                append("samples:${summary.samples}")
+                append(",mean:${TelemetryFormatters.decimalOrNa(summary.mean, digits)}")
+                append(",p50:${TelemetryFormatters.decimalOrNa(summary.p50, digits)}")
+                append(",p95:${TelemetryFormatters.decimalOrNa(summary.p95, digits)}")
+                append(",max:${TelemetryFormatters.decimalOrNa(summary.max, digits)}")
+            }
+        }
+
+    private fun formatMarkerMotionModeDwell(modeDwellMs: Map<MarkerMotionMode, Long>): String =
+        modeDwellMs.entries
+            .filter { (_, dwellMs) -> dwellMs > 0L }
+            .sortedBy { (mode, _) -> mode.ordinal }
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(separator = ",") { (mode, dwellMs) -> "${mode.label}:$dwellMs" }
+            ?: "none"
 }
 
 internal fun normalizeThreadtimeLogcatLine(

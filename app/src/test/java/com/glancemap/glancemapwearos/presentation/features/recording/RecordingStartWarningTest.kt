@@ -1,12 +1,38 @@
 package com.glancemap.glancemapwearos.presentation.features.recording
 
+import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RecordingStartWarningTest {
+    @Test
+    fun `recording start requires a usable fresh location`() {
+        val freshSignal =
+            GpsSignalSnapshot(
+                isLocationAvailable = true,
+                lastFixFresh = true,
+            )
+
+        assertTrue(isRecordingStartLocationReady(hasUsableLocation = true, gpsSignalSnapshot = freshSignal))
+        assertFalse(isRecordingStartLocationReady(hasUsableLocation = false, gpsSignalSnapshot = freshSignal))
+        assertFalse(
+            isRecordingStartLocationReady(
+                hasUsableLocation = true,
+                gpsSignalSnapshot = freshSignal.copy(lastFixFresh = false),
+            ),
+        )
+        assertFalse(
+            isRecordingStartLocationReady(
+                hasUsableLocation = true,
+                gpsSignalSnapshot = freshSignal.copy(isLocationAvailable = false),
+            ),
+        )
+    }
+
     @Test
     fun `internal sources do not require a warning`() {
         assertNull(

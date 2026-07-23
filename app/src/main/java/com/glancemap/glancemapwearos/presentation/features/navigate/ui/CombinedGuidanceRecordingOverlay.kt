@@ -87,7 +87,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.f
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.logRecordingDashboardPageChange
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.normalizedRecordingDashboardSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingDashboardMetricTileHeight
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptions
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptionsForProfile
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -107,7 +107,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     userWeightKg: Float,
     backpackWeightKg: Float,
     bikeWeightKg: Float,
-    activityProfile: String,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
@@ -205,7 +204,8 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     }
     if (suppressed) return
 
-    val slots = normalizedRecordingDashboardSlots(metricSlots)
+    val sessionProfile = recordingState.activityProfile
+    val slots = normalizedRecordingDashboardSlots(metricSlots, sessionProfile)
     val guidanceSlots = normalizeTurnByTurnDashboardMetricSlots(guidanceMetricSlots)
     val recordingPageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
     val guidanceMetricPageCount =
@@ -227,7 +227,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
             bikeWeightKg = bikeWeightKg,
-            activityProfile = activityProfile,
+            activityProfile = sessionProfile,
         )
 
     AnimatedVisibility(
@@ -377,7 +377,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             visible = true,
             title = "Choose measure",
             selectedValue = currentMetric,
-            options = recordingMetricPickerOptions,
+            options = recordingMetricPickerOptionsForProfile(sessionProfile),
             onDismiss = { metricPickerSlot = NO_SELECTED_SLOT },
             onSelect = { metricId ->
                 onMetricSelected(metricPickerSlot, metricId)

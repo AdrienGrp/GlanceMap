@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.core.service.location.adapters
 
 import android.annotation.SuppressLint
 import android.location.Location
-import android.os.Looper
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -18,11 +17,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 internal class FusedLocationGateway(
     private val client: FusedLocationProviderClient,
+    private val callbackExecutor: Executor,
 ) : LocationGateway {
     private val requestMutex = Mutex()
     private val activeCallbacks = LinkedHashSet<LocationCallback>()
@@ -89,7 +90,7 @@ internal class FusedLocationGateway(
                         )
                     }
                 }
-            val locationRequest =
+            val locationRequestBuilder =
                 LocationRequest
                     .Builder(request.priority, request.intervalMs)
                     .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
@@ -97,10 +98,11 @@ internal class FusedLocationGateway(
                     .setMinUpdateDistanceMeters(request.minDistanceMeters)
                     .setWaitForAccurateLocation(request.waitForAccurateLocation)
                     .setMaxUpdateDelayMillis(request.maxUpdateDelayMs)
-                    .build()
+            request.durationMs?.let(locationRequestBuilder::setDurationMillis)
+            val locationRequest = locationRequestBuilder.build()
             registeringCallback = callback
             try {
-                client.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper()).await()
+                client.requestLocationUpdates(locationRequest, callbackExecutor, callback).await()
                 synchronized(activeCallbacks) {
                     activeCallbacks += callback
                 }
@@ -124,6 +126,10 @@ internal class FusedLocationGateway(
         requestMutex.withLock {
             removeLocationUpdatesLocked()
         }
+    }
+
+    override suspend fun flushLocations() {
+        client.flushLocations().await()
     }
 
     private suspend fun removeLocationUpdatesLocked() {

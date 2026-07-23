@@ -56,6 +56,7 @@ internal fun MapOverlays(
     activeGpxDetails: List<GpxTrackDetails>,
     routeToolPreviewPoints: List<LatLong>,
     recordingTraceSegments: List<List<LatLong>>,
+    recordingTraceFollowsMarker: Boolean,
     routeToolCreatePreviewActive: Boolean,
     routeToolDraftPoints: List<LatLong>,
     poiViewModel: PoiViewModel,
@@ -244,6 +245,9 @@ internal fun MapOverlays(
     RecordingTraceOverlayEffect(
         mapView = mapView,
         segments = recordingTraceSegments,
+        followLocationMarker = recordingTraceFollowsMarker,
+        locationMarker = locationMarker,
+        topOverlayCoordinator = topOverlayCoordinator,
     )
 
     inspectionUiState?.let { ui ->
@@ -448,6 +452,7 @@ private fun PoiOverlayEffect(
     topOverlayCoordinator: MapTopOverlayCoordinator,
 ) {
     val markersByKey = remember(mapView) { mutableMapOf<String, PoiMarkerEntry>() }
+    val viewportQueryCache = remember(mapView) { PoiOverlayViewportQueryCache() }
     val markerBitmapCache =
         remember(mapView, poiMarkerStyle) {
             mutableMapOf<Pair<Int, String>, Map<PoiType, AndroidBitmap>>()
@@ -479,6 +484,7 @@ private fun PoiOverlayEffect(
     }
 
     LaunchedEffect(activePoiOverlaySources, poiMarkerSizePx, poiMarkerStyle) {
+        viewportQueryCache.invalidate()
         if (activePoiOverlaySources.isEmpty()) {
             clearAllMarkers()
         } else {
@@ -515,6 +521,12 @@ private fun PoiOverlayEffect(
                 val height = mapView.height
                 if (width <= 0 || height <= 0) return@collect
 
+                val zoom =
+                    mapView.model.mapViewPosition.zoomLevel
+                        .toInt()
+                val center = mapView.model.mapViewPosition.center
+                if (!viewportQueryCache.shouldQuery(center, zoom)) return@collect
+
                 val corners =
                     listOf(
                         runCatching { mapView.mapViewProjection.fromPixels(0.0, 0.0) }.getOrNull(),
@@ -530,9 +542,13 @@ private fun PoiOverlayEffect(
                 val maxLat = corners.maxOf { it.latitude }
                 val minLon = corners.minOf { it.longitude }
                 val maxLon = corners.maxOf { it.longitude }
-                val zoom =
-                    mapView.model.mapViewPosition.zoomLevel
-                        .toInt()
+                val viewport =
+                    PoiViewport(
+                        minLat = minLat,
+                        maxLat = maxLat,
+                        minLon = minLon,
+                        maxLon = maxLon,
+                    )
                 val effectiveMarkerSizePx = effectivePoiMarkerSizePx(poiMarkerSizePx, zoom)
                 val markerBitmapByType =
                     markerBitmapCache.getOrPut(effectiveMarkerSizePx to poiMarkerStyle) {
@@ -552,16 +568,15 @@ private fun PoiOverlayEffect(
                 val markers =
                     withContext(Dispatchers.IO) {
                         poiViewModel.queryVisibleMarkers(
-                            viewport =
-                                PoiViewport(
-                                    minLat = minLat,
-                                    maxLat = maxLat,
-                                    minLon = minLon,
-                                    maxLon = maxLon,
-                                ),
+                            viewport = viewport,
                             zoomLevel = zoom,
                         )
                     }
+                viewportQueryCache.recordSuccessfulQuery(
+                    center = center,
+                    zoomLevel = zoom,
+                    viewport = viewport,
+                )
                 onPoiMarkersSnapshotChanged(markers)
 
                 mapView.mutateLayers { layers ->
@@ -674,7 +689,7 @@ private fun GpxAndInspectionOverlayEffect(
         }
 
     // Stable caches
-    val polylinesById = remember(mapView) { mutableMapOf<String, Polyline>() }
+    val polylinesById = remember(mapView) { mutableMapOf<String, List<Polyline>>() }
     val elevationPolylinesById = remember(mapView) { mutableMapOf<String, List<Polyline>>() }
     val startMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
     val endMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
@@ -794,13 +809,15 @@ private fun GpxAndInspectionOverlayEffect(
                                     }
                                 changed = true
                             } else {
-                                val polyline = polylinesById[id] ?: return@forEach
-                                val renderLatLongs = renderPoints.latLongs()
-                                if (!hasSameLatLongs(polyline.latLongs, renderLatLongs)) {
-                                    polyline.latLongs.clear()
-                                    polyline.latLongs.addAll(renderLatLongs)
-                                    changed = true
-                                }
+                                val syncResult =
+                                    syncSolidTrackPolylines(
+                                        layers = layers,
+                                        current = polylinesById[id].orEmpty(),
+                                        segments = renderPoints.latLongSegments(),
+                                        paint = trackPaint,
+                                    )
+                                polylinesById[id] = syncResult.polylines
+                                changed = syncResult.changed || changed
                             }
                             displayedLodBucketById[id] = newBucket
                         }
@@ -849,12 +866,8 @@ private fun GpxAndInspectionOverlayEffect(
                     displayedLodBucketById = displayedLodBucketById,
                 ) - wantedIds
             staleOverlayIds.forEach { id ->
-                if (polylinesById.remove(id)?.let {
-                        layers.remove(it)
-                        true
-                    } == true
-                ) {
-                    changed = true
+                polylinesById.remove(id)?.forEach { polyline ->
+                    changed = layers.remove(polyline) || changed
                 }
                 elevationPolylinesById.remove(id)?.forEach { polyline ->
                     layers.remove(polyline)
@@ -897,14 +910,12 @@ private fun GpxAndInspectionOverlayEffect(
             val currentBucket = zoomBucketFor(zoomNow)
             activeGpxDetails.forEach { details ->
                 val lod = computedLodById[details.id] ?: return@forEach
-                val previousLod = lodById[details.id]
                 lodById[details.id] = lod
                 val renderPoints = lod.pointsForZoom(zoomNow)
 
                 if (useElevationTrackColors) {
-                    polylinesById.remove(details.id)?.let { solidPolyline ->
-                        layers.remove(solidPolyline)
-                        changed = true
+                    polylinesById.remove(details.id)?.forEach { solidPolyline ->
+                        changed = layers.remove(solidPolyline) || changed
                     }
                     elevationPolylinesById.remove(details.id)?.forEach { polyline ->
                         layers.remove(polyline)
@@ -930,27 +941,15 @@ private fun GpxAndInspectionOverlayEffect(
                         layers.remove(polyline)
                         changed = true
                     }
-                    val renderLatLongs = renderPoints.latLongs()
-                    val polyline =
-                        polylinesById.getOrPut(details.id) {
-                            Polyline(trackPaint, AndroidGraphicFactory.INSTANCE).also { p ->
-                                p.latLongs.addAll(renderLatLongs)
-                                layers.add(p)
-                                changed = true
-                            }
-                        }
-
-                    val bucketChanged = displayedLodBucketById[details.id] != currentBucket
-                    val sourceChanged = previousLod?.sourceSignature != lod.sourceSignature
-                    if (
-                        sourceChanged ||
-                        bucketChanged ||
-                        !hasSameLatLongs(polyline.latLongs, renderLatLongs)
-                    ) {
-                        polyline.latLongs.clear()
-                        polyline.latLongs.addAll(renderLatLongs)
-                        changed = true
-                    }
+                    val syncResult =
+                        syncSolidTrackPolylines(
+                            layers = layers,
+                            current = polylinesById[details.id].orEmpty(),
+                            segments = renderPoints.latLongSegments(),
+                            paint = trackPaint,
+                        )
+                    polylinesById[details.id] = syncResult.polylines
+                    changed = syncResult.changed || changed
                 }
                 displayedLodBucketById[details.id] = currentBucket
 
@@ -1096,7 +1095,7 @@ private fun GpxAndInspectionOverlayEffect(
     DisposableEffect(mapView) {
         onDispose {
             mapView.mutateLayers { layers ->
-                polylinesById.values.forEach(layers::remove)
+                polylinesById.values.flatten().forEach(layers::remove)
                 elevationPolylinesById.values.flatten().forEach(layers::remove)
                 startMarkersById.values.forEach(layers::remove)
                 endMarkersById.values.forEach(layers::remove)
@@ -1124,7 +1123,7 @@ private fun GpxAndInspectionOverlayEffect(
 
 @Suppress("LongParameterList")
 private fun trackedGpxOverlayIds(
-    polylinesById: Map<String, Polyline>,
+    polylinesById: Map<String, List<Polyline>>,
     elevationPolylinesById: Map<String, List<Polyline>>,
     startMarkersById: Map<String, Marker>,
     endMarkersById: Map<String, Marker>,

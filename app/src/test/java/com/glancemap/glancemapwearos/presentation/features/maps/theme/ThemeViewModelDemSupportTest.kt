@@ -15,6 +15,58 @@ import java.util.zip.ZipOutputStream
 
 class ThemeViewModelDemSupportTest {
     @Test
+    fun demProgressCombinesCompletedTilesWithCurrentTileBytes() {
+        val progress =
+            demDownloadProgressPercent(
+                totalTiles = 4,
+                completedTiles = 1,
+                currentTileBytes = 50L,
+                currentTileTotalBytes = 100L,
+            )
+
+        assertEquals(37, progress)
+    }
+
+    @Test
+    fun demProgressUsesCompletedTilesWhenContentLengthIsUnknown() {
+        val progress =
+            demDownloadProgressPercent(
+                totalTiles = 5,
+                completedTiles = 2,
+                currentTileBytes = 80L,
+                currentTileTotalBytes = null,
+            )
+
+        assertEquals(40, progress)
+    }
+
+    @Test
+    fun demProgressReachesOneHundredAfterEveryTileCompletes() {
+        val progress =
+            demDownloadProgressPercent(
+                totalTiles = 3,
+                completedTiles = 3,
+                currentTileBytes = 0L,
+                currentTileTotalBytes = null,
+            )
+
+        assertEquals(100, progress)
+    }
+
+    @Test
+    fun demProgressIsUnavailableBeforeTileCountIsKnown() {
+        val progress =
+            demDownloadProgressPercent(
+                totalTiles = 0,
+                completedTiles = 0,
+                currentTileBytes = 0L,
+                currentTileTotalBytes = null,
+            )
+
+        assertEquals(null, progress)
+    }
+
+    @Test
     fun socketTimeoutIsNotMarkedOfflineWhenInternetIsAvailable() {
         val networkUnavailable =
             classifyDemFailureAsNetworkUnavailable(

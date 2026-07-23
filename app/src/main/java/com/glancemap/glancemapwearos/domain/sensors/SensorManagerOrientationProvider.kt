@@ -11,6 +11,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.Surface
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceProviderSample
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.atomic.AtomicBoolean
+
+internal data class SensorHeadingSampleFreshness(
+    val sampleAtElapsedRealtimeMs: Long? = null,
+    val stale: Boolean = true,
+) {
+    fun markStale(): SensorHeadingSampleFreshness = copy(stale = true)
+
+    companion object {
+        fun afterPublish(sampleAtElapsedRealtimeMs: Long): SensorHeadingSampleFreshness =
+            SensorHeadingSampleFreshness(
+                sampleAtElapsedRealtimeMs = sampleAtElapsedRealtimeMs,
+                stale = false,
+            )
+    }
+}
+
+private data class SensorPublishedHeadingSample(
+    val headingDeg: Float = 0f,
+    val freshness: SensorHeadingSampleFreshness = SensorHeadingSampleFreshness(),
+)
 
 internal class SensorManagerOrientationProvider(
     context: Context,
@@ -38,7 +60,7 @@ internal class SensorManagerOrientationProvider(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     override val providerType: CompassProviderType = CompassProviderType.SENSOR_MANAGER
 
-    private val _heading = MutableStateFlow(0f)
+    private val _publishedHeadingSample = MutableStateFlow(SensorPublishedHeadingSample())
     private val _accuracy = MutableStateFlow(SensorManager.SENSOR_STATUS_UNRELIABLE)
     private val _headingSource = MutableStateFlow(HeadingSource.NONE)
     private val _headingSourceStatus =
@@ -74,20 +96,21 @@ internal class SensorManagerOrientationProvider(
 
     private val baseRenderState =
         combine(
-            _heading,
+            _publishedHeadingSample,
             _accuracy,
             _headingSource,
             _headingSourceStatus,
             _northReferenceStatus,
-        ) { heading, accuracy, headingSource, headingSourceStatus, northReferenceStatus ->
+        ) { headingSample, accuracy, headingSource, headingSourceStatus, northReferenceStatus ->
             CompassRenderState(
                 providerType = providerType,
-                headingDeg = heading,
+                headingDeg = headingSample.headingDeg,
                 accuracy = accuracy,
                 headingErrorDeg = null,
                 conservativeHeadingErrorDeg = null,
-                headingSampleElapsedRealtimeMs = null,
-                headingSampleStale = false,
+                headingSampleElapsedRealtimeMs =
+                    headingSample.freshness.sampleAtElapsedRealtimeMs,
+                headingSampleStale = headingSample.freshness.stale,
                 headingSource = headingSource,
                 headingSourceStatus = headingSourceStatus,
                 northReferenceStatus = northReferenceStatus,
@@ -100,7 +123,42 @@ internal class SensorManagerOrientationProvider(
             baseRenderState,
             _magneticInterference,
         ) { baseState, magneticInterference ->
-            baseState.copy(magneticInterference = magneticInterference)
+            val renderable =
+                baseState.headingSource != HeadingSource.NONE &&
+                    !baseState.headingSampleStale &&
+                    baseState.headingDeg.isFinite()
+            baseState.copy(
+                magneticInterference = magneticInterference,
+                trackingState =
+                    when {
+                        magneticInterference -> CompassTrackingState.DEGRADED
+                        renderable -> CompassTrackingState.TRACKING
+                        else -> CompassTrackingState.ACQUIRING
+                    },
+                trackingReason =
+                    when {
+                        magneticInterference -> CompassTrackingReason.MAGNETIC_INTERFERENCE
+                        renderable -> CompassTrackingReason.STABLE
+                        else -> CompassTrackingReason.STARTUP
+                    },
+                headingRenderable = renderable,
+                headingTrusted =
+                    renderable &&
+                        !magneticInterference &&
+                        baseState.accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                northBasis =
+                    if (baseState.northReferenceStatus.effectiveMode == NorthReferenceMode.TRUE) {
+                        CompassNorthBasis.TRUE_APP_DECLINATION
+                    } else {
+                        CompassNorthBasis.MAGNETIC
+                    },
+                magneticQuality =
+                    when {
+                        magneticInterference -> CompassMagneticQuality.INTERFERENCE
+                        renderable -> CompassMagneticQuality.GOOD
+                        else -> CompassMagneticQuality.UNKNOWN
+                    },
+            )
         }.stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(0),
@@ -110,7 +168,7 @@ internal class SensorManagerOrientationProvider(
                     headingSensorAvailable = sensorRegistrar.availability.headingSensorAvailable,
                     rotationVectorAvailable = sensorRegistrar.availability.rotationVectorAvailable,
                     magAccelFallbackAvailable = sensorRegistrar.availability.magAccelFallbackAvailable,
-                ),
+                ).copy(headingSampleStale = true),
         )
 
     // Raw heading pushed from sensor callbacks
@@ -262,6 +320,10 @@ internal class SensorManagerOrientationProvider(
     override fun stop() {
         if (!started) return
         started = false
+        _publishedHeadingSample.value =
+            _publishedHeadingSample.value.copy(
+                freshness = _publishedHeadingSample.value.freshness.markStale(),
+            )
 
         sensorRegistrar.unregister(this)
         sensorCallbackThread?.quitSafely()
@@ -324,13 +386,14 @@ internal class SensorManagerOrientationProvider(
             northReferenceMode = mode
             val remappedHeading =
                 remapHeadingForNorthReferenceSwitch(
-                    currentHeadingDeg = _heading.value,
+                    currentHeadingDeg = _publishedHeadingSample.value.headingDeg,
                     fromMode = previousMode,
                     toMode = mode,
                     declinationDeg = declinationController.currentDeclination,
                 )
             if (remappedHeading.isFinite()) {
-                _heading.value = remappedHeading
+                _publishedHeadingSample.value =
+                    _publishedHeadingSample.value.copy(headingDeg = remappedHeading)
                 rawHeadingFlow.value = remappedHeading
             }
         }
@@ -349,7 +412,7 @@ internal class SensorManagerOrientationProvider(
                 // Re-snap smoothing only when the effective heading basis changed.
                 resetSmoothingRequested.set(true)
             } else if (forceRefresh && !modeChanged) {
-                rawHeadingFlow.value = _heading.value
+                rawHeadingFlow.value = _publishedHeadingSample.value.headingDeg
             }
         }
         publishNorthReferenceStatus()
@@ -358,7 +421,7 @@ internal class SensorManagerOrientationProvider(
                 "usingHeadingSensor=$usingHeadingSensor usingRotationVector=$usingRotationVector " +
                 "usingMagAccel=$usingMagAccelFallback " +
                 "sourceMode=$headingSourceMode decl=${declinationController.currentDeclination.formatOrNA(2)} " +
-                "heading=${_heading.value.format(1)}",
+                "heading=${_publishedHeadingSample.value.headingDeg.format(1)}",
         )
     }
 
@@ -389,7 +452,7 @@ internal class SensorManagerOrientationProvider(
                 // Re-snap only when the effective sensor pipeline changed.
                 resetSmoothingRequested.set(true)
             } else if (forceRefresh && !sourceChanged) {
-                rawHeadingFlow.value = _heading.value
+                rawHeadingFlow.value = _publishedHeadingSample.value.headingDeg
             }
         }
         publishHeadingSourceFromCurrentMode()
@@ -448,6 +511,7 @@ internal class SensorManagerOrientationProvider(
                     headingDeg = headingDeg,
                 )
             rawHeadingFlow.value = normalized
+            recordDeepTraceHeading(normalized)
             maybeLogHeadingSample(normalized)
             return
         }
@@ -472,6 +536,7 @@ internal class SensorManagerOrientationProvider(
                     northReferenceMode = northReferenceMode,
                 )
             rawHeadingFlow.value = normalized
+            recordDeepTraceHeading(normalized)
             maybeLogHeadingSample(normalized)
             return
         }
@@ -515,7 +580,30 @@ internal class SensorManagerOrientationProvider(
                 northReferenceMode = northReferenceMode,
             )
         rawHeadingFlow.value = normalized
+        recordDeepTraceHeading(normalized)
         maybeLogHeadingSample(normalized)
+    }
+
+    private fun recordDeepTraceHeading(headingDeg: Float) {
+        if (!CompassDeepTraceDiagnostics.state.value.active) return
+        val accuracy = _accuracy.value
+        val errorDeg =
+            when {
+                usingHeadingSensor -> headingUncertaintyDeg
+                usingRotationVector -> rotVecHeadingUncertaintyDeg
+                else -> Float.NaN
+            }
+        CompassDeepTraceDiagnostics.recordProviderSample(
+            CompassDeepTraceProviderSample(
+                provider = "sensor_manager",
+                headingDeg = headingDeg,
+                headingErrorDeg = errorDeg.takeIf(Float::isFinite),
+                accuracy = accuracy,
+                startupWarmup = false,
+                usable = accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE,
+                atElapsedMs = SystemClock.elapsedRealtime(),
+            ),
+        )
     }
 
     override fun onAccuracyChanged(
@@ -563,9 +651,16 @@ internal class SensorManagerOrientationProvider(
                 getStartAtMs = { startAtMs },
                 getHeadingRelockUntilElapsedMs = { headingRelockUntilElapsedMs },
                 consumeResetSmoothingRequested = { resetSmoothingRequested.getAndSet(false) },
-                getDisplayedHeading = { _heading.value },
+                getDisplayedHeading = { _publishedHeadingSample.value.headingDeg },
                 publishDisplayedHeading = { heading ->
-                    _heading.value = heading
+                    _publishedHeadingSample.value =
+                        SensorPublishedHeadingSample(
+                            headingDeg = heading,
+                            freshness =
+                                SensorHeadingSampleFreshness.afterPublish(
+                                    sampleAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                                ),
+                        )
                     hasPublishedHeading = true
                 },
                 getPendingBootstrapRawSamplesToIgnore = { pendingBootstrapRawSamplesToIgnore },
@@ -601,7 +696,7 @@ internal class SensorManagerOrientationProvider(
                 pendingBootstrapRawSamplesToIgnore = pendingBootstrapRawSamplesToIgnore,
                 lastHeadingDebugLogAtMs = lastHeadingDebugLogAtMs,
                 nowElapsedMs = SystemClock.elapsedRealtime(),
-                smoothedHeading = _heading.value,
+                smoothedHeading = _publishedHeadingSample.value.headingDeg,
                 combinedAccuracy = _accuracy.value,
                 sensorReportedAccuracy = resolveSensorReportedAccuracy(),
                 inferredHeadingAccuracy = inferredHeadingAccuracy,
@@ -653,6 +748,10 @@ internal class SensorManagerOrientationProvider(
         sensorRegistrar.unregister(this)
         val pipeline = currentHeadingPipeline()
         if (started && resetHeadingState) {
+            _publishedHeadingSample.value =
+                _publishedHeadingSample.value.copy(
+                    freshness = _publishedHeadingSample.value.freshness.markStale(),
+                )
             val nowElapsedMs = SystemClock.elapsedRealtime()
             val prep =
                 prepareCompassRegistrationResetState(

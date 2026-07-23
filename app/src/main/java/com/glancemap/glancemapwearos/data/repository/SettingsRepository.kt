@@ -11,6 +11,9 @@ interface SettingsRepository {
 
         const val DEFAULT_GPS_INTERVAL_MS = 3000L
         const val DEFAULT_AMBIENT_GPS_INTERVAL_MS = 60_000L
+        const val DIAGNOSTICS_CAPTURE_MODE_FULL = "FULL"
+        const val DIAGNOSTICS_CAPTURE_MODE_BATTERY = "BATTERY"
+        const val DEFAULT_DIAGNOSTICS_CAPTURE_MODE = DIAGNOSTICS_CAPTURE_MODE_FULL
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
         const val RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS = -1
@@ -22,6 +25,10 @@ interface SettingsRepository {
         const val RECORDING_AUTO_PAUSE_BIKE_ONLY = "BIKE_ONLY"
         const val RECORDING_AUTO_PAUSE_ALWAYS = "ALWAYS"
         const val DEFAULT_RECORDING_AUTO_PAUSE_MODE = RECORDING_AUTO_PAUSE_OFF
+        const val RECORDING_TRACK_SMOOTHING_OFF = "OFF"
+        const val RECORDING_TRACK_SMOOTHING_ADAPTIVE = "ADAPTIVE"
+        const val RECORDING_TRACK_SMOOTHING_STRONG = "STRONG"
+        const val DEFAULT_RECORDING_TRACK_SMOOTHING_MODE = RECORDING_TRACK_SMOOTHING_ADAPTIVE
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_TOTAL_TIME = "total_time"
         const val RECORDING_METRIC_DURATION = "duration"
@@ -67,6 +74,10 @@ interface SettingsRepository {
         const val ACTIVITY_PROFILE_WALK_HIKE = "WALK_HIKE"
         const val ACTIVITY_PROFILE_BIKE = "BIKE"
         const val DEFAULT_ACTIVITY_PROFILE = ACTIVITY_PROFILE_HIKE
+        const val GPX_LIST_PAGE_TRACKS = "TRACKS"
+        const val GPX_LIST_PAGE_HIKE_ACTIVITIES = "HIKE_ACTIVITIES"
+        const val GPX_LIST_PAGE_BIKE_ACTIVITIES = "BIKE_ACTIVITIES"
+        const val DEFAULT_GPX_LIST_PAGE = GPX_LIST_PAGE_TRACKS
         const val DEFAULT_USER_WEIGHT_KG = 75f
         const val MIN_USER_WEIGHT_KG = 35f
         const val MAX_USER_WEIGHT_KG = 160f
@@ -103,7 +114,16 @@ interface SettingsRepository {
                 RECORDING_METRIC_HEART_RATE,
             )
         val DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS =
-            DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+            listOf(
+                RECORDING_METRIC_TOTAL_TIME,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_HEART_RATE,
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_ELEVATION_GAIN,
+                RECORDING_METRIC_ELEVATION_LOSS,
+                RECORDING_METRIC_ACTIVE_CALORIES,
+            )
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"
@@ -131,6 +151,7 @@ interface SettingsRepository {
         const val TURN_BY_TURN_TURN_ALERTS_OFF = "OFF"
         const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
         const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
+        const val DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE = TURN_BY_TURN_TURN_ALERTS_ALL
         const val DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = false
         const val DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED = true
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 40
@@ -138,6 +159,7 @@ interface SettingsRepository {
         const val DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS = 3
         const val DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS = GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
         const val DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE = true
+        const val DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED = false
         const val TURN_BY_TURN_METRIC_REMAINING_DISTANCE = "remaining_distance"
         const val TURN_BY_TURN_METRIC_REMAINING_ASCENT = "remaining_ascent"
         const val TURN_BY_TURN_METRIC_REMAINING_DESCENT = "remaining_descent"
@@ -237,7 +259,7 @@ interface SettingsRepository {
         const val POI_POPUP_TIMEOUT_MAX_SECONDS = 20
 
         const val DEFAULT_MAP_ZOOM_DEFAULT_SCALE_METERS = 200
-        const val DEFAULT_MAP_ZOOM_MIN_SCALE_METERS = 50_000
+        const val DEFAULT_MAP_ZOOM_MIN_SCALE_METERS = 200_000
         const val DEFAULT_MAP_ZOOM_MAX_SCALE_METERS = 20
     }
 
@@ -261,6 +283,10 @@ interface SettingsRepository {
 
     suspend fun setGpsDebugTelemetry(enabled: Boolean)
 
+    val diagnosticsCaptureMode: Flow<String>
+
+    suspend fun setDiagnosticsCaptureMode(mode: String)
+
     val gpsPassiveLocationExperiment: Flow<Boolean>
 
     suspend fun setGpsPassiveLocationExperiment(enabled: Boolean)
@@ -280,6 +306,10 @@ interface SettingsRepository {
     val recordingAutoPauseMode: Flow<String>
 
     suspend fun setRecordingAutoPauseMode(mode: String)
+
+    val recordingTrackSmoothingMode: Flow<String>
+
+    suspend fun setRecordingTrackSmoothingMode(mode: String)
 
     val recordingElevationSource: Flow<String>
 
@@ -397,6 +427,10 @@ interface SettingsRepository {
     val turnByTurnGpsInAmbientMode: Flow<Boolean>
 
     suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
+
+    val turnByTurnScreenOffBatchingEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnScreenOffBatchingEnabled(enabled: Boolean)
 
     val turnByTurnGpsIntervalSeconds: Flow<Int>
 
@@ -587,6 +621,10 @@ interface SettingsRepository {
     val compassMode: Flow<Boolean>
 
     suspend fun setCompassMode(isCompassMode: Boolean)
+
+    val gpxLastVisitedListPage: Flow<String>
+
+    suspend fun setGpxLastVisitedListPage(page: String)
 
     val isGpxInspectionEnabled: Flow<Boolean>
 

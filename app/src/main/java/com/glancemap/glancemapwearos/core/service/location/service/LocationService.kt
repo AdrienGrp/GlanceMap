@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.glancemap.glancemapwearos.GlanceMapWearApp
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
@@ -23,6 +24,9 @@ import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpda
 import com.glancemap.glancemapwearos.core.service.location.adapters.PassiveExternalLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WatchGpsLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_GPS_INTERVAL_MS
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_PROLONGED_AFTER_MS
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_PROLONGED_GPS_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_MAX_AGE_MS
@@ -121,9 +125,12 @@ class LocationService : Service() {
             HandlerThread("LocationCallbackThread").apply { start() }
         }
     private val locationCallbackThread: HandlerThread by locationCallbackThreadDelegate
+    private val locationCallbackHandler by lazy { Handler(locationCallbackThread.looper) }
     private val locationCallbackExecutor by lazy {
         java.util.concurrent.Executor { command ->
-            Handler(locationCallbackThread.looper).post(command)
+            if (!locationCallbackHandler.post(command)) {
+                command.run()
+            }
         }
     }
 
@@ -138,6 +145,8 @@ class LocationService : Service() {
     @Volatile private var latestScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
 
     @Volatile private var latestGpsDebugTelemetry: Boolean = false
+
+    @Volatile private var latestDiagnosticsCaptureActive: Boolean = false
 
     @Volatile private var latestPassiveLocationExperiment: Boolean = false
 
@@ -156,6 +165,12 @@ class LocationService : Service() {
 
     @Volatile private var latestTurnByTurnScreenOffIntervalMs: Long =
         SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L
+
+    @Volatile private var latestTurnByTurnScreenOffBatchingEnabled: Boolean = false
+
+    @Volatile private var autoPauseStartedAtElapsedMs: Long = 0L
+
+    private var autoPauseCadenceJob: Job? = null
 
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
 
@@ -224,7 +239,11 @@ class LocationService : Service() {
     override fun onCreate() {
         super.onCreate()
         val fused = LocationServices.getFusedLocationProviderClient(this)
-        fusedLocationGateway = FusedLocationGateway(fused)
+        fusedLocationGateway =
+            FusedLocationGateway(
+                client = fused,
+                callbackExecutor = locationCallbackExecutor,
+            )
         passiveExternalLocationGateway =
             PassiveExternalLocationGateway(
                 locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
@@ -265,6 +284,7 @@ class LocationService : Service() {
                     )
                 },
                 endHighAccuracyBurstEarly = {
+                    immediateLocationCoordinator.onGoodStreamFixAccepted()
                     immediateLocationCoordinator.endHighAccuracyBurst(reason = "early_fix")
                 },
             )
@@ -283,13 +303,28 @@ class LocationService : Service() {
                 currentLocationSourceMode = { currentLocationSourceMode() },
                 locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
                 requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
-                passiveLocationExperiment = { latestGpsDebugTelemetry && latestPassiveLocationExperiment },
+                passiveExperimentSourceMode = {
+                    currentLocationSourceMode().takeIf { sourceMode ->
+                        latestGpsDebugTelemetry &&
+                            latestPassiveLocationExperiment &&
+                            sourceMode == LocationSourceMode.PASSIVE_EXTERNAL
+                    }
+                },
+                shouldRequestNavigateOneShot = { nowElapsedMs ->
+                    shouldRequestStaleNavigateOneShot(
+                        runtimeReason = latestRuntimeReason,
+                        sourceMode = currentLocationSourceMode(),
+                        signal = engine.gpsSignalSnapshot,
+                        nowElapsedMs = nowElapsedMs,
+                        freshnessMaxAgeMs = strictFreshMaxAgeMs(),
+                    )
+                },
                 emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
                 emitAcceptedImmediateLocation = { location, acceptedAtMs ->
                     _currentLocation.value = location
                     lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
                 },
-                immediateGetCurrentTimeoutMs = IMMEDIATE_GET_CURRENT_TIMEOUT_MS,
+                navigateOneShotTimeoutMs = NAVIGATE_ONE_SHOT_TIMEOUT_MS,
             )
         requestCoordinator =
             LocationRequestCoordinator(
@@ -311,52 +346,7 @@ class LocationService : Service() {
                 cancelImmediateLocationWork = { reason ->
                     immediateLocationCoordinator.cancelImmediateLocationWork(reason = reason)
                 },
-                currentState = {
-                    val effectiveUserIntervalMs =
-                        when {
-                            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ->
-                                minOf(
-                                    if (latestScreenState.isNonInteractive) {
-                                        latestRecordingScreenOffIntervalMs
-                                    } else {
-                                        latestRecordingIntervalMs
-                                    },
-                                    if (latestScreenState.isNonInteractive) {
-                                        latestTurnByTurnScreenOffIntervalMs
-                                    } else {
-                                        latestTurnByTurnIntervalMs
-                                    },
-                                )
-                            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING ->
-                                if (latestScreenState.isNonInteractive) {
-                                    latestRecordingScreenOffIntervalMs
-                                } else {
-                                    latestRecordingIntervalMs
-                                }
-                            latestRuntimeReason.isGuidanceRuntimeReason() ->
-                                if (latestScreenState.isNonInteractive) {
-                                    latestTurnByTurnScreenOffIntervalMs
-                                } else {
-                                    latestTurnByTurnIntervalMs
-                                }
-                            else -> latestUserIntervalMs
-                        }
-                    RequestUpdateState(
-                        bound = isBound.value,
-                        tracking = latestTrackingEnabled,
-                        keepOpen = keepAppOpen.value,
-                        watchOnlyRequested = latestWatchGpsOnly,
-                        watchOnlyEffective =
-                            latestWatchGpsOnly ||
-                                selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
-                        screenState = latestScreenState,
-                        backgroundGps = effectiveBackgroundGpsEnabled(),
-                        runtimeReason = latestRuntimeReason,
-                        passiveLocationExperiment = latestGpsDebugTelemetry && latestPassiveLocationExperiment,
-                        userIntervalMs = effectiveUserIntervalMs,
-                        ambientIntervalMs = latestAmbientIntervalMs,
-                    )
-                },
+                currentState = ::currentRequestUpdateState,
                 effectiveUpdateIntervalMs = { _effectiveUpdateIntervalMs.value },
                 strictSourceWarmupMs = SOURCE_MODE_WARMUP_MS,
                 setSourceModeWarmup = { expectedOrigin, untilElapsedMs ->
@@ -426,10 +416,10 @@ class LocationService : Service() {
             runCatching { latestAmbientIntervalMs = settingsRepository.ambientGpsInterval.first() }
             runCatching { latestPassiveLocationExperiment = settingsRepository.gpsPassiveLocationExperiment.first() }
             runCatching {
-                latestGpsDebugTelemetry = settingsRepository.gpsDebugTelemetry.first()
-                telemetry.setDebugEnabled(latestGpsDebugTelemetry)
-                updateEnergySampling(latestGpsDebugTelemetry)
-                updateGnssDiagnostics(enabled = latestGpsDebugTelemetry)
+                applyDiagnosticsCaptureState(
+                    captureActive = settingsRepository.gpsDebugTelemetry.first(),
+                    captureMode = settingsRepository.diagnosticsCaptureMode.first(),
+                )
             }
             runCatching { latestUserIntervalMs = settingsRepository.gpsInterval.first() }
             runCatching {
@@ -582,7 +572,28 @@ class LocationService : Service() {
             return
         }
 
-        immediateLocationCoordinator.requestImmediateLocation(source)
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val signal = engine.gpsSignalSnapshot
+        val streamIntervalMs = engine.currentRequestIntervalOr(_effectiveUpdateIntervalMs.value)
+        val suppressForFreshStream =
+            shouldSuppressImmediateBurstForFreshStream(
+                runtimeReason = latestRuntimeReason,
+                runtimeMode = engine.currentRuntimeModeOrNull(),
+                intervalMs = streamIntervalMs,
+                signal = signal,
+                nowElapsedMs = nowElapsedMs,
+            )
+        if (suppressForFreshStream) {
+            telemetry.logImmediateRequestSkippedFreshStream(
+                source = source,
+                runtimeReason = latestRuntimeReason,
+                intervalMs = streamIntervalMs,
+                fixAgeMs = (nowElapsedMs - signal.lastFixElapsedRealtimeMs).coerceAtLeast(0L),
+                accuracyM = signal.lastFixAccuracyM,
+            )
+        } else {
+            immediateLocationCoordinator.requestImmediateLocation(source)
+        }
     }
 
     fun setRuntimeState(
@@ -591,6 +602,8 @@ class LocationService : Service() {
         backgroundGpsEnabled: Boolean = latestRuntimeBackgroundGps,
         runtimeReason: String = latestRuntimeReason,
     ) {
+        val previousScreenState = latestScreenState
+        val previousRuntimeReason = latestRuntimeReason
         val screenStateChanged = latestScreenState != screenState
         val trackingChanged = latestTrackingEnabled != trackingEnabled
         val backgroundGpsChanged = latestRuntimeBackgroundGps != backgroundGpsEnabled
@@ -602,8 +615,7 @@ class LocationService : Service() {
         latestRuntimeBackgroundGps = backgroundGpsEnabled
         latestRuntimeReason = runtimeReason.ifBlank { "idle" }
         lastRuntimeStateChangedAtElapsedMs = SystemClock.elapsedRealtime()
-        pendingDebouncedImmediateLocationJob?.cancel()
-        pendingDebouncedImmediateLocationJob = null
+        cancelPendingImmediateWorkForRuntimeState(screenState, trackingEnabled)
         val effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled()
         updateTelemetryFixContext(effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled)
 
@@ -634,8 +646,107 @@ class LocationService : Service() {
         }
         selfHealFailoverCoordinator.updateSelfHealMonitor()
         refreshKeepAliveNotificationState()
-        requestLocationUpdateIfNeeded()
+        updateAutoPauseCadence(previousRuntimeReason, latestRuntimeReason)
+        if (
+            previousScreenState.isNonInteractive &&
+            screenState.isInteractive &&
+            currentLocationSourceMode() == LocationSourceMode.AUTO_FUSED
+        ) {
+            serviceScope.launch {
+                runCatching { fusedLocationGateway.flushLocations() }
+                requestLocationUpdateIfNeeded()
+            }
+        } else {
+            requestLocationUpdateIfNeeded()
+        }
     }
+
+    private fun updateAutoPauseCadence(
+        previousReason: String,
+        currentReason: String,
+    ) {
+        if (previousReason == currentReason) return
+        autoPauseCadenceJob?.cancel()
+        autoPauseCadenceJob = null
+        if (currentReason != NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED) {
+            autoPauseStartedAtElapsedMs = 0L
+            return
+        }
+        autoPauseStartedAtElapsedMs = SystemClock.elapsedRealtime()
+        autoPauseCadenceJob =
+            serviceScope.launch {
+                delay(AUTO_PAUSE_PROLONGED_AFTER_MS)
+                if (latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED) {
+                    requestLocationUpdateIfNeeded()
+                }
+            }
+    }
+
+    private fun cancelPendingImmediateWorkForRuntimeState(
+        screenState: LocationScreenState,
+        trackingEnabled: Boolean,
+    ) {
+        pendingDebouncedImmediateLocationJob?.cancel()
+        pendingDebouncedImmediateLocationJob = null
+        navigateOneShotCancellationReason(
+            trackingEnabled = trackingEnabled,
+            screenState = screenState,
+            runtimeReason = latestRuntimeReason,
+        )?.let(immediateLocationCoordinator::cancelNavigateOneShot)
+    }
+
+    private fun isProlongedAutoPause(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Boolean =
+        autoPauseStartedAtElapsedMs > 0L &&
+            nowElapsedMs - autoPauseStartedAtElapsedMs >= AUTO_PAUSE_PROLONGED_AFTER_MS
+
+    private fun autoPauseGpsIntervalMs(): Long =
+        if (isProlongedAutoPause()) {
+            AUTO_PAUSE_PROLONGED_GPS_INTERVAL_MS
+        } else {
+            AUTO_PAUSE_GPS_INTERVAL_MS
+        }
+
+    private fun currentRequestUpdateState(): RequestUpdateState =
+        RequestUpdateState(
+            bound = isBound.value,
+            tracking = latestTrackingEnabled,
+            keepOpen = keepAppOpen.value,
+            watchOnlyRequested = latestWatchGpsOnly,
+            watchOnlyEffective =
+                latestWatchGpsOnly || selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
+            screenState = latestScreenState,
+            backgroundGps = effectiveBackgroundGpsEnabled(),
+            runtimeReason = latestRuntimeReason,
+            passiveLocationExperiment = latestGpsDebugTelemetry && latestPassiveLocationExperiment,
+            userIntervalMs = effectiveRuntimeIntervalMs(),
+            ambientIntervalMs = latestAmbientIntervalMs,
+            turnByTurnScreenOffBatchingEnabled = latestTurnByTurnScreenOffBatchingEnabled,
+        )
+
+    private fun effectiveRuntimeIntervalMs(): Long =
+        when {
+            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ->
+                minOf(recordingIntervalForScreen(), guidanceIntervalForScreen())
+            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING -> recordingIntervalForScreen()
+            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ->
+                maxOf(recordingIntervalForScreen(), autoPauseGpsIntervalMs())
+            latestRuntimeReason.isGuidanceRuntimeReason() -> guidanceIntervalForScreen()
+            else -> latestUserIntervalMs
+        }
+
+    private fun recordingIntervalForScreen(): Long =
+        if (latestScreenState.isNonInteractive) {
+            latestRecordingScreenOffIntervalMs
+        } else {
+            latestRecordingIntervalMs
+        }
+
+    private fun guidanceIntervalForScreen(): Long =
+        if (latestScreenState.isNonInteractive) {
+            latestTurnByTurnScreenOffIntervalMs
+        } else {
+            latestTurnByTurnIntervalMs
+        }
 
     private fun updateTelemetryFixContext(
         effectiveBackgroundGpsEnabled: Boolean = effectiveBackgroundGpsEnabled(),
@@ -663,10 +774,10 @@ class LocationService : Service() {
     }
 
     fun setKeepAppOpenState(enabled: Boolean) {
-        if (keepAppOpen.value == enabled) return
-
-        keepAppOpen.value = enabled
-        telemetry.logKeepAppOpen(enabled)
+        if (keepAppOpen.value != enabled) {
+            keepAppOpen.value = enabled
+            telemetry.logKeepAppOpen(enabled)
+        }
         refreshKeepAliveNotificationState()
 
         if (!enabled) {
@@ -789,12 +900,12 @@ class LocationService : Service() {
     }
 
     private fun maxUpdateDelayMsFor(requestSpec: RequestSpec): Long =
-        when (requestSpec.mode) {
-            LocationRuntimeMode.BURST,
-            LocationRuntimeMode.INTERACTIVE,
-            -> 0L
-            LocationRuntimeMode.PASSIVE -> requestSpec.intervalMs * 2L
-        }
+        resolveMaxUpdateDelayMs(
+            screenState = latestScreenState,
+            runtimeReason = latestRuntimeReason,
+            turnByTurnScreenOffBatchingEnabled = latestTurnByTurnScreenOffBatchingEnabled,
+            requestSpec = requestSpec,
+        )
 
     private fun immediateBurstGuardReason(): String? =
         when {
@@ -828,10 +939,15 @@ class LocationService : Service() {
                     recordingScreenOffIntervalMs = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L,
                     turnByTurnIntervalMs = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L,
                     turnByTurnScreenOffIntervalMs = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L,
+                    turnByTurnScreenOffBatchingEnabled =
+                        SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED,
                     ambientGps = ambientGps,
                     debugTelemetry = debugTelemetry,
+                    diagnosticsCaptureMode = SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE,
                     passiveLocationExperiment = false,
                 )
+            }.combine(settingsRepository.diagnosticsCaptureMode) { state, captureMode ->
+                state.copy(diagnosticsCaptureMode = captureMode)
             }.combine(settingsRepository.recordingSampleIntervalSeconds) { state, recordingSampleSeconds ->
                 state.copy(recordingIntervalMs = recordingIntervalMillis(recordingSampleSeconds))
             }.combine(settingsRepository.recordingScreenOffSampleIntervalSeconds) { state, recordingScreenOffSeconds ->
@@ -852,6 +968,8 @@ class LocationService : Service() {
                             screenOffSeconds = turnByTurnScreenOffSeconds,
                         ),
                 )
+            }.combine(settingsRepository.turnByTurnScreenOffBatchingEnabled) { state, enabled ->
+                state.copy(turnByTurnScreenOffBatchingEnabled = enabled)
             }.combine(settingsRepository.gpsPassiveLocationExperiment) { state, passiveLocationExperiment ->
                 state.copy(passiveLocationExperiment = passiveLocationExperiment)
             }.collectLatest { state ->
@@ -861,7 +979,10 @@ class LocationService : Service() {
     }
 
     private fun onGpsSettingsStateChanged(state: GpsSettingsState) {
-        val debugTelemetryEnabledNow = state.debugTelemetry
+        val captureActiveNow = state.debugTelemetry
+        val debugTelemetryEnabledNow =
+            captureActiveNow &&
+                state.diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
         val debugTelemetryJustEnabled = !latestGpsDebugTelemetry && debugTelemetryEnabledNow
         val passiveExperimentWasActive = latestGpsDebugTelemetry && latestPassiveLocationExperiment
         val passiveExperimentActiveNow = debugTelemetryEnabledNow && state.passiveLocationExperiment
@@ -873,13 +994,14 @@ class LocationService : Service() {
         latestRecordingScreenOffIntervalMs = state.recordingScreenOffIntervalMs
         latestTurnByTurnIntervalMs = state.turnByTurnIntervalMs
         latestTurnByTurnScreenOffIntervalMs = state.turnByTurnScreenOffIntervalMs
+        latestTurnByTurnScreenOffBatchingEnabled = state.turnByTurnScreenOffBatchingEnabled
         latestAmbientIntervalMs = state.ambientIntervalMs
         latestAmbientGps = state.ambientGps
-        latestGpsDebugTelemetry = debugTelemetryEnabledNow
         latestPassiveLocationExperiment = state.passiveLocationExperiment
-        telemetry.setDebugEnabled(latestGpsDebugTelemetry)
-        updateEnergySampling(latestGpsDebugTelemetry)
-        updateGnssDiagnostics(enabled = latestGpsDebugTelemetry)
+        applyDiagnosticsCaptureState(
+            captureActive = captureActiveNow,
+            captureMode = state.diagnosticsCaptureMode,
+        )
         if (debugTelemetryJustEnabled || passiveExperimentChanged) {
             engine.forceRequestRefresh()
         }
@@ -999,7 +1121,10 @@ class LocationService : Service() {
         energySampleJob = null
         selfHealFailoverCoordinator.stop()
         unregisterGnssDiagnostics(reason = "service_destroy")
-        stopAllAndSelf(stopSelf = false)
+        stopAllAndSelf(
+            stopSelf = false,
+            preserveKeepOpenNotification = keepAppOpen.value,
+        )
         serviceJob.cancel()
         // Quit the callback thread after all location updates are removed so no
         // in-flight callbacks can fire after the service is torn down.
@@ -1009,7 +1134,10 @@ class LocationService : Service() {
         super.onDestroy()
     }
 
-    private fun stopAllAndSelf(stopSelf: Boolean = true) {
+    private fun stopAllAndSelf(
+        stopSelf: Boolean = true,
+        preserveKeepOpenNotification: Boolean = false,
+    ) {
         pendingDebouncedImmediateLocationJob?.cancel()
         pendingDebouncedImmediateLocationJob = null
         requestCoordinator.cancel()
@@ -1030,9 +1158,21 @@ class LocationService : Service() {
         _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
         _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
 
-        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
-        notificationFactory.cancel(NOTIFICATION_ID)
-        keepAliveNotificationMode = KeepAliveNotificationMode.OFF
+        if (preserveKeepOpenNotification) {
+            if (keepAliveNotificationMode == KeepAliveNotificationMode.LOCATION_FOREGROUND) {
+                runCatching { stopForeground(STOP_FOREGROUND_DETACH) }
+            }
+            DebugTelemetry.log(
+                TELEMETRY_TAG,
+                "keepOpenNotification: preserved on service destroy " +
+                    "mode=${keepAliveNotificationMode.name}",
+            )
+        } else {
+            runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+            notificationFactory.cancel(NOTIFICATION_ID)
+            keepAliveNotificationMode = KeepAliveNotificationMode.OFF
+            keepAliveNotificationRuntimeReason = null
+        }
 
         if (stopSelf) {
             runCatching { stopSelf() }
@@ -1125,18 +1265,63 @@ class LocationService : Service() {
                     reason = "capture_enabled",
                     detail = "source=location_service",
                 )
-                while (serviceJob.isActive && latestGpsDebugTelemetry) {
+                while (serviceJob.isActive && latestDiagnosticsCaptureActive) {
+                    // The first fixed-cadence sample lands after a one-minute warm-up. This
+                    // avoids counting the settings interaction that starts a battery benchmark.
+                    delay(ENERGY_SAMPLE_INTERVAL_MS)
+                    if (!latestDiagnosticsCaptureActive) break
                     EnergyDiagnostics.recordSample(
                         context = this@LocationService,
                         reason = "periodic",
-                        detail =
-                            "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
-                                "burst=${engine.isBurstActive()} tracking=$latestTrackingEnabled " +
-                                "bound=${isBound.value} keepOpen=${keepAppOpen.value}",
+                        detail = energyRuntimeDetail(),
                     )
-                    delay(ENERGY_SAMPLE_INTERVAL_MS)
                 }
             }
+    }
+
+    private fun energyRuntimeDetail(): String {
+        val gpsRequestActive = engine.hasAppliedRequest()
+        val gpsBackend = engine.currentSourceModeOrNull()?.telemetryValue ?: "none"
+        val gpsRequestIntervalMs =
+            if (gpsRequestActive) {
+                engine.currentRequestIntervalOr(_effectiveUpdateIntervalMs.value).toString()
+            } else {
+                "na"
+            }
+        return "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
+            "burst=${engine.isBurstActive()} tracking=$latestTrackingEnabled " +
+            "bound=${isBound.value} keepOpen=${keepAppOpen.value} " +
+            "screenState=${latestScreenState.name} runtimeReason=$latestRuntimeReason " +
+            "gpsRequestActive=$gpsRequestActive gpsBackend=$gpsBackend " +
+            "gpsRequestIntervalMs=$gpsRequestIntervalMs"
+    }
+
+    private fun applyDiagnosticsCaptureState(
+        captureActive: Boolean,
+        captureMode: String,
+    ) {
+        if (latestDiagnosticsCaptureActive && !captureActive) {
+            EnergyDiagnostics.recordSample(
+                context = this,
+                reason = "capture_toggle_off",
+                detail = "source=location_service",
+            )
+        }
+        val fullDiagnostics =
+            captureActive && captureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
+        latestDiagnosticsCaptureActive = captureActive
+        latestGpsDebugTelemetry = fullDiagnostics
+        telemetry.setDebugEnabled(fullDiagnostics)
+        EnergyDiagnostics.configure(
+            captureActive = captureActive,
+            fullDiagnostics = fullDiagnostics,
+        )
+        CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
+            captureActive = captureActive,
+            fullDiagnostics = fullDiagnostics,
+        )
+        updateEnergySampling(captureActive)
+        updateGnssDiagnostics(enabled = fullDiagnostics)
     }
 
     private fun refreshKeepAliveNotificationState() {
@@ -1291,7 +1476,7 @@ class LocationService : Service() {
         const val EXTRA_SCREEN_STATE = "extra_screen_state"
         const val EXTRA_BACKGROUND_GPS_ENABLED = "extra_background_gps_enabled"
         const val EXTRA_RUNTIME_REASON = "extra_runtime_reason"
-        private const val IMMEDIATE_GET_CURRENT_TIMEOUT_MS = 12_000L
+        private const val NAVIGATE_ONE_SHOT_TIMEOUT_MS = 6_000L
         private const val HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS = 20_000L
         private const val HARD_STALE_FIX_MAX_AGE_PASSIVE_MS = 60_000L
         private const val SOURCE_MODE_WARMUP_MS = 1_500L

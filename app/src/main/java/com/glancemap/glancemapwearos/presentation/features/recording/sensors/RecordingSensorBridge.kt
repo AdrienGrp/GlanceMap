@@ -59,12 +59,30 @@ data class RecordingSensorMetrics(
     val heartRateFromBluetooth: Boolean = false,
 )
 
-private data class StepCounterReading(
+internal fun RecordingSensorMetrics.withExternalRunPodUnavailable(
+    clearCadence: Boolean,
+    clearPower: Boolean,
+): RecordingSensorMetrics =
+    copy(
+        cadenceSpm = if (clearCadence) null else cadenceSpm,
+        cadenceUpdatedAtMillis = if (clearCadence) 0L else cadenceUpdatedAtMillis,
+        cadenceFromBluetooth = if (clearCadence) true else cadenceFromBluetooth,
+        externalSpeedMps = null,
+        externalSpeedUpdatedAtMillis = 0L,
+        externalDistanceRawUnits = null,
+        externalDistanceMeters = null,
+        externalDistanceUpdatedAtMillis = 0L,
+        externalPowerWatts = if (clearPower) null else externalPowerWatts,
+        externalPowerUpdatedAtMillis = if (clearPower) 0L else externalPowerUpdatedAtMillis,
+    )
+
+internal data class StepCounterReading(
     val steps: Int,
     val cadenceSpm: Int?,
 )
 
-private class RecordingSensorRuntimeState {
+internal class RecordingSensorRuntimeState {
+    private var stepCountOffset = 0
     private var stepCounterBase: Float? = null
     private var lastStepCounterValue: Float? = null
     private var lastStepCounterTimeMs = 0L
@@ -72,10 +90,24 @@ private class RecordingSensorRuntimeState {
 
     @Synchronized
     fun reset() {
+        stepCountOffset = 0
         stepCounterBase = null
         lastStepCounterValue = null
         lastStepCounterTimeMs = 0L
         stepDetectorEventTimes.clear()
+    }
+
+    @Synchronized
+    fun prepareRecoveredStepCount(stepCount: Int?): Boolean {
+        val recovered = stepCount?.coerceAtLeast(0)
+        val shouldUpdate =
+            stepCounterBase == null &&
+                recovered != null &&
+                recovered > stepCountOffset
+        if (shouldUpdate) {
+            stepCountOffset = checkNotNull(recovered)
+        }
+        return shouldUpdate
     }
 
     @Synchronized
@@ -84,7 +116,7 @@ private class RecordingSensorRuntimeState {
         nowMillis: Long,
     ): StepCounterReading {
         val base = stepCounterBase ?: value.also { stepCounterBase = it }
-        val steps = (value - base).roundToInt().coerceAtLeast(0)
+        val steps = stepCountOffset + (value - base).roundToInt().coerceAtLeast(0)
         val previousValue = lastStepCounterValue
         val previousTimeMs = lastStepCounterTimeMs
         val cadence =
@@ -112,6 +144,8 @@ private class RecordingSensorRuntimeState {
     }
 }
 
+// This effect coordinator keeps all sensor bridges under one Compose lifecycle and shared metrics snapshot.
+@Suppress("FunctionNaming", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun RecordingSensorBridge(
     active: Boolean,
@@ -125,6 +159,8 @@ fun RecordingSensorBridge(
     externalHeartRateAddress: String?,
     externalRunPodAddress: String?,
     cyclingWheelCircumferenceMeters: Float,
+    activityProfile: String,
+    initialStepCount: Int?,
     onMetrics: (RecordingSensorMetrics) -> Unit,
 ) {
     val context = LocalContext.current
@@ -135,13 +171,16 @@ fun RecordingSensorBridge(
     val useWatchHeartRate =
         heartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH
     val externalRunPodLinked = !externalRunPodAddress.isNullOrBlank()
+    val isBikeProfile = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
     val useExternalCadence =
         externalRunPodLinked &&
             cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
     val useInternalCadence =
-        cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+        !isBikeProfile &&
+            cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
     val useInternalSteps =
-        stepsSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+        !isBikeProfile &&
+            stepsSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
     val useExternalSpeed =
         externalRunPodLinked && speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
     val useExternalDistance =
@@ -150,9 +189,11 @@ fun RecordingSensorBridge(
         SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds ||
             SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds ||
             SettingsRepository.RECORDING_METRIC_MAX_POWER in selectedMetricIds
+    val externalRunPodSelected =
+        useExternalCadence || useExternalSpeed || useExternalDistance || powerMetricSelected
     val useExternalPower =
         externalRunPodLinked &&
-            (useExternalCadence || useExternalSpeed || useExternalDistance || powerMetricSelected)
+            externalRunPodSelected
     val useExternalRunPod =
         useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
     val collectBarometricPressure = active
@@ -195,6 +236,12 @@ fun RecordingSensorBridge(
     var metrics by remember { mutableStateOf(RecordingSensorMetrics()) }
     val sensorRuntimeState = remember { RecordingSensorRuntimeState() }
     val pressureSensorEventCount = remember { AtomicLong(0L) }
+    if (active && sensorRuntimeState.prepareRecoveredStepCount(initialStepCount)) {
+        DebugTelemetry.log(
+            "TraceRecordingSensors",
+            "event=step_offset_recovered steps=${initialStepCount ?: 0}",
+        )
+    }
 
     ExternalHeartRateSensorBridge(
         active = active && useExternalHeartRate,
@@ -284,6 +331,15 @@ fun RecordingSensorBridge(
                 )
             onMetrics(metrics)
         },
+        onUnavailable = {
+            DebugTelemetry.log("TraceRecordingSensors", "event=external_run_pod_unavailable")
+            metrics =
+                metrics.withExternalRunPodUnavailable(
+                    clearCadence = useExternalCadence,
+                    clearPower = useExternalPower,
+                )
+            onMetrics(metrics)
+        },
     )
 
     LaunchedEffect(active) {
@@ -312,6 +368,7 @@ fun RecordingSensorBridge(
         speedSource,
         distanceSource,
         stepsSource,
+        activityProfile,
         useExternalHeartRate,
         useExternalCadence,
         useExternalPower,
@@ -329,11 +386,14 @@ fun RecordingSensorBridge(
                 useExternalHeartRate = useExternalHeartRate,
                 useWatchHeartRate = useWatchHeartRate,
                 externalRunPodLinked = externalRunPodLinked,
+                externalRunPodSelected = externalRunPodSelected,
                 cadenceSource = cadenceSource,
                 speedSource = speedSource,
                 distanceSource = distanceSource,
                 stepsSource = stepsSource,
+                activityProfile = activityProfile,
                 useExternalCadence = useExternalCadence,
+                externalPowerMetricSelected = powerMetricSelected,
                 useExternalPower = useExternalPower,
                 useExternalRunPod = useExternalRunPod,
                 paused = paused,
@@ -354,6 +414,7 @@ fun RecordingSensorBridge(
         speedSource,
         distanceSource,
         stepsSource,
+        activityProfile,
         useExternalHeartRate,
         useExternalCadence,
         useExternalRunPod,
@@ -514,11 +575,14 @@ fun RecordingSensorBridge(
             useExternalHeartRate = useExternalHeartRate,
             useWatchHeartRate = useWatchHeartRate,
             externalRunPodLinked = externalRunPodLinked,
+            externalRunPodSelected = externalRunPodSelected,
             cadenceSource = cadenceSource,
             speedSource = speedSource,
             distanceSource = distanceSource,
             stepsSource = stepsSource,
+            activityProfile = activityProfile,
             useExternalCadence = useExternalCadence,
+            externalPowerMetricSelected = powerMetricSelected,
             useExternalPower = useExternalPower,
             useExternalRunPod = useExternalRunPod,
             registered = registered,
@@ -545,11 +609,14 @@ private fun logRecordingSensorStatus(
     useExternalHeartRate: Boolean,
     useWatchHeartRate: Boolean,
     externalRunPodLinked: Boolean,
+    externalRunPodSelected: Boolean,
     cadenceSource: String,
     speedSource: String,
     distanceSource: String,
     stepsSource: String,
+    activityProfile: String,
     useExternalCadence: Boolean,
+    externalPowerMetricSelected: Boolean,
     useExternalPower: Boolean,
     useExternalRunPod: Boolean,
     registered: List<String>? = null,
@@ -559,6 +626,9 @@ private fun logRecordingSensorStatus(
     val available = availableRecordingSensors(sensorManager)
     val bodySensorsGranted = hasPermission(context, Manifest.permission.BODY_SENSORS)
     val activityRecognitionGranted = hasActivityRecognitionPermission(context)
+    val externalHeartRateBridgeRequested = useExternalHeartRate && !paused
+    val externalPowerBridgeRequested = useExternalPower && !paused
+    val externalRunPodBridgeRequested = useExternalRunPod && !paused
     val requested = selectedMetricIds.joinToString("|").ifBlank { "none" }
     val registeredText = registered?.joinToString("|")?.ifBlank { "none" } ?: "unknown"
     DebugTelemetry.log(
@@ -566,18 +636,22 @@ private fun logRecordingSensorStatus(
         "event=$event requested=$requested " +
             "registered=$registeredText " +
             "available=${available.joinToString("|").ifBlank { "none" }} " +
+            "activityProfile=$activityProfile " +
             "heartRateSource=$heartRateSource " +
             "externalHeartRateLinked=$externalHeartRateLinked " +
-            "externalHeartRateActive=$useExternalHeartRate " +
+            "externalHeartRateSelected=$useExternalHeartRate " +
+            "externalHeartRateBridgeRequested=$externalHeartRateBridgeRequested " +
             "watchHeartRateActive=$useWatchHeartRate " +
             "externalRunPodLinked=$externalRunPodLinked " +
+            "externalRunPodSelected=$externalRunPodSelected " +
             "cadenceSource=$cadenceSource " +
             "speedSource=$speedSource " +
             "distanceSource=$distanceSource " +
             "stepsSource=$stepsSource " +
-            "externalCadenceActive=$useExternalCadence " +
-            "externalPowerActive=$useExternalPower " +
-            "externalRunPodActive=$useExternalRunPod " +
+            "externalCadenceSelected=$useExternalCadence " +
+            "externalPowerMetricSelected=$externalPowerMetricSelected " +
+            "externalPowerBridgeRequested=$externalPowerBridgeRequested " +
+            "externalRunPodBridgeRequested=$externalRunPodBridgeRequested " +
             "paused=$paused " +
             "bodySensorsGranted=$bodySensorsGranted " +
             "activityRecognitionGranted=$activityRecognitionGranted",

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.glancemap.glancemapwearos.core.maps.MAP_SCALE_TARGET_RATIO
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -109,20 +110,7 @@ internal fun rememberNavigateContentSizing(
                         WearScreenSize.SMALL -> 16.dp
                     }
                 },
-            zoomScaleBarWidth =
-                if (adaptive.isRound) {
-                    when (screenSize) {
-                        WearScreenSize.LARGE -> 52.dp
-                        WearScreenSize.MEDIUM -> 48.dp
-                        WearScreenSize.SMALL -> 42.dp
-                    }
-                } else {
-                    when (screenSize) {
-                        WearScreenSize.LARGE -> 58.dp
-                        WearScreenSize.MEDIUM -> 54.dp
-                        WearScreenSize.SMALL -> 48.dp
-                    }
-                },
+            zoomScaleBarWidth = adaptive.widthDp.dp * MAP_SCALE_TARGET_RATIO.toFloat(),
             showZoomPlusButton =
                 mapZoomButtonsMode != SettingsRepository.ZOOM_BUTTONS_HIDE_BOTH &&
                     mapZoomButtonsMode != SettingsRepository.ZOOM_BUTTONS_HIDE_PLUS,

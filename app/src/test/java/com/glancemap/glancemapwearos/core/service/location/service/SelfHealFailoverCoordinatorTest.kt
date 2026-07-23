@@ -16,6 +16,73 @@ import org.junit.Test
 
 class SelfHealFailoverCoordinatorTest {
     @Test
+    fun latestAcceptedFixPrefersNewerImmediateFixOverOlderCallback() {
+        assertEquals(
+            20_000L,
+            resolveLatestAcceptedFixAtElapsedMs(
+                lastAnyAcceptedFixAtElapsedMs = 20_000L,
+                lastCallbackAcceptedFixAtElapsedMs = 1_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun successfulImmediateFixClearsPendingNoFixFailoverProbe() {
+        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+        telemetry.setDebugEnabled(false)
+        val engine = LocationEngine(telemetry)
+        engine.markRequestApplied(
+            RequestSpec(
+                priority = Priority.PRIORITY_HIGH_ACCURACY,
+                intervalMs = 3_000L,
+                minDistanceMeters = 1f,
+                mode = LocationRuntimeMode.INTERACTIVE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+            ),
+        )
+        var lastAnyAcceptedFixAtElapsedMs = 1_000L
+        var immediateRequests = 0
+        val coordinator =
+            SelfHealFailoverCoordinator(
+                serviceScope = CoroutineScope(SupervisorJob()),
+                isServiceActive = { true },
+                engine = engine,
+                telemetry = telemetry,
+                requestLocationUpdateIfNeeded = {},
+                requestImmediateLocation = { immediateRequests += 1 },
+                trackingEnabled = { true },
+                ambientModeActive = { false },
+                hasFinePermission = { true },
+                hasCoarsePermission = { true },
+                watchGpsOnly = { false },
+                passiveLocationExperiment = { false },
+                phoneConnected = { true },
+                lastAnyAcceptedFixAtElapsedMs = { lastAnyAcceptedFixAtElapsedMs },
+                lastCallbackAcceptedFixAtElapsedMs = { 1_000L },
+                lastRequestAppliedAtElapsedMs = { 1_000L },
+                expectedIntervalMs = { 3_000L },
+                strictFreshMaxAgeMs = { 6_000L },
+            )
+
+        coordinator.maybeTriggerInteractiveSelfHealNow(
+            nowElapsedMs = 13_000L,
+            interactiveTracking = true,
+            expectedIntervalMs = 3_000L,
+        )
+        assertEquals(1, immediateRequests)
+
+        lastAnyAcceptedFixAtElapsedMs = 14_000L
+        coordinator.maybeTriggerInteractiveSelfHealNow(
+            nowElapsedMs = 28_000L,
+            interactiveTracking = true,
+            expectedIntervalMs = 3_000L,
+        )
+
+        assertEquals(2, immediateRequests)
+        assertFalse(coordinator.isAutoFusedFallbackToWatchGps())
+    }
+
+    @Test
     fun returnsNullBelowAccuracyThresholds() {
         val requiredStreak =
             resolveAutoFusedAccuracyFailoverRequiredStreak(

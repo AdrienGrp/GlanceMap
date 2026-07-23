@@ -2,7 +2,7 @@
 <!--
 Voluntary Mapsforge for Locus/MF5
 *********************************
-v.260323
+v.260516
 
 by John Campbell
 
@@ -1974,12 +1974,13 @@ HOUSEKEEPING NOTES:
 					</rule>
 					<rule e="way" k="access" v="permissive|~">
 						<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-							<line stroke="#C0ffffff" stroke-width="1" stroke-linecap="butt"/>
-							<rule cat="vis_paths" e="way" k="*" v="*">
+							<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">											<line stroke="#C0ffffff" stroke-width="1" stroke-linecap="butt"/>
+								<rule cat="vis_paths" e="way" k="*" v="*">
 								<line stroke="#C0ffffff" stroke-width="4" stroke-linecap="butt"/>
+								</rule>
 							</rule>
 						</rule>
-						<rule cat="sacpaths" e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+						<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 							<line stroke="#C0ffffff" stroke-width="0.8" stroke-linecap="butt"/>
 							<rule cat="vis_paths" e="way" k="*" v="*">
 								<line stroke="#C0ffffff" stroke-width="3" stroke-linecap="butt"/>
@@ -2002,15 +2003,16 @@ HOUSEKEEPING NOTES:
 					</rule>
 					<rule e="way" k="access" v="permissive|~">
 						<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-							<line stroke="#C0ffffff" stroke-width="1" stroke-linecap="butt"/>
-							<rule cat="vis_paths" e="way" k="*" v="*" zoom-max="14">
-								<line stroke="#C0ffffff" stroke-width="3" stroke-linecap="butt"/>
-							</rule>
-							<rule cat="vis_paths" e="way" k="*" v="*" zoom-min="15">
-								<line stroke="#C0ffffff" stroke-width="2" stroke-linecap="butt"/>
+							<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">											<line stroke="#C0ffffff" stroke-width="1" stroke-linecap="butt"/>
+								<rule cat="vis_paths" e="way" k="*" v="*" zoom-max="14">
+									<line stroke="#C0ffffff" stroke-width="3" stroke-linecap="butt"/>
+								</rule>
+								<rule cat="vis_paths" e="way" k="*" v="*" zoom-min="15">
+									<line stroke="#C0ffffff" stroke-width="2" stroke-linecap="butt"/>
+								</rule>
 							</rule>
 						</rule>
-						<rule cat="sacpaths" e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+						<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 							<line stroke="#C0ffffff" stroke-width="0.8" stroke-linecap="butt"/>
 							<rule cat="vis_paths" e="way" k="*" v="*" zoom-max="14">
 								<line stroke="#C0ffffff" stroke-width="2.4" stroke-linecap="butt"/>
@@ -2509,9 +2511,10 @@ HOUSEKEEPING NOTES:
 						</rule>
 						<rule e="way" k="access" v="permissive|~" zoom-min="12">
 							<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-								<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
+								<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">												<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
+								</rule>
 							</rule>
-							<rule cat="sacpaths" e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+							<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 								<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
 							</rule>
 						</rule>
@@ -2568,9 +2571,10 @@ HOUSEKEEPING NOTES:
 						</rule>
 						<rule e="way" k="access" v="permissive|~">
 							<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-								<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
+								<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">												<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
+								</rule>
 							</rule>
-							<rule cat="sacpaths" e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+							<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 								<line stroke="#C0ffffff" stroke-width="0.7" stroke-linecap="butt"/>
 							</rule>
 						</rule>
@@ -3301,9 +3305,11 @@ HOUSEKEEPING NOTES:
 					<rule e="way" k="access" v="permissive|~">
 						<rule e="way" k="foot" v="ft_yes|ft_permissive|ft_designated|ft_destination|ft_permit|~">
 							<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">
+									<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								</rule>
 							</rule>
-							<rule cat="sacpaths" e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+							<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.45,0.3,0.45" stroke-linecap="butt"/>
 							</rule>
 						</rule>
@@ -3347,9 +3353,10 @@ HOUSEKEEPING NOTES:
 						</rule>
 						<rule e="way" k="access|foot" v="ft_yes|ft_permissive|permissive|ft_designated|designated|ft_destination|destination|ft_permit|permit">
 							<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">												<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								</rule>
 							</rule>
-							<rule e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+							<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.45,0.3,0.45" stroke-linecap="butt"/>
 							</rule>
 						</rule>
@@ -3360,9 +3367,10 @@ HOUSEKEEPING NOTES:
 						</rule>
 						<rule e="way" k="foot" v="ft_yes|ft_permissive|ft_designated|ft_destination|ft_permit|~">
 							<rule e="way" k="sac_scale" v="~|T1|T2|hiking|mountain_hiking">
-								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								<rule e="way" k="trail_visibility" v="~|excellent|good|intermediate">												<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.3,0.6,0.3" stroke-linecap="butt"/>
+								</rule>
 							</rule>
-							<rule e="way" k="sac_scale" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking">
+							<rule cat="sacpaths" e="way" k="sac_scale|trail_visibility" v="T3|T4|T5|T6|demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking|bad|horrible|no">
 								<line stroke="#6A3006" stroke-width="0.5" scale="all" stroke-dasharray="0,0.45,0.3,0.45" stroke-linecap="butt"/>
 							</rule>
 						</rule>

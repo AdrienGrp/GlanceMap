@@ -23,7 +23,7 @@ class NavigateLocationEffectsStaleRefreshTest {
                         lastVisualUpdateAtElapsedMs = 14_500L,
                         lastMotionAdvanceAtElapsedMs = 14_500L,
                         lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
-                        predictionFreshnessMaxAgeMs = 4_500L,
+                        fixLatenessThresholdMs = 4_500L,
                         nowElapsedMs = 15_800L,
                     ),
             )
@@ -51,7 +51,7 @@ class NavigateLocationEffectsStaleRefreshTest {
                         lastVisualUpdateAtElapsedMs = 10_000L,
                         lastMotionAdvanceAtElapsedMs = 10_000L,
                         lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
-                        predictionFreshnessMaxAgeMs = 4_500L,
+                        fixLatenessThresholdMs = 4_500L,
                         nowElapsedMs = 17_000L,
                     ),
             )
@@ -76,7 +76,7 @@ class NavigateLocationEffectsStaleRefreshTest {
                         lastVisualUpdateAtElapsedMs = 16_000L,
                         lastMotionAdvanceAtElapsedMs = 16_000L,
                         lastRefreshRequestAtElapsedMs = 15_000L,
-                        predictionFreshnessMaxAgeMs = 4_500L,
+                        fixLatenessThresholdMs = 4_500L,
                         nowElapsedMs = 20_000L,
                     ),
             )
@@ -101,7 +101,7 @@ class NavigateLocationEffectsStaleRefreshTest {
                         lastVisualUpdateAtElapsedMs = 13_900L,
                         lastMotionAdvanceAtElapsedMs = 13_900L,
                         lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
-                        predictionFreshnessMaxAgeMs = 4_500L,
+                        fixLatenessThresholdMs = 4_500L,
                         nowElapsedMs = 15_000L,
                     ),
             )
@@ -126,12 +126,37 @@ class NavigateLocationEffectsStaleRefreshTest {
                         lastVisualUpdateAtElapsedMs = 15_100L,
                         lastMotionAdvanceAtElapsedMs = 15_100L,
                         lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
-                        predictionFreshnessMaxAgeMs = 4_500L,
+                        fixLatenessThresholdMs = 4_500L,
                         nowElapsedMs = 15_800L,
                     ),
             )
 
         assertFalse(decision.shouldRequest)
         assertEquals("motion_recent", decision.reason)
+    }
+
+    @Test
+    fun longCadenceDoesNotRequestHighAccuracyRefreshAfterPredictionEnds() {
+        val decision =
+            resolveInteractiveStaleRefreshDecision(
+                input =
+                    InteractiveStaleRefreshInput(
+                        shouldTrackLocation = true,
+                        screenState = LocationScreenState.INTERACTIVE,
+                        holdMarkerUntilFreshFix = false,
+                        postWakePredictionHoldActive = false,
+                        activeWakeSessionId = 0L,
+                        lastFixAtElapsedMs = 10_000L,
+                        lastFixFreshMaxAgeMs = 120_000L,
+                        lastVisualUpdateAtElapsedMs = 22_000L,
+                        lastMotionAdvanceAtElapsedMs = 22_000L,
+                        lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
+                        fixLatenessThresholdMs = 90_000L,
+                        nowElapsedMs = 25_000L,
+                    ),
+            )
+
+        assertFalse(decision.shouldRequest)
+        assertEquals("prediction_active", decision.reason)
     }
 }

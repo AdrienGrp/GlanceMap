@@ -124,12 +124,12 @@ private fun ScalingLazyListScope.gpxRouteToggles(
         SettingsToggleChip(
             checked = state.useElevation,
             onCheckedChanged = actions.onUseElevationChanged,
-            label = "Elevation-aware route",
+            label = "Flatter routes",
             secondaryLabel =
                 if (state.useElevation) {
-                    "Prefer routes with less climbing"
+                    "Prioritize flatter routes"
                 } else {
-                    "Ignore climbing when routing"
+                    "Use standard routing"
                 },
             modifier = Modifier.fillMaxWidth(),
         )

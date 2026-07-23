@@ -1,42 +1,18 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
+import com.glancemap.glancemapwearos.core.maps.mapZoomScaleStepsMeters
 import com.glancemap.glancemapwearos.core.maps.scaleMetersForZoomLevel
 import org.mapsforge.map.android.view.MapView
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal data class ScaleIndicatorUi(
     val label: String,
+    val widthRatio: Float,
 )
 
-private val metricScaleStepsMeters =
-    doubleArrayOf(
-        5.0,
-        10.0,
-        20.0,
-        25.0,
-        50.0,
-        100.0,
-        200.0,
-        250.0,
-        500.0,
-        1000.0,
-        2000.0,
-        2500.0,
-        5000.0,
-        10000.0,
-        20000.0,
-        25000.0,
-        50000.0,
-        100000.0,
-        200000.0,
-        250000.0,
-        500000.0,
-        1000000.0,
-        2000000.0,
-        2500000.0,
-        5000000.0,
-    )
+private val metricScaleStepsMeters = mapZoomScaleStepsMeters.map { it.toDouble() }.toDoubleArray()
 
 private val imperialScaleStepsFeet =
     doubleArrayOf(
@@ -84,29 +60,64 @@ private val imperialScaleStepsMiles =
 internal fun calculateScaleIndicator(
     mapView: MapView,
     isMetric: Boolean,
+    preferredScaleMeters: Int? = null,
 ): ScaleIndicatorUi? {
     val widthPx = mapView.width
-    if (widthPx <= 0) return null
-
     val zoomLevel =
         mapView.model.mapViewPosition.zoomLevel
             .toInt()
-    if (zoomLevel < 0) return null
+    if (widthPx <= 0 || zoomLevel < 0) return null
     val centerLat =
         mapView.model.mapViewPosition.center.latitude
             .coerceIn(-85.0, 85.0)
+    return calculateScaleIndicatorForZoom(
+        zoomLevel = zoomLevel,
+        viewportWidthPx = widthPx.toDouble(),
+        latitudeDegrees = centerLat,
+        isMetric = isMetric,
+        preferredScaleMeters = preferredScaleMeters,
+    )
+}
+
+internal fun calculateScaleIndicatorForZoom(
+    zoomLevel: Int,
+    viewportWidthPx: Double,
+    latitudeDegrees: Double,
+    isMetric: Boolean,
+    preferredScaleMeters: Int? = null,
+): ScaleIndicatorUi? {
     val targetMeters =
         scaleMetersForZoomLevel(
             zoom = zoomLevel,
-            viewportWidthPx = widthPx.toDouble(),
-            latitudeDegrees = centerLat,
+            viewportWidthPx = viewportWidthPx,
+            latitudeDegrees = latitudeDegrees,
         )
-    val scaleMeters = chooseScaleDistanceMeters(targetMeters = targetMeters, isMetric = isMetric)
-    if (!scaleMeters.isFinite() || scaleMeters <= 0.0) return null
-
-    return ScaleIndicatorUi(
-        label = formatScaleDistance(meters = scaleMeters, isMetric = isMetric),
-    )
+    val naturalScaleMeters =
+        chooseScaleDistanceMeters(
+            targetMeters = targetMeters,
+            isMetric = isMetric,
+        )
+    val scaleMeters =
+        preferredScaleMeters
+            ?.let { preferredMeters ->
+                chooseScaleDistanceMeters(
+                    targetMeters = preferredMeters.toDouble(),
+                    isMetric = isMetric,
+                )
+            }
+            ?: naturalScaleMeters
+    val widthRatio = (scaleMeters / targetMeters).toFloat()
+    val hasValidTarget = targetMeters.isFinite() && targetMeters > 0.0
+    val hasValidScale = scaleMeters.isFinite() && scaleMeters > 0.0
+    val hasValidWidth = widthRatio.isFinite() && widthRatio > 0f
+    return if (hasValidTarget && hasValidScale && hasValidWidth) {
+        ScaleIndicatorUi(
+            label = formatScaleDistance(meters = scaleMeters, isMetric = isMetric),
+            widthRatio = widthRatio,
+        )
+    } else {
+        null
+    }
 }
 
 private fun chooseScaleDistanceMeters(
@@ -154,7 +165,12 @@ private fun formatScaleDistance(
                 String.format(Locale.getDefault(), "%.1f km", km)
             }
         } else {
-            "${meters.roundToInt()} m"
+            val roundedMeters = meters.roundToInt()
+            if (meters < 10.0 && abs(meters - roundedMeters) >= SCALE_DISTANCE_INTEGER_EPSILON) {
+                String.format(Locale.getDefault(), "%.1f m", meters)
+            } else {
+                "$roundedMeters m"
+            }
         }
     }
 
@@ -170,3 +186,5 @@ private fun formatScaleDistance(
         }
     }
 }
+
+private const val SCALE_DISTANCE_INTEGER_EPSILON = 0.01

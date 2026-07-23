@@ -506,11 +506,7 @@ internal class GpxRouteToolOperations(
             error("A GPX with that name already exists.")
         }
 
-        val bytes =
-            encodeTrackAsGpx(
-                title = normalizedTitle,
-                points = parsed.points,
-            )
+        val bytes = renameGpxXmlTitle(sourceFile.readText(), normalizedTitle)
         gpxRepository.saveGpxFileAtomic(
             fileName = targetFileName,
             inputStream = ByteArrayInputStream(bytes),

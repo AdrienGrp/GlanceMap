@@ -6,11 +6,13 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporte
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.FixGapBuckets
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.GnssInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.ObservedFixQualitySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.RecordingTrackFilterInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.TelemetryInsights
 import java.io.BufferedWriter
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val telemetryLineTimestampFormatter: DateTimeFormatter =
@@ -163,6 +165,10 @@ internal fun deriveTelemetryInsights(
     var turnByTurnBrouterHintInstructionSampleCount = 0
     var turnByTurnTurnHapticCount = 0
     var turnByTurnOffRouteHapticCount = 0
+    var turnByTurnTurnAlertFiredCount = 0
+    var turnByTurnTurnAlertFilteredCount = 0
+    var turnByTurnTurnAlertOffRouteCount = 0
+    var turnByTurnTurnAlertMissedWindowCount = 0
     var turnByTurnMaxDistanceToRouteMeters: Int? = null
     var recordingStartCount = 0
     var recordingRecoveredCount = 0
@@ -203,6 +209,14 @@ internal fun deriveTelemetryInsights(
     var recordingLastPointAgeMs: Long? = null
     var recordingForcedAcceptCount: Int? = null
     var recordingGapRecoveryAcceptCount: Int? = null
+    var recordingTrackSmoothingMode: String? = null
+    var recordingTrackFilterVersion: Int? = null
+    var recordingQualityHeldFixCount: Int? = null
+    var recordingQualityRejectedFixCount: Int? = null
+    var recordingQualityRelocationCount: Int? = null
+    var recordingSmoothedPointCount: Int? = null
+    var recordingSmoothedAdjustmentMeters: String? = null
+    var recordingMaxSmoothedAdjustmentMeters: String? = null
     var recordingLastSkippedIntervalElapsedMs: Long? = null
     var recordingMaxSkippedIntervalElapsedMs: Long? = null
     var recordingLastLiveProvider: String? = null
@@ -480,6 +494,12 @@ internal fun deriveTelemetryInsights(
                 "turn" -> turnByTurnTurnHapticCount += 1
                 "off_route" -> turnByTurnOffRouteHapticCount += 1
             }
+            when (extractTokenValue(line, "turnAlert=")) {
+                "fired" -> turnByTurnTurnAlertFiredCount += 1
+                "filtered" -> turnByTurnTurnAlertFilteredCount += 1
+                "off_route" -> turnByTurnTurnAlertOffRouteCount += 1
+                "missed_window" -> turnByTurnTurnAlertMissedWindowCount += 1
+            }
             if (" active=" in line || line.contains("[TurnByTurn] active=")) {
                 turnByTurnSampleCount += 1
                 if (parseBooleanToken(line, "active=") == true) {
@@ -606,6 +626,40 @@ internal fun deriveTelemetryInsights(
             }
             parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
                 recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+            }
+            extractTokenValue(line, "trackSmoothingMode=")?.takeIf { it.isNotBlank() }?.let {
+                recordingTrackSmoothingMode = it
+            }
+            parseIntToken(line, "trackFilterVersion=")?.takeIf { it > 0 }?.let {
+                recordingTrackFilterVersion = it
+            }
+            (
+                parseIntToken(line, "qualityHeldFixCount=")
+                    ?: parseIntToken(line, "qualityHeld=")
+                    ?: parseIntToken(line, "held=")
+            )?.let { count ->
+                recordingQualityHeldFixCount = maxOf(recordingQualityHeldFixCount ?: count, count)
+            }
+            (
+                parseIntToken(line, "qualityRejectedFixCount=")
+                    ?: parseIntToken(line, "qualityRejected=")
+                    ?: parseIntToken(line, "rejected=")
+            )?.let { count ->
+                recordingQualityRejectedFixCount = maxOf(recordingQualityRejectedFixCount ?: count, count)
+            }
+            (parseIntToken(line, "qualityRelocationCount=") ?: parseIntToken(line, "qualityRelocations="))
+                ?.let { count ->
+                    recordingQualityRelocationCount = maxOf(recordingQualityRelocationCount ?: count, count)
+                }
+            (parseIntToken(line, "smoothedPointCount=") ?: parseIntToken(line, "smoothedPoints="))
+                ?.let { count ->
+                    recordingSmoothedPointCount = maxOf(recordingSmoothedPointCount ?: count, count)
+                }
+            extractTokenValue(line, "smoothedAdjustmentMeters=")?.let {
+                recordingSmoothedAdjustmentMeters = it
+            }
+            extractTokenValue(line, "maxSmoothedAdjustmentMeters=")?.let {
+                recordingMaxSmoothedAdjustmentMeters = it
             }
             parseLongToken(line, "lastSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
                 recordingLastSkippedIntervalElapsedMs = elapsed
@@ -807,7 +861,10 @@ internal fun deriveTelemetryInsights(
                 "services_failed" -> externalHeartRateServiceFailureCount += 1
                 "measurement_missing" -> externalHeartRateMeasurementMissingCount += 1
                 "sample" -> {
-                    externalHeartRateSampleCount += 1
+                    externalHeartRateSampleCount =
+                        parseIntToken(line, "count=")
+                            ?.let { maxOf(externalHeartRateSampleCount, it) }
+                            ?: (externalHeartRateSampleCount + 1)
                     parseIntToken(line, "bpm=")?.takeIf { it > 0 }?.let { bpm ->
                         externalHeartRateLastBpm = bpm
                         externalHeartRateMinBpm = minOf(externalHeartRateMinBpm ?: bpm, bpm)
@@ -836,7 +893,10 @@ internal fun deriveTelemetryInsights(
                 "services_failed" -> externalRunPodServiceFailureCount += 1
                 "measurement_missing" -> externalRunPodMeasurementMissingCount += 1
                 "sample" -> {
-                    externalRunPodSampleCount += 1
+                    externalRunPodSampleCount =
+                        parseIntToken(line, "count=")
+                            ?.let { maxOf(externalRunPodSampleCount, it) }
+                            ?: (externalRunPodSampleCount + 1)
                     parseIntToken(line, "cadenceSpm=")?.takeIf { it > 0 }?.let {
                         externalRunPodLastCadenceSpm = it
                     }
@@ -1265,6 +1325,21 @@ internal fun deriveTelemetryInsights(
             )
         insights.externalHeartRateReconnectScheduledCount = externalHeartRateReconnectScheduledCount
         insights.externalHeartRateReconnectAttemptCount = externalHeartRateReconnectAttemptCount
+        insights.turnByTurnTurnAlertFiredCount = turnByTurnTurnAlertFiredCount
+        insights.turnByTurnTurnAlertFilteredCount = turnByTurnTurnAlertFilteredCount
+        insights.turnByTurnTurnAlertOffRouteCount = turnByTurnTurnAlertOffRouteCount
+        insights.turnByTurnTurnAlertMissedWindowCount = turnByTurnTurnAlertMissedWindowCount
+        insights.recordingTrackFilter =
+            RecordingTrackFilterInsights(
+                smoothingMode = recordingTrackSmoothingMode,
+                filterVersion = recordingTrackFilterVersion,
+                qualityHeldFixCount = recordingQualityHeldFixCount,
+                qualityRejectedFixCount = recordingQualityRejectedFixCount,
+                qualityRelocationCount = recordingQualityRelocationCount,
+                smoothedPointCount = recordingSmoothedPointCount,
+                smoothedAdjustmentMeters = recordingSmoothedAdjustmentMeters,
+                maxSmoothedAdjustmentMeters = recordingMaxSmoothedAdjustmentMeters,
+            )
     }
 }
 
@@ -1321,13 +1396,25 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var startupSummaryCount = 0
     var startupHeadingSpanMaxDeg: Float? = null
     var startupMaxJumpMaxDeg: Float? = null
+    var startupVisibleHeadingJumpMaxDeg: Float? = null
+    var startupVisibleMapRotationJumpMaxDeg: Float? = null
+    var startupSourceHandoffCount = 0
+    var startupSourceHandoffMaxJumpDeg: Float? = null
     var startupStable3Count = 0
     var startupStable5Count = 0
-    var startupOverlapSummaryCount = 0
-    var startupOverlapFinalDeltaTotalDeg = 0f
-    var startupOverlapFinalDeltaCount = 0
-    var startupOverlapRestartComparisonCount = 0
-    var startupOverlapRestartImprovedCount = 0
+    var fusedFirstUsableCount = 0
+    var fusedFirstUsableLatencyMaxMs: Long? = null
+    var fusedReadyCount = 0
+    var fusedReadyLatencyMaxMs: Long? = null
+    var fusedWarmupRelockCount = 0
+    var fusedWarmupRelockStepMaxDeg: Float? = null
+    var fusedReadyAfterRelockCount = 0
+    var fusedFallbackActivationCount = 0
+    var continuityStartCount = 0
+    var continuityCompleteCount = 0
+    var continuityCancelCount = 0
+    var continuityInitialOffsetMaxDeg: Float? = null
+    var continuityDurationMaxMs: Long? = null
     var headingLooksWrongReportCount = 0
     var fusedPerfEventCount = 0
     var fusedPerfCallbackCount = 0
@@ -1342,6 +1429,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var renderPerfHeadingRenderCount = 0
     var renderPerfRotationAppliedCount = 0
     var renderPerfRotationSkippedCount = 0
+    var renderPerfRotationThrottledCount = 0
     var renderPerfMarkerUpdateCount = 0
     var renderPerfRedrawCount = 0
     var renderPerfFrameHzMax: Float? = null
@@ -1391,7 +1479,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         if ("large_jump accepted" in line) {
             largeJumpAcceptedCount += 1
         }
-        if ("sample_stale" in line) {
+        if ("google_fused sample_stale ageMs=" in line) {
             staleSampleCount += 1
         }
         if ("wake_session stage=startup_summary" in line) {
@@ -1402,20 +1490,65 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             parseFloatToken(line, "maxJumpDeg=")?.let { value ->
                 startupMaxJumpMaxDeg = maxOf(startupMaxJumpMaxDeg ?: value, value)
             }
+            parseFloatToken(line, "visibleHeadingMaxJumpDeg=")?.let { value ->
+                startupVisibleHeadingJumpMaxDeg =
+                    maxOf(startupVisibleHeadingJumpMaxDeg ?: value, value)
+            }
+            parseFloatToken(line, "visibleMapRotationMaxJumpDeg=")?.let { value ->
+                startupVisibleMapRotationJumpMaxDeg =
+                    maxOf(startupVisibleMapRotationJumpMaxDeg ?: value, value)
+            }
+            startupSourceHandoffCount += parseIntToken(line, "sourceHandoffs=") ?: 0
+            parseFloatToken(line, "sourceHandoffMaxJumpDeg=")?.let { value ->
+                startupSourceHandoffMaxJumpDeg =
+                    maxOf(startupSourceHandoffMaxJumpDeg ?: value, value)
+            }
             if (extractTokenValue(line, "stable3Ms=") != "na") startupStable3Count += 1
             if (extractTokenValue(line, "stable5Ms=") != "na") startupStable5Count += 1
         }
-        if ("google_fused startup_overlap_summary" in line) {
-            startupOverlapSummaryCount += 1
-            parseFloatToken(line, "finalDeltaDeg=")?.let { value ->
-                startupOverlapFinalDeltaTotalDeg += value
-                startupOverlapFinalDeltaCount += 1
+        if ("google_fused first_usable" in line) {
+            fusedFirstUsableCount += 1
+            parseLongToken(line, "latencyMs=")?.let { value ->
+                fusedFirstUsableLatencyMaxMs = maxOf(fusedFirstUsableLatencyMaxMs ?: value, value)
             }
-            parseFloatToken(line, "restartDeltaChangeDeg=")?.let { value ->
-                startupOverlapRestartComparisonCount += 1
-                if (value <= -STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG) {
-                    startupOverlapRestartImprovedCount += 1
-                }
+        }
+        if ("google_fused state transition=active_fused" in line) {
+            fusedReadyCount += 1
+            parseLongToken(line, "latencyMs=")?.let { value ->
+                fusedReadyLatencyMaxMs = maxOf(fusedReadyLatencyMaxMs ?: value, value)
+            }
+            if ((parseIntToken(line, "relockResets=") ?: 0) > 0) {
+                fusedReadyAfterRelockCount += 1
+            }
+        }
+        if ("google_fused warmup_relock" in line) {
+            fusedWarmupRelockCount += 1
+            parseFloatToken(line, "stepDeg=")?.let { value ->
+                fusedWarmupRelockStepMaxDeg =
+                    maxOf(fusedWarmupRelockStepMaxDeg ?: value, value)
+            }
+        }
+        if ("google_fused state transition=active_fallback" in line) {
+            fusedFallbackActivationCount += 1
+        }
+        if ("map_heading_continuity stage=start" in line) {
+            continuityStartCount += 1
+            parseFloatToken(line, "offsetDeg=")?.let { value ->
+                val magnitude = abs(value)
+                continuityInitialOffsetMaxDeg =
+                    maxOf(continuityInitialOffsetMaxDeg ?: magnitude, magnitude)
+            }
+        }
+        if ("map_heading_continuity stage=complete" in line) {
+            continuityCompleteCount += 1
+            parseLongToken(line, "durationMs=")?.let { value ->
+                continuityDurationMaxMs = maxOf(continuityDurationMaxMs ?: value, value)
+            }
+        }
+        if ("map_heading_continuity stage=cancel" in line) {
+            continuityCancelCount += 1
+            parseLongToken(line, "durationMs=")?.let { value ->
+                continuityDurationMaxMs = maxOf(continuityDurationMaxMs ?: value, value)
             }
         }
         if ("user_report heading_looks_wrong" in line) {
@@ -1441,6 +1574,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             renderPerfHeadingRenderCount += parseIntToken(line, "headingRenders=") ?: 0
             renderPerfRotationAppliedCount += parseIntToken(line, "rotationApplied=") ?: 0
             renderPerfRotationSkippedCount += parseIntToken(line, "rotationSkipped=") ?: 0
+            renderPerfRotationThrottledCount += parseIntToken(line, "rotationThrottled=") ?: 0
             renderPerfMarkerUpdateCount += parseIntToken(line, "markerUpdates=") ?: 0
             renderPerfRedrawCount += parseIntToken(line, "redraws=") ?: 0
             parseFloatToken(line, "frameHz=")?.let { value ->
@@ -1463,6 +1597,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         managerStopScheduledCount = managerStopScheduledCount,
         managerStopRequestedCount = managerStopRequestedCount,
         headingSampleCount = headingSampleCount,
+        headingDiagnosticSampleCount = headingSampleCount,
         largeJumpPendingCount = largeJumpPendingCount,
         largeJumpAcceptedCount = largeJumpAcceptedCount,
         staleSampleCount = staleSampleCount,
@@ -1472,17 +1607,25 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         startupSummaryCount = startupSummaryCount,
         startupHeadingSpanMaxDeg = startupHeadingSpanMaxDeg,
         startupMaxJumpMaxDeg = startupMaxJumpMaxDeg,
+        startupVisibleHeadingJumpMaxDeg = startupVisibleHeadingJumpMaxDeg,
+        startupVisibleMapRotationJumpMaxDeg = startupVisibleMapRotationJumpMaxDeg,
+        startupSourceHandoffCount = startupSourceHandoffCount,
+        startupSourceHandoffMaxJumpDeg = startupSourceHandoffMaxJumpDeg,
         startupStable3Count = startupStable3Count,
         startupStable5Count = startupStable5Count,
-        startupOverlapSummaryCount = startupOverlapSummaryCount,
-        startupOverlapFinalDeltaAvgDeg =
-            if (startupOverlapFinalDeltaCount > 0) {
-                startupOverlapFinalDeltaTotalDeg / startupOverlapFinalDeltaCount
-            } else {
-                null
-            },
-        startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
-        startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
+        fusedFirstUsableCount = fusedFirstUsableCount,
+        fusedFirstUsableLatencyMaxMs = fusedFirstUsableLatencyMaxMs,
+        fusedReadyCount = fusedReadyCount,
+        fusedReadyLatencyMaxMs = fusedReadyLatencyMaxMs,
+        fusedWarmupRelockCount = fusedWarmupRelockCount,
+        fusedWarmupRelockStepMaxDeg = fusedWarmupRelockStepMaxDeg,
+        fusedReadyAfterRelockCount = fusedReadyAfterRelockCount,
+        fusedFallbackActivationCount = fusedFallbackActivationCount,
+        continuityStartCount = continuityStartCount,
+        continuityCompleteCount = continuityCompleteCount,
+        continuityCancelCount = continuityCancelCount,
+        continuityInitialOffsetMaxDeg = continuityInitialOffsetMaxDeg,
+        continuityDurationMaxMs = continuityDurationMaxMs,
         headingLooksWrongReportCount = headingLooksWrongReportCount,
         fusedPerfEventCount = fusedPerfEventCount,
         fusedPerfCallbackCount = fusedPerfCallbackCount,
@@ -1497,14 +1640,13 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         renderPerfHeadingRenderCount = renderPerfHeadingRenderCount,
         renderPerfRotationAppliedCount = renderPerfRotationAppliedCount,
         renderPerfRotationSkippedCount = renderPerfRotationSkippedCount,
+        renderPerfRotationThrottledCount = renderPerfRotationThrottledCount,
         renderPerfMarkerUpdateCount = renderPerfMarkerUpdateCount,
         renderPerfRedrawCount = renderPerfRedrawCount,
         renderPerfFrameHzMax = renderPerfFrameHzMax,
         renderPerfRenderHzMax = renderPerfRenderHzMax,
     )
 }
-
-private const val STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG = 15f
 
 private fun parseRequestMode(line: String): LocationRequestMode? {
     if ("requestUpdates applied:" !in line && "reason=gps_request_applied" !in line) return null

@@ -10,11 +10,11 @@ import androidx.compose.ui.Alignment
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod")
 fun TurnByTurnSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
-    onOpenGuidanceSettings: () -> Unit,
-    onOpenAlertsSettings: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onOpenDashboardSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
@@ -39,18 +39,15 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsToggleChip(
-                checked = hapticsEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
-                label = "Guidance haptics",
-                secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = voiceGuidanceEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnVoiceGuidanceEnabled,
-                label = "Voice guidance",
-                secondaryLabel = if (voiceGuidanceEnabled) "Speak turn cues" else "Voice cues off",
+                checked = compactPopupEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnCompactPopupEnabled,
+                label = "Small map popup",
+                secondaryLabel =
+                    if (compactPopupEnabled) {
+                        "Show TBT chip on the map"
+                    } else {
+                        "Hide TBT chip on the map"
+                    },
             )
         }
         item {
@@ -68,15 +65,18 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsToggleChip(
-                checked = compactPopupEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnCompactPopupEnabled,
-                label = "Small map popup",
-                secondaryLabel =
-                    if (compactPopupEnabled) {
-                        "Show TBT chip on the map"
-                    } else {
-                        "Hide TBT chip on the map"
-                    },
+                checked = hapticsEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
+                label = "Guidance haptics",
+                secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = voiceGuidanceEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnVoiceGuidanceEnabled,
+                label = "Voice guidance",
+                secondaryLabel = if (voiceGuidanceEnabled) "Speak turn cues" else "Voice cues off",
             )
         }
         item {
@@ -88,16 +88,9 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsSectionChip(
-                label = "Advanced guidance",
-                secondaryLabel = "Start, reverse and route back",
-                onClick = onOpenGuidanceSettings,
-            )
-        }
-        item {
-            SettingsSectionChip(
-                label = "Advanced alerts",
-                secondaryLabel = "Turn timing and off-route tuning",
-                onClick = onOpenAlertsSettings,
+                label = "Advanced settings",
+                secondaryLabel = "Route, alerts and battery",
+                onClick = onOpenAdvancedSettings,
             )
         }
     }
@@ -112,6 +105,7 @@ fun TurnByTurnSettingsScreen(
                 "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
                 "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
                 "Set TBT GPS timing in GPS settings. Faster timing gives more reliable alerts but uses more battery.",
+                "Screen-off saver reduces battery use, but turn and off-route alerts may arrive later.",
                 "Turn instructions depend on the GPX geometry or routing hints available in the file.",
             ),
         onDismiss = { showInfoDialog = false },

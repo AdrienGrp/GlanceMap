@@ -45,4 +45,19 @@ class MapZoomScaleTest {
         assertEquals(20, levels.max)
         assertTrue(levels.default in levels.min..levels.max)
     }
+
+    @Test
+    fun `two extra close zoom levels make five meter scale reachable`() {
+        val levels =
+            mapZoomLevelsForScaleSettings(
+                defaultScaleMeters = 200,
+                minScaleMeters = 200_000,
+                maxScaleMeters = 5,
+                viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
+                latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
+            )
+
+        assertEquals(6, levels.min)
+        assertEquals(22, levels.max)
+    }
 }

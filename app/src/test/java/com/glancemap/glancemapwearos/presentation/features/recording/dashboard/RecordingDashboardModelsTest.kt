@@ -388,6 +388,7 @@ class RecordingDashboardModelsTest {
         assertEquals(
             listOf(
                 "Distance",
+                "Steps",
                 "Time (Total)",
                 "Time (Active)",
                 "Elev +",
@@ -402,7 +403,6 @@ class RecordingDashboardModelsTest {
                 "Max Power",
                 "Cadence (Avg)",
                 "Max cad",
-                "Steps",
                 "Cal (Total)",
                 "Cal (Active)",
                 "Cal (Rest)",
@@ -412,8 +412,52 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun bikeRecordingRecapPlacesElevationAndHeartRateBeforeSpeed() {
+        val snapshot =
+            RecordingDashboardSnapshot(
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+                durationSeconds = 3_723.0,
+                distanceMeters = 1_234.0,
+                elevationGainMeters = 120.0,
+                elevationLossMeters = 95.0,
+                currentElevationMeters = null,
+                currentSpeedMps = null,
+                averageSpeedMps = 2.0,
+                gpsAccuracyMeters = null,
+                pointCount = 42,
+                gpsActiveDurationSeconds = 3_700.0,
+                recordingGapCount = 0,
+                recordingMaxGapSeconds = 0.0,
+            )
+
+        val labels = recordingRecapMetricsForSnapshot(snapshot, isMetric = true).map { it.label }
+
+        assertEquals(
+            listOf(
+                "Distance",
+                "Cal (Total)",
+                "Cal (Active)",
+                "Cal (Rest)",
+                "Time (Active)",
+                "Time (Total)",
+                "Elev +",
+                "Elev -",
+                "HR (Avg)",
+                "Max HR",
+                "Speed (Avg)",
+                "Max speed",
+                "Power (Avg)",
+                "Max Power",
+            ),
+            labels,
+        )
+    }
+
+    @Test
     fun metricPickerOptionsAreAlphabetical() {
-        val labels = recordingMetricPickerOptions.map { it.second }
+        val labels =
+            recordingMetricPickerOptionsForProfile(SettingsRepository.ACTIVITY_PROFILE_HIKE)
+                .map { it.second }
         assertEquals(labels.sortedBy { it.lowercase() }, labels)
         assertTrue(labels.contains("Cadence (Avg)"))
         assertTrue(labels.contains("Cadence (Max)"))
@@ -422,6 +466,50 @@ class RecordingDashboardModelsTest {
         assertTrue(labels.contains("Power (Max)"))
         assertTrue(labels.contains("Speed (Max)"))
         assertTrue(labels.contains("Pace (Max)"))
+    }
+
+    @Test
+    fun bikeMetricPickerExcludesStepsAndPace() {
+        val options = recordingMetricPickerOptionsForProfile(SettingsRepository.ACTIVITY_PROFILE_BIKE)
+        val metricIds = options.map { it.first }
+        val labels = options.map { it.second }
+
+        assertEquals(labels.sortedBy { it.lowercase() }, labels)
+        assertTrue(SettingsRepository.RECORDING_METRIC_CADENCE in metricIds)
+        assertTrue(SettingsRepository.RECORDING_METRIC_POWER in metricIds)
+        assertTrue(SettingsRepository.RECORDING_METRIC_STEPS !in metricIds)
+        assertTrue(SettingsRepository.RECORDING_METRIC_CURRENT_PACE !in metricIds)
+        assertTrue(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE !in metricIds)
+        assertTrue(SettingsRepository.RECORDING_METRIC_MAX_PACE !in metricIds)
+    }
+
+    @Test
+    fun bikeCadenceUsesRpm() {
+        val value =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_CADENCE,
+                snapshot =
+                    RecordingDashboardSnapshot(
+                        activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+                        durationSeconds = 60.0,
+                        distanceMeters = 1_000.0,
+                        elevationGainMeters = 0.0,
+                        elevationLossMeters = 0.0,
+                        currentElevationMeters = null,
+                        currentSpeedMps = null,
+                        averageSpeedMps = null,
+                        gpsAccuracyMeters = null,
+                        pointCount = 0,
+                        gpsActiveDurationSeconds = 0.0,
+                        recordingGapCount = 0,
+                        recordingMaxGapSeconds = 0.0,
+                        cadenceSpm = 92,
+                    ),
+                isMetric = true,
+            )
+
+        assertEquals("92", value.value)
+        assertEquals("rpm", value.unit)
     }
 
     @Test

@@ -1,6 +1,17 @@
 package com.glancemap.glancemapwearos.presentation.features.recording
 
+import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+
+data object RecordingLocationStartWarning
+
+internal fun isRecordingStartLocationReady(
+    hasUsableLocation: Boolean,
+    gpsSignalSnapshot: GpsSignalSnapshot,
+): Boolean =
+    hasUsableLocation &&
+        gpsSignalSnapshot.isLocationAvailable &&
+        gpsSignalSnapshot.lastFixFresh
 
 data class RecordingStartWarning(
     val unlinkedDevices: List<String>,

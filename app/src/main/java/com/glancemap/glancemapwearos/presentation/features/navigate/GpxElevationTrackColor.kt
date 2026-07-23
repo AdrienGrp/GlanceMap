@@ -33,9 +33,26 @@ internal fun buildElevationTrackSegments(
     var currentColor: Int? = null
     var currentPoints = mutableListOf<LatLong>()
 
+    fun flushCurrentSegment() {
+        val color = currentColor
+        if (currentPoints.size >= 2 && color != null) {
+            segments +=
+                ElevationTrackSegment(
+                    points = currentPoints.toList(),
+                    color = color,
+                )
+        }
+        currentColor = null
+        currentPoints = mutableListOf()
+    }
+
     for (index in 1..points.lastIndex) {
         val from = points[index - 1]
         val to = points[index]
+        if (to.startsNewSegment) {
+            flushCurrentSegment()
+            continue
+        }
         val color =
             applyOpacityToColor(
                 color = elevationSegmentColor(classifyElevationSegment(from, to)),
@@ -43,13 +60,7 @@ internal fun buildElevationTrackSegments(
             )
 
         if (currentColor != color) {
-            if (currentPoints.size >= 2 && currentColor != null) {
-                segments +=
-                    ElevationTrackSegment(
-                        points = currentPoints.toList(),
-                        color = currentColor,
-                    )
-            }
+            flushCurrentSegment()
             currentColor = color
             currentPoints = mutableListOf(from.latLong, to.latLong)
         } else {
@@ -57,13 +68,7 @@ internal fun buildElevationTrackSegments(
         }
     }
 
-    if (currentPoints.size >= 2 && currentColor != null) {
-        segments +=
-            ElevationTrackSegment(
-                points = currentPoints.toList(),
-                color = currentColor,
-            )
-    }
+    flushCurrentSegment()
 
     return segments
 }

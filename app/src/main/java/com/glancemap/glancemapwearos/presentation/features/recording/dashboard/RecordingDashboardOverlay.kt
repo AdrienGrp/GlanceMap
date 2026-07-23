@@ -23,6 +23,8 @@ import androidx.wear.compose.material3.SwipeToDismissBox
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.defaultRecordingDashboardMetricSlotsForProfile
+import com.glancemap.glancemapwearos.data.repository.newRecordingDashboardPageMetricSlotsForProfile
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
@@ -33,6 +35,8 @@ import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
+// One lifecycle coordinator owns the recording overlay's mutually exclusive dialogs and effects.
+@Suppress("FunctionNaming", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun BoxScope.RecordingDashboardOverlay(
     state: TraceRecordingUiState,
@@ -40,7 +44,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
     userWeightKg: Float,
     backpackWeightKg: Float,
     bikeWeightKg: Float,
-    activityProfile: String,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     showRouteCompletePrompt: Boolean = false,
@@ -127,7 +130,8 @@ internal fun BoxScope.RecordingDashboardOverlay(
     }
     if (suppressed) return
 
-    val slots = normalizedRecordingDashboardSlots(metricSlots)
+    val sessionProfile = state.activityProfile
+    val slots = normalizedRecordingDashboardSlots(metricSlots, sessionProfile)
     val pageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
     LaunchedEffect(pageCount) {
         if (dashboardPageIndex >= pageCount) {
@@ -141,7 +145,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
             bikeWeightKg = bikeWeightKg,
-            activityProfile = activityProfile,
+            activityProfile = sessionProfile,
         )
 
     AnimatedVisibility(
@@ -296,7 +300,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             visible = true,
             title = "Choose measure",
             selectedValue = currentMetric,
-            options = recordingMetricPickerOptions,
+            options = recordingMetricPickerOptionsForProfile(sessionProfile),
             onDismiss = { metricPickerSlot = NO_SELECTED_SLOT },
             onSelect = { metricId ->
                 onMetricSelected(metricPickerSlot, metricId)
@@ -317,6 +321,14 @@ private fun recordingActionPromptTopPadding(screenSize: WearScreenSize): Dp =
         WearScreenSize.SMALL -> 82.dp
     }
 
-internal fun normalizedRecordingDashboardSlots(metricSlots: List<String>): List<String> = normalizeRecordingDashboardMetricSlots(metricSlots)
+internal fun normalizedRecordingDashboardSlots(
+    metricSlots: List<String>,
+    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
+): List<String> =
+    normalizeRecordingDashboardMetricSlots(
+        metricSlots = metricSlots,
+        defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(activityProfile),
+        newPageMetricSlots = newRecordingDashboardPageMetricSlotsForProfile(activityProfile),
+    )
 
 private const val NO_SELECTED_SLOT = -1

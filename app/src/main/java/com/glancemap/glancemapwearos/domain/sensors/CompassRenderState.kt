@@ -14,6 +14,12 @@ data class CompassRenderState(
     val headingSourceStatus: HeadingSourceStatus,
     val northReferenceStatus: NorthReferenceStatus,
     val magneticInterference: Boolean,
+    val trackingState: CompassTrackingState = CompassTrackingState.ACQUIRING,
+    val trackingReason: CompassTrackingReason = CompassTrackingReason.STARTUP,
+    val headingRenderable: Boolean = false,
+    val headingTrusted: Boolean = false,
+    val northBasis: CompassNorthBasis = CompassNorthBasis.UNKNOWN,
+    val magneticQuality: CompassMagneticQuality = CompassMagneticQuality.UNKNOWN,
 )
 
 internal fun initialCompassRenderState(
@@ -48,6 +54,12 @@ internal fun initialCompassRenderState(
                 pipeline = HeadingPipeline.NONE,
             ),
         magneticInterference = false,
+        trackingState = CompassTrackingState.ACQUIRING,
+        trackingReason = CompassTrackingReason.STARTUP,
+        headingRenderable = false,
+        headingTrusted = false,
+        northBasis = CompassNorthBasis.UNKNOWN,
+        magneticQuality = CompassMagneticQuality.UNKNOWN,
     )
 
 internal fun googleFusedCachedHeadingAgeMs(

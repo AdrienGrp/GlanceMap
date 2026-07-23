@@ -2,8 +2,11 @@ package com.glancemap.glancemapwearos.presentation.features.navigate.motion
 
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.moveLatLong
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
 import kotlin.math.asin
@@ -13,6 +16,139 @@ import kotlin.math.sqrt
 
 @Suppress("LargeClass")
 class MarkerMotionControllerTest {
+    @Before
+    fun setUpTelemetry() {
+        MarkerMotionTelemetry.setCollectionEnabledForTests(true)
+        MarkerMotionTelemetry.clear()
+    }
+
+    @After
+    fun tearDownTelemetry() {
+        MarkerMotionTelemetry.clear()
+        MarkerMotionTelemetry.setCollectionEnabledForTests(false)
+    }
+
+    @Test
+    fun predictionCanRenderOnFirstRegularTickAfterFix() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+
+        val guarded =
+            controller.predict(
+                nowElapsedMs = 10_050L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+        val firstRegularTick =
+            controller.predict(
+                nowElapsedMs = 10_250L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(base, guarded) < 0.01f)
+        assertTrue(distanceMeters(base, firstRegularTick) > 0.15f)
+        assertTrue(shouldRenderMarkerMotion(base, firstRegularTick))
+    }
+
+    @Test
+    fun renderThresholdIsDirectionIndependent() {
+        val base = LatLong(48.8566, 2.3522)
+
+        assertFalse(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 0.11f),
+            ),
+        )
+        assertFalse(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 90f, distanceMeters = 0.11f),
+            ),
+        )
+        assertTrue(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 0.13f),
+            ),
+        )
+        assertTrue(
+            shouldRenderMarkerMotion(
+                previous = base,
+                candidate = moveLatLong(base, bearing = 90f, distanceMeters = 0.13f),
+            ),
+        )
+    }
+
+    @Test
+    fun serviceVelocityIsUsedWithoutASecondUiSmoothingPass() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 11_000L,
+            fixElapsedMs = 11_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 2f,
+            rawBearingDeg = 90f,
+        )
+        val acceleratedSpeed = MarkerMotionTelemetry.latestSnapshot().speedMps ?: 0f
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 12_000L,
+            fixElapsedMs = 12_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+        val deceleratedSpeed = MarkerMotionTelemetry.latestSnapshot().speedMps ?: 0f
+
+        assertEquals(2f, acceleratedSpeed, 0.01f)
+        assertEquals(1f, deceleratedSpeed, 0.01f)
+    }
+
+    @Test
+    fun telemetryAggregatesFirstRenderDelayAndActiveRenderIntervals() {
+        MarkerMotionTelemetry.clear()
+
+        MarkerMotionTelemetry.recordFixAwaitingFirstRender(nowElapsedMs = 10_000L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_250L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_500L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 10_750L)
+        MarkerMotionTelemetry.recordMotionRendered(nowElapsedMs = 30_000L)
+
+        val summary = MarkerMotionTelemetry.summary()
+        assertEquals(1, summary.firstRenderDelaySamples)
+        assertEquals(250L, summary.firstRenderDelayMeanMs)
+        assertEquals(250L, summary.firstRenderDelayMaxMs)
+        assertEquals(2, summary.activeRenderIntervalSamples)
+        assertEquals(250L, summary.activeRenderIntervalMeanMs)
+        assertEquals(250L, summary.activeRenderIntervalMaxMs)
+        assertEquals(4, summary.renderedMotionUpdates)
+    }
+
     @Test
     fun predictsForwardFromDerivedMotionWhenRawSpeedIsMissing() {
         MarkerMotionTelemetry.clear()
@@ -25,7 +161,7 @@ class MarkerMotionControllerTest {
             nowElapsedMs = 10_000L,
             fixElapsedMs = 10_000L,
             accuracyM = 8f,
-            rawSpeedMps = 0f,
+            rawSpeedMps = null,
             rawBearingDeg = null,
         )
         controller.onGpsFix(
@@ -33,10 +169,9 @@ class MarkerMotionControllerTest {
             nowElapsedMs = 13_000L,
             fixElapsedMs = 13_000L,
             accuracyM = 8f,
-            rawSpeedMps = 0f,
+            rawSpeedMps = null,
             rawBearingDeg = null,
         )
-
         val predicted =
             controller.predict(
                 nowElapsedMs = 14_000L,
@@ -45,8 +180,208 @@ class MarkerMotionControllerTest {
             ) ?: walkingFix
 
         assertTrue(distanceMeters(walkingFix, predicted) > 0.4f)
-        assertTrue(predicted.longitude > walkingFix.longitude)
-        assertEquals(MarkerMotionMode.PREDICT, MarkerMotionTelemetry.latestSnapshot().mode)
+        assertTrue(predicted.longitude > base.longitude)
+        assertEquals(MarkerMotionMode.BLEND, MarkerMotionTelemetry.latestSnapshot().mode)
+    }
+
+    @Test
+    fun reliableZeroSpeedStopsBikePredictionImmediately() {
+        val controller =
+            MarkerMotionController(
+                predictionFreshnessMaxAgeMs = 12_000L,
+                maxAcceptedFixAgeMs = 24_000L,
+            ).also { it.updateActivityProfile(isBikeActivityProfile = true) }
+        val base = LatLong(48.8566, 2.3522)
+        val movingFix = moveLatLong(base, bearing = 90f, distanceMeters = 3f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 6f,
+            rawBearingDeg = 90f,
+        )
+        controller.onGpsFix(
+            latLong = movingFix,
+            nowElapsedMs = 13_000L,
+            fixElapsedMs = 13_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 0f,
+            rawBearingDeg = 90f,
+            speedAccuracyMps = 0.3f,
+        )
+
+        val settled =
+            controller.predict(
+                nowElapsedMs = 17_000L,
+                serviceFreshnessMaxAgeMs = 12_000L,
+                watchGpsDegraded = false,
+            ) ?: movingFix
+        val later =
+            controller.predict(
+                nowElapsedMs = 18_000L,
+                serviceFreshnessMaxAgeMs = 12_000L,
+                watchGpsDegraded = false,
+            ) ?: settled
+
+        assertTrue(distanceMeters(settled, later) < 0.2f)
+        assertEquals("slow", MarkerMotionTelemetry.latestSnapshot().reason)
+    }
+
+    @Test
+    fun bikeCanDeriveMotionWhenGpsSpeedIsAbsent() {
+        val controller =
+            MarkerMotionController(
+                predictionFreshnessMaxAgeMs = 12_000L,
+                maxAcceptedFixAgeMs = 24_000L,
+            ).also { it.updateActivityProfile(isBikeActivityProfile = true) }
+        val base = LatLong(48.8566, 2.3522)
+        val bikeFix = moveLatLong(base, bearing = 90f, distanceMeters = 30f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = null,
+            rawBearingDeg = null,
+        )
+        controller.onGpsFix(
+            latLong = bikeFix,
+            nowElapsedMs = 13_000L,
+            fixElapsedMs = 13_000L,
+            accuracyM = 6f,
+            rawSpeedMps = null,
+            rawBearingDeg = null,
+        )
+
+        val predicted =
+            controller.predict(
+                nowElapsedMs = 16_500L,
+                serviceFreshnessMaxAgeMs = 12_000L,
+                watchGpsDegraded = false,
+            ) ?: bikeFix
+
+        assertTrue(distanceMeters(bikeFix, predicted) > 5f)
+        assertTrue(predicted.longitude > bikeFix.longitude)
+    }
+
+    @Test
+    fun poorBearingAccuracyDoesNotDrivePrediction() {
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 2f,
+            rawBearingDeg = 90f,
+            bearingAccuracyDeg = 80f,
+        )
+
+        val predicted =
+            controller.predict(
+                nowElapsedMs = 11_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(base, predicted) < 0.2f)
+        assertEquals("no_bearing", MarkerMotionTelemetry.latestSnapshot().reason)
+    }
+
+    @Test
+    fun activeCorrectionKeepsMovingForwardWhileConverging() {
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val nextFix = moveLatLong(base, bearing = 90f, distanceMeters = 8f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 90f,
+        )
+        val atRebase =
+            controller.onGpsFix(
+                latLong = nextFix,
+                nowElapsedMs = 13_000L,
+                fixElapsedMs = 13_000L,
+                accuracyM = 6f,
+                rawSpeedMps = 1.5f,
+                rawBearingDeg = 90f,
+            )
+        val partial =
+            controller.predict(
+                nowElapsedMs = 13_100L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+        assertTrue(distanceMeters(base, partial) > distanceMeters(base, atRebase))
+        assertTrue(distanceMeters(partial, nextFix) < distanceMeters(atRebase, nextFix))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 13_100L))
+    }
+
+    @Test
+    fun telemetryAggregatesFixGapAndVisualInnovation() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+        controller.onGpsFix(
+            latLong = moveLatLong(base, bearing = 90f, distanceMeters = 5f),
+            nowElapsedMs = 13_000L,
+            fixElapsedMs = 13_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 1f,
+            rawBearingDeg = 90f,
+        )
+
+        val summary = MarkerMotionTelemetry.summary()
+        assertEquals(1, summary.fixGapSamples)
+        assertEquals(3_000L, summary.fixGapMeanMs)
+        assertEquals(1, summary.innovationSamples)
+        assertTrue((summary.innovationMeanM ?: 0f) > 4f)
+    }
+
+    @Test
+    fun timingUpdatePreservesAcceptedMotionState() {
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 10_000L,
+            fixElapsedMs = 10_000L,
+            accuracyM = 6f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 90f,
+        )
+
+        controller.updateTiming(
+            predictionFreshnessMaxAgeMs = 12_000L,
+            maxAcceptedFixAgeMs = 120_000L,
+        )
+        val predicted =
+            controller.predict(
+                nowElapsedMs = 11_000L,
+                serviceFreshnessMaxAgeMs = 120_000L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(base, predicted) > 0.5f)
     }
 
     @Test
@@ -100,6 +435,7 @@ class MarkerMotionControllerTest {
             rawSpeedMps = 0f,
             rawBearingDeg = null,
         )
+        assertEquals("weak_accuracy_hold", MarkerMotionTelemetry.latestSnapshot().reason)
 
         val predicted =
             controller.predict(
@@ -111,7 +447,50 @@ class MarkerMotionControllerTest {
         assertTrue(distanceMeters(base, predicted) < 0.2f)
         val snapshot = MarkerMotionTelemetry.latestSnapshot()
         assertEquals(MarkerMotionMode.FIXED, snapshot.mode)
-        assertEquals("bad_accuracy", snapshot.reason)
+        assertEquals("stale", snapshot.reason)
+    }
+
+    @Test
+    fun freshWeakNonWatchFixKeepsTrustedVisualMotionWithoutUsingWeakCoordinate() {
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val weakCoordinate = moveLatLong(base, bearing = 90f, distanceMeters = 20f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 30_000L,
+            fixElapsedMs = 30_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 90f,
+        )
+        val beforeWeakFix =
+            controller.predict(
+                nowElapsedMs = 32_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+        val held =
+            controller.onGpsFix(
+                latLong = weakCoordinate,
+                nowElapsedMs = 33_000L,
+                fixElapsedMs = 33_000L,
+                accuracyM = 50f,
+                rawSpeedMps = 1.5f,
+                rawBearingDeg = 90f,
+                sourceMode = LocationSourceMode.PASSIVE_EXTERNAL,
+            )
+        assertEquals("weak_accuracy_hold", MarkerMotionTelemetry.latestSnapshot().reason)
+        val continued =
+            controller.predict(
+                nowElapsedMs = 34_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: held
+
+        assertTrue(distanceMeters(beforeWeakFix, held) < 0.02f)
+        assertTrue(distanceMeters(held, weakCoordinate) > 10f)
+        assertTrue(distanceMeters(held, continued) > 0.5f)
     }
 
     @Test
@@ -200,7 +579,7 @@ class MarkerMotionControllerTest {
     }
 
     @Test
-    fun blendsCorrectionInsteadOfTeleporting() {
+    fun correctionConvergesWithoutStoppingForwardMotion() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
         val base = LatLong(48.8566, 2.3522)
@@ -224,17 +603,26 @@ class MarkerMotionControllerTest {
                 rawBearingDeg = 0f,
             )
 
-        assertTrue(distanceMeters(blendStart, base) < 0.5f)
+        assertTrue(distanceMeters(blendStart, base) < 0.2f)
+        assertTrue(distanceMeters(blendStart, target) > 15f)
 
-        val settled =
+        val partial =
             controller.predict(
                 nowElapsedMs = 42_400L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: target
+        val settled =
+            controller.predict(
+                nowElapsedMs = 43_400L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: target
 
-        val remainingMeters = distanceMeters(settled, target)
-        assertTrue("remainingMeters=$remainingMeters", remainingMeters < 2f)
+        assertTrue(distanceMeters(base, partial) > distanceMeters(base, blendStart))
+        assertTrue(distanceMeters(partial, target) > distanceMeters(settled, target))
+        assertTrue(distanceMeters(settled, target) < distanceMeters(blendStart, target))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 43_400L))
         assertEquals(1, MarkerMotionTelemetry.summary().blendStarts)
     }
 
@@ -271,20 +659,179 @@ class MarkerMotionControllerTest {
                 rawBearingDeg = 90f,
             )
 
-        assertTrue(distanceMeters(duplicateDisplay, base) < 0.5f)
+        assertTrue(distanceMeters(duplicateDisplay, base) < 0.2f)
+        assertTrue(distanceMeters(duplicateDisplay, target) > 19f)
         assertEquals(2, MarkerMotionTelemetry.summary().acceptedFixes)
         assertEquals(1, MarkerMotionTelemetry.summary().blendStarts)
         assertEquals("duplicate_fix", MarkerMotionTelemetry.latestSnapshot().reason)
 
         val settled =
             controller.predict(
-                nowElapsedMs = 47_400L,
+                nowElapsedMs = 48_400L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: target
 
-        assertTrue(distanceMeters(settled, target) < 2f)
+        assertTrue(distanceMeters(settled, target) < distanceMeters(duplicateDisplay, target))
         assertEquals(1, MarkerMotionTelemetry.summary().blendStarts)
+    }
+
+    @Test
+    fun rejectsChangedFixWhenReliableTimestampDoesNotAdvance() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 80_000L,
+            fixElapsedMs = 80_000L,
+            accuracyM = 16f,
+            rawSpeedMps = 1.2f,
+            rawBearingDeg = 90f,
+        )
+        val rejectedDisplay =
+            controller.onGpsFix(
+                latLong = moveLatLong(base, bearing = 90f, distanceMeters = 14f),
+                nowElapsedMs = 80_040L,
+                fixElapsedMs = 80_000L,
+                accuracyM = 22f,
+                rawSpeedMps = 1.2f,
+                rawBearingDeg = 90f,
+            )
+
+        assertTrue(distanceMeters(base, rejectedDisplay) < 0.2f)
+        assertEquals(1, MarkerMotionTelemetry.summary().acceptedFixes)
+        assertEquals("non_forward_fix", MarkerMotionTelemetry.latestSnapshot().reason)
+    }
+
+    @Test
+    fun movingDeadbandConvergesWithoutTeleporting() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 90_000L,
+            fixElapsedMs = 90_000L,
+            accuracyM = 20f,
+            rawSpeedMps = 1.2f,
+            rawBearingDeg = 90f,
+        )
+        val target = moveLatLong(base, bearing = 90f, distanceMeters = 1f)
+        val display =
+            controller.onGpsFix(
+                latLong = target,
+                nowElapsedMs = 93_000L,
+                fixElapsedMs = 93_000L,
+                accuracyM = 20f,
+                rawSpeedMps = 1.2f,
+                rawBearingDeg = 90f,
+            )
+
+        assertTrue(distanceMeters(target, display) > 0.2f)
+        assertEquals("deadband_snap", MarkerMotionTelemetry.latestSnapshot().reason)
+        val settled =
+            controller.predict(
+                nowElapsedMs = 93_500L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: target
+        assertTrue(distanceMeters(settled, target) < distanceMeters(display, target))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 93_500L))
+    }
+
+    @Test
+    fun watchGpsDoesNotQualityWeightSyntheticAccuracyFloor() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val target = moveLatLong(base, bearing = 90f, distanceMeters = 10f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 94_000L,
+            fixElapsedMs = 94_000L,
+            accuracyM = 125f,
+            rawSpeedMps = 1.2f,
+            rawBearingDeg = 90f,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+        val display =
+            controller.onGpsFix(
+                latLong = target,
+                nowElapsedMs = 97_000L,
+                fixElapsedMs = 97_000L,
+                accuracyM = 125f,
+                rawSpeedMps = 1.2f,
+                rawBearingDeg = 90f,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+            )
+
+        assertTrue(distanceMeters(base, display) < 0.2f)
+        assertTrue(distanceMeters(display, target) > 9f)
+        assertEquals("gps_correction", MarkerMotionTelemetry.latestSnapshot().reason)
+        val settled =
+            controller.predict(
+                nowElapsedMs = 97_600L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: target
+        assertTrue(distanceMeters(settled, target) < distanceMeters(display, target))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 97_600L))
+    }
+
+    @Test
+    fun watchGpsKeepsRawSpeedWhenSpeedAccuracyMetadataIsWeak() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 98_000L,
+            fixElapsedMs = 98_000L,
+            accuracyM = 125f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 90f,
+            speedAccuracyMps = 5f,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+        val predicted =
+            controller.predict(
+                nowElapsedMs = 99_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(base, predicted) > 0.6f)
+        assertEquals(MarkerMotionMode.PREDICT, MarkerMotionTelemetry.latestSnapshot().mode)
+    }
+
+    @Test
+    fun retainedWakeAnchorKeepsPositionButClearsStaleMotion() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 100_000L,
+            fixElapsedMs = 100_000L,
+            accuracyM = 125f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 90f,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+        controller.requireFreshFixForPrediction(reason = "screen_non_interactive")
+        val retained = controller.retainedAnchorSeed ?: error("Expected retained visual anchor")
+
+        assertTrue(distanceMeters(base, retained.latLong) < 0.01f)
+        assertEquals(0f, retained.reading.speedMps)
+        assertEquals(null, retained.reading.bearingDeg)
+        assertEquals(LocationSourceMode.WATCH_GPS, retained.sourceMode)
+        assertEquals(MarkerMotionAnchorOrigin.RETAINED_VISUAL, retained.origin)
     }
 
     @Test
@@ -379,17 +926,19 @@ class MarkerMotionControllerTest {
                 sourceMode = LocationSourceMode.AUTO_FUSED,
             )
         assertEquals("source_switch", MarkerMotionTelemetry.latestSnapshot().reason)
-        assertTrue(distanceMeters(reanchored, phoneFix) < 2f)
+        assertTrue(distanceMeters(reanchored, watchFix) < 5f)
+        assertTrue(distanceMeters(reanchored, phoneFix) > 50f)
 
         val settled =
             controller.predict(
-                nowElapsedMs = 102_600L,
+                nowElapsedMs = 102_800L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: watchFix
 
         val summary = MarkerMotionTelemetry.summary()
-        assertTrue(distanceMeters(settled, phoneFix) < 2f)
+        assertTrue(distanceMeters(settled, phoneFix) < distanceMeters(reanchored, phoneFix))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 102_800L))
         assertEquals(0, summary.outlierDrops)
         assertEquals(0, summary.clampedCorrections)
     }
@@ -474,21 +1023,22 @@ class MarkerMotionControllerTest {
                 rawBearingDeg = 20f,
             )
         assertEquals("auto_fused_catch_up", MarkerMotionTelemetry.latestSnapshot().reason)
-        assertTrue(distanceMeters(catchUpDisplay, target3) < 2f)
+        assertTrue(distanceMeters(catchUpDisplay, target3) > 20f)
 
         val settled =
             controller.predict(
-                nowElapsedMs = 119_400L,
+                nowElapsedMs = 119_600L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: base
 
-        assertTrue(distanceMeters(settled, target3) < 2f)
+        assertTrue(distanceMeters(settled, target3) < distanceMeters(catchUpDisplay, target3))
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 119_600L))
         assertEquals(2, MarkerMotionTelemetry.summary().clampedCorrections)
     }
 
     @Test
-    fun gpsFixAdvancesPreviousBlendWhenPredictionLoopDoesNotRun() {
+    fun gpsFixRebasesFromLastDisplayedPointWhenPredictionLoopDoesNotRun() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
         val base = LatLong(48.8566, 2.3522)
@@ -516,9 +1066,8 @@ class MarkerMotionControllerTest {
                 )
         }
 
-        val previousTarget = moveLatLong(base, bearing = bearing, distanceMeters = 35f)
-        assertTrue(distanceMeters(display, previousTarget) < 2f)
-        assertEquals(0, MarkerMotionTelemetry.summary().clampedCorrections)
+        assertTrue(distanceMeters(display, base) < 0.2f)
+        assertEquals(9, MarkerMotionTelemetry.summary().acceptedFixes)
     }
 
     @Test
@@ -557,26 +1106,30 @@ class MarkerMotionControllerTest {
             rawBearingDeg = 90f,
             sourceMode = LocationSourceMode.WATCH_GPS,
         )
-        controller.onGpsFix(
-            latLong = catchUpTarget,
-            nowElapsedMs = 109_000L,
-            fixElapsedMs = 109_000L,
-            accuracyM = 125f,
-            rawSpeedMps = 6f,
-            rawBearingDeg = 90f,
-            sourceMode = LocationSourceMode.WATCH_GPS,
+        val catchUpDisplay =
+            controller.onGpsFix(
+                latLong = catchUpTarget,
+                nowElapsedMs = 109_000L,
+                fixElapsedMs = 109_000L,
+                accuracyM = 125f,
+                rawSpeedMps = 6f,
+                rawBearingDeg = 90f,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+            )
+        assertTrue(
+            MarkerMotionTelemetry.latestSnapshot().reason in
+                setOf("watch_gps_catch_up", "correction_clamped"),
         )
-        assertEquals("watch_gps_catch_up", MarkerMotionTelemetry.latestSnapshot().reason)
 
         val settled =
             controller.predict(
-                nowElapsedMs = 109_400L,
+                nowElapsedMs = 109_600L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: base
 
-        assertTrue(distanceMeters(settled, catchUpTarget) < 2f)
-        assertEquals(2, MarkerMotionTelemetry.summary().clampedCorrections)
+        assertTrue(distanceMeters(settled, catchUpTarget) < distanceMeters(catchUpDisplay, catchUpTarget))
+        assertTrue(MarkerMotionTelemetry.summary().clampedCorrections >= 2)
     }
 
     @Test
@@ -594,24 +1147,25 @@ class MarkerMotionControllerTest {
             rawSpeedMps = 1.2f,
             rawBearingDeg = 0f,
         )
-        controller.onGpsFix(
-            latLong = farTarget,
-            nowElapsedMs = 78_000L,
-            fixElapsedMs = 78_000L,
-            accuracyM = 22f,
-            rawSpeedMps = 1.4f,
-            rawBearingDeg = 0f,
-            allowLargeCorrection = true,
-        )
+        val atRebase =
+            controller.onGpsFix(
+                latLong = farTarget,
+                nowElapsedMs = 78_000L,
+                fixElapsedMs = 78_000L,
+                accuracyM = 22f,
+                rawSpeedMps = 1.4f,
+                rawBearingDeg = 0f,
+                allowLargeCorrection = true,
+            )
 
         val settled =
             controller.predict(
-                nowElapsedMs = 78_400L,
+                nowElapsedMs = 78_600L,
                 serviceFreshnessMaxAgeMs = 4_500L,
                 watchGpsDegraded = false,
             ) ?: farTarget
 
-        assertTrue(distanceMeters(settled, farTarget) < 2f)
+        assertTrue(distanceMeters(settled, farTarget) < distanceMeters(atRebase, farTarget))
         assertEquals(0, MarkerMotionTelemetry.summary().clampedCorrections)
     }
 
@@ -651,7 +1205,7 @@ class MarkerMotionControllerTest {
     }
 
     @Test
-    fun watchGpsCorrectionMovesMarkerOnAcceptedFixWithoutPredictionLoop() {
+    fun watchGpsCorrectionStartsWithoutTeleportingOnAcceptedFix() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
         val base = LatLong(48.8566, 2.3522)
@@ -677,9 +1231,10 @@ class MarkerMotionControllerTest {
                 sourceMode = LocationSourceMode.WATCH_GPS,
             )
 
-        assertTrue(distanceMeters(base, displayed) > 15f)
-        assertTrue(distanceMeters(displayed, target) < distanceMeters(base, target))
+        assertTrue(distanceMeters(base, displayed) < 0.2f)
+        assertTrue(distanceMeters(displayed, target) > 69f)
         assertEquals(1, MarkerMotionTelemetry.summary().clampedCorrections)
+        assertTrue(controller.hasPendingVisualCorrection(nowElapsedMs = 116_000L))
     }
 
     @Test
@@ -724,8 +1279,10 @@ private fun MarkerMotionController.onGpsFix(
     nowElapsedMs: Long,
     fixElapsedMs: Long,
     accuracyM: Float,
-    rawSpeedMps: Float,
+    rawSpeedMps: Float?,
     rawBearingDeg: Float?,
+    speedAccuracyMps: Float? = null,
+    bearingAccuracyDeg: Float? = null,
     allowLargeCorrection: Boolean = false,
     sourceMode: LocationSourceMode = LocationSourceMode.AUTO_FUSED,
 ): LatLong =
@@ -740,11 +1297,13 @@ private fun MarkerMotionController.onGpsFix(
                         accuracyM = accuracyM,
                         speedMps = rawSpeedMps,
                         bearingDeg = rawBearingDeg,
+                        speedAccuracyMps = speedAccuracyMps,
+                        bearingAccuracyDeg = bearingAccuracyDeg,
                     ),
                 allowLargeCorrection = allowLargeCorrection,
                 sourceMode = sourceMode,
             ),
-    )
+    ).displayedLatLong
 
 private fun distanceMeters(
     from: LatLong,

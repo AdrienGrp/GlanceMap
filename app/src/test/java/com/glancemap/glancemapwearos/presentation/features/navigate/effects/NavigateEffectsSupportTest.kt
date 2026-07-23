@@ -4,6 +4,7 @@ import android.hardware.SensorManager
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.domain.sensors.initialCompassRenderState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,13 +75,14 @@ class NavigateEffectsSupportTest {
                 accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 1_000L,
                 headingSampleStale = false,
+                headingRenderable = true,
             )
 
         assertTrue(shouldDriveCompassFollowMap(state))
     }
 
     @Test
-    fun compassFollowMapDrivesWhenGoogleFusedUsesBootstrapSensorHeading() {
+    fun compassFollowMapWaitsWhileGoogleFusedUsesBootstrapSensorHeading() {
         val state =
             initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
                 headingSource = HeadingSource.ROTATION_VECTOR,
@@ -89,7 +91,7 @@ class NavigateEffectsSupportTest {
                 headingSampleStale = true,
             )
 
-        assertTrue(shouldDriveCompassFollowMap(state))
+        assertFalse(shouldDriveCompassFollowMap(state))
     }
 
     @Test
@@ -104,7 +106,7 @@ class NavigateEffectsSupportTest {
 
         assertFalse(shouldDriveMarkerHeading(state))
         assertFalse(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
-        assertTrue(shouldDriveHeadingForNavMode(NavMode.COMPASS_FOLLOW, state))
+        assertFalse(shouldDriveHeadingForNavMode(NavMode.COMPASS_FOLLOW, state))
     }
 
     @Test
@@ -115,10 +117,26 @@ class NavigateEffectsSupportTest {
                 accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 1_000L,
                 headingSampleStale = false,
+                headingRenderable = true,
             )
 
         assertTrue(shouldDriveMarkerHeading(state))
         assertTrue(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
+    }
+
+    @Test
+    fun degradedGoogleHeadingKeepsMapAndMarkerMovingWhenRenderable() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingSource = HeadingSource.FUSED_ORIENTATION,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 1_000L,
+                headingSampleStale = false,
+                headingRenderable = true,
+            )
+
+        assertTrue(shouldDriveCompassFollowMap(state))
+        assertTrue(shouldDriveMarkerHeading(state))
     }
 
     @Test
@@ -206,6 +224,181 @@ class NavigateEffectsSupportTest {
                 renderState = state,
                 nowElapsedMs = 25_000L,
             ) > 180f,
+        )
+    }
+
+    @Test
+    fun compassFollowLimitsMapsforgeRotationToThirtyHz() {
+        assertTrue(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_032L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_033L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun activeCompassTurnAllowsDisplayRateMapsforgeRotation() {
+        assertTrue(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_015L,
+                lastAppliedAtElapsedMs = 1_000L,
+                highFrequencyRotation = true,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_016L,
+                lastAppliedAtElapsedMs = 1_000L,
+                highFrequencyRotation = true,
+            ),
+        )
+    }
+
+    @Test
+    fun northUpAndFirstRotationAreNotThrottled() {
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.NORTH_UP_FOLLOW,
+                nowElapsedMs = 1_001L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_001L,
+                lastAppliedAtElapsedMs = Long.MIN_VALUE,
+            ),
+        )
+    }
+
+    @Test
+    fun renderedCompassUiStatePublishesAtMapOverlayCadence() {
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_000L,
+                lastPublishedAtElapsedMs = Long.MIN_VALUE,
+            ),
+        )
+        assertFalse(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_039L,
+                lastPublishedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_040L,
+                lastPublishedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertTrue(
+            shouldPublishRenderedCompassUiState(
+                nowElapsedMs = 1_001L,
+                lastPublishedAtElapsedMs = 1_000L,
+                force = true,
+            ),
+        )
+    }
+
+    @Test
+    fun rapidHeadingChangesEnableFastTurnRendering() {
+        assertTrue(
+            isFastHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 10f,
+                elapsedMs = 100L,
+            ),
+        )
+        assertFalse(
+            isFastHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 352f,
+                elapsedMs = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun slowContinuousRotationEnablesHighFrequencyMapRendering() {
+        assertTrue(
+            isActiveMapHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 353f,
+                elapsedMs = 100L,
+            ),
+        )
+        assertFalse(
+            isActiveMapHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 351f,
+                elapsedMs = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun fastTurnAnimationClosesHeadingErrorMoreAggressively() {
+        val normalAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = false)
+        val fastAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = true)
+
+        assertTrue(fastAlpha > normalAlpha)
+        assertTrue(fastAlpha >= 0.85f)
+    }
+
+    @Test
+    fun everyCompassVisualPathIsLimitedAcrossThrottledFramesAndNorth() {
+        val firstAppliedAngle =
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 0f,
+                targetAngleDeg = 90f,
+            )
+        val secondAppliedAngle =
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = firstAppliedAngle,
+                targetAngleDeg = 90f,
+            )
+
+        assertEquals(12f, firstAppliedAngle, 0f)
+        assertEquals(24f, secondAppliedAngle, 0f)
+        assertEquals(
+            362f,
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 350f,
+                targetAngleDeg = 10f,
+            ),
+            0f,
+        )
+        assertEquals(
+            8f,
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 20f,
+                targetAngleDeg = 350f,
+            ),
+            0f,
+        )
+    }
+
+    @Test
+    fun normalHeadingAnimationRejectsSingleFrameThirtyDegreeSweep() {
+        assertEquals(
+            12f,
+            resolveHeadingAnimationDelta(
+                diffDeg = 40f,
+                fastTurn = true,
+            ),
+            0f,
         )
     }
 }

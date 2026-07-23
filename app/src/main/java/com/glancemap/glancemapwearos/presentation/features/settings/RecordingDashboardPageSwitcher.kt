@@ -20,11 +20,13 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 
+@Suppress("FunctionNaming") // Compose functions use PascalCase by convention.
 @Composable
 internal fun RecordingDashboardPageSwitcher(
     pageIndex: Int,
     pageCount: Int,
     onClick: () -> Unit,
+    dashboardLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
     val nextPageIndex = (pageIndex + 1) % pageCount
@@ -39,7 +41,7 @@ internal fun RecordingDashboardPageSwitcher(
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Text(
-            text = "Dashboard page",
+            text = dashboardLabel.takeIf(String::isNotBlank)?.let { "$it dashboard" } ?: "Dashboard page",
             style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.72f),
             textAlign = TextAlign.Center,

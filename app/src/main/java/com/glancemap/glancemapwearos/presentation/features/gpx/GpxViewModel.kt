@@ -68,6 +68,10 @@ class GpxViewModel(
     private val _gpxFiles = MutableStateFlow<List<GpxFileState>>(emptyList())
     val gpxFiles: StateFlow<List<GpxFileState>> = _gpxFiles.asStateFlow()
 
+    private val _lastVisitedGpxListPage =
+        MutableStateFlow(SettingsRepository.DEFAULT_GPX_LIST_PAGE)
+    val lastVisitedGpxListPage: StateFlow<String> = _lastVisitedGpxListPage.asStateFlow()
+
     private val _activeGpxDetails = MutableStateFlow<List<GpxTrackDetails>>(emptyList())
     val activeGpxDetails: StateFlow<List<GpxTrackDetails>> = _activeGpxDetails.asStateFlow()
 
@@ -174,6 +178,10 @@ class GpxViewModel(
     private val pressThresholdMeters = 30.0
 
     init {
+        settingsRepository.gpxLastVisitedListPage
+            .onEach { page -> _lastVisitedGpxListPage.value = page }
+            .launchIn(viewModelScope)
+
         combine(
             combine(
                 settingsRepository.gpxFlatSpeedMps,
@@ -300,6 +308,15 @@ class GpxViewModel(
 
     fun loadGpxFiles() {
         viewModelScope.launch { reloadFromDisk() }
+    }
+
+    fun setLastVisitedGpxListPage(page: String) {
+        if (_lastVisitedGpxListPage.value == page) return
+
+        _lastVisitedGpxListPage.value = page
+        viewModelScope.launch {
+            settingsRepository.setGpxLastVisitedListPage(page)
+        }
     }
 
     private fun beginReloadGeneration(): Long =
@@ -605,6 +622,7 @@ class GpxViewModel(
         parsed: ParsedGpxData?,
     ): TrackProfile {
         if (profile.points.hasElevationData()) return profile
+        val selectedDemSource = settingsRepository.demSource.first()
         val recoveredPoints =
             profile.points.map { point ->
                 val demElevation =
@@ -614,6 +632,7 @@ class GpxViewModel(
                             longitude = point.latLong.longitude,
                             gpsAltitudeMeters = null,
                             source = SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
+                            demSource = selectedDemSource,
                         ).elevationMeters
                 if (demElevation != null) point.copy(elevation = demElevation) else point
             }
@@ -670,7 +689,9 @@ class GpxViewModel(
             }
 
         return RecordingDashboardSnapshot(
+            activityProfile = parsed.activitySummary?.activityProfile?.resolvedActivityProfile() ?: activeActivityProfile,
             durationSeconds = durationSeconds ?: 0.0,
+            totalDurationSeconds = durationSeconds ?: 0.0,
             distanceMeters = profile.totalDistance,
             elevationGainMeters = profile.totalAscent,
             elevationLossMeters = profile.totalDescent,
@@ -730,7 +751,9 @@ class GpxViewModel(
                 null
             }
         return RecordingDashboardSnapshot(
+            activityProfile = activityProfile.resolvedActivityProfile(),
             durationSeconds = duration,
+            totalDurationSeconds = totalDurationSeconds ?: duration,
             distanceMeters = distance,
             elevationGainMeters =
                 if (shouldUseRecoveredElevation) {
@@ -751,7 +774,7 @@ class GpxViewModel(
                     ?: duration
                         .takeIf { it > 0.0 }
                         ?.let { distance / it },
-            fastestSpeedMps = fallbackPoints.fastestSpeedMps(),
+            fastestSpeedMps = fastestSpeedMps ?: fallbackPoints.fastestSpeedMps(),
             gpsAccuracyMeters = gpsAccuracyMeters ?: fallbackPoints.lastMappedNotNull { it.accuracyMeters },
             pointCount = pointCount ?: fallbackPoints.size,
             gpsActiveDurationSeconds = gpsActiveDurationSeconds ?: duration,
@@ -771,15 +794,15 @@ class GpxViewModel(
                         cyclingPhysicsSegments = cyclingPhysicsSegments ?: 0,
                     ),
             heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
-            averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
-            maxHeartRateBpm = fallbackPoints.maxHeartRateBpm() ?: heartRateBpm,
+            averageHeartRateBpm = averageHeartRateBpm ?: heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
+            maxHeartRateBpm = maxHeartRateBpm ?: fallbackPoints.maxHeartRateBpm() ?: heartRateBpm,
             stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
             cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
-            averageCadenceSpm = fallbackPoints.averageCadenceSpm(),
-            maxCadenceSpm = fallbackPoints.maxCadenceSpm() ?: cadenceSpm,
+            averageCadenceSpm = averageCadenceSpm ?: fallbackPoints.averageCadenceSpm(),
+            maxCadenceSpm = maxCadenceSpm ?: fallbackPoints.maxCadenceSpm() ?: cadenceSpm,
             powerWatts = powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts },
-            averagePowerWatts = fallbackPoints.averagePowerWatts(),
-            maxPowerWatts = fallbackPoints.maxPowerWatts() ?: powerWatts,
+            averagePowerWatts = averagePowerWatts ?: fallbackPoints.averagePowerWatts(),
+            maxPowerWatts = maxPowerWatts ?: fallbackPoints.maxPowerWatts() ?: powerWatts,
             powerFromBluetooth = (powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts }) != null,
             barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = fallbackHasElevationData || currentElevationMeters != null,

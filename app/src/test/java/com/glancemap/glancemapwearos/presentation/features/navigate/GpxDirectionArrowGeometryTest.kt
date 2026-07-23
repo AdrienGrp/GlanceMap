@@ -110,6 +110,39 @@ class GpxDirectionArrowGeometryTest {
     }
 
     @Test
+    fun cachedGeometryKeepsVisibleArrowResults() {
+        val points =
+            (0..400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+        val viewport =
+            BoundingBox(
+                44.9995,
+                6.003,
+                45.0005,
+                6.006,
+            )
+
+        val direct =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 15,
+                tileSize = 256,
+                boundingBox = viewport,
+            )
+        val cached =
+            buildVisibleGpxDirectionArrows(
+                geometry = requireNotNull(buildGpxDirectionArrowGeometry(points, zoom = 15, tileSize = 256)),
+                boundingBox = viewport,
+            )
+
+        assertEquals(direct, cached)
+    }
+
+    @Test
     fun capsVisibleArrowsPerTrack() {
         val points =
             (0..2400).map { index ->
@@ -234,12 +267,56 @@ class GpxDirectionArrowGeometryTest {
         assertTrue(firstKeys.intersect(pannedKeys).isNotEmpty())
     }
 
+    @Test
+    fun lodPreservesTrackSegmentBoundaries() {
+        val points =
+            buildList {
+                repeat(80) { index ->
+                    add(trackPoint(lat = 45.0, lon = 6.0 + index * 0.00001))
+                }
+                repeat(80) { index ->
+                    add(
+                        trackPoint(
+                            lat = 46.0,
+                            lon = 7.0 + index * 0.00001,
+                            startsNewSegment = index == 0,
+                        ),
+                    )
+                }
+            }
+
+        val lod = buildTrackLodLevels(points)
+
+        listOf(lod.low, lod.medium, lod.full).forEach { level ->
+            val segments = level.splitTrackSegments()
+            assertEquals(2, segments.size)
+            assertEquals(
+                45.0,
+                segments
+                    .first()
+                    .first()
+                    .latLong.latitude,
+                0.0,
+            )
+            assertEquals(
+                46.0,
+                segments
+                    .last()
+                    .first()
+                    .latLong.latitude,
+                0.0,
+            )
+        }
+    }
+
     private fun trackPoint(
         lat: Double,
         lon: Double,
+        startsNewSegment: Boolean = false,
     ) = TrackPoint(
         latLong = LatLong(lat, lon),
         elevation = null,
+        startsNewSegment = startsNewSegment,
     )
 
     private fun Double.roundKey(): Int = (this * 1_000_000).roundToInt()

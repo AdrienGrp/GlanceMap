@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_GPS_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
@@ -120,12 +121,11 @@ fun NavigateScreen(
     val currentZoomLevel = uiState.currentZoomLevel
 
     // ---- Persisted Keep App Open ----
-    val keepAppOpen by settingsViewModel.keepAppOpen.collectAsState(initial = false)
-    val keepAppOpenTipShown by settingsViewModel.keepAppOpenTipShown.collectAsState(initial = false)
+    val keepAppOpen by settingsViewModel.keepAppOpen.collectAsState()
+    val keepAppOpenTipShown by settingsViewModel.keepAppOpenTipShown.collectAsState()
     var pendingKeepAppOpen by rememberSaveable { mutableStateOf(false) }
     var showKeepAppOpenInfoDialog by rememberSaveable { mutableStateOf(false) }
     var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
-    var hasAppliedInitialKeepAppOpenSync by rememberSaveable { mutableStateOf(false) }
 
     // ---- PERMISSIONS ----
     val notificationPermissionState =
@@ -284,7 +284,7 @@ fun NavigateScreen(
             )
         val screenState = runtimeState.screenState
         val shouldTrackLocation = runtimeState.shouldTrackLocation
-        val expectedMarkerGpsIntervalMs =
+        val configuredMarkerGpsIntervalMs =
             remember(
                 runtimeState.reason,
                 screenState,
@@ -302,6 +302,12 @@ fun NavigateScreen(
                     turnByTurnScreenOffGpsIntervalSeconds = turnByTurnScreenOffGpsIntervalSeconds,
                 )
             }
+        val serviceEffectiveGpsIntervalMs by locationViewModel.effectiveGpsIntervalMs.collectAsState()
+        val expectedMarkerGpsIntervalMs =
+            resolveMarkerGpsIntervalMs(
+                serviceEffectiveIntervalMs = serviceEffectiveGpsIntervalMs,
+                configuredIntervalMs = configuredMarkerGpsIntervalMs,
+            )
         val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
         // ---- Heading + Accuracy ----
         val compassUiState =
@@ -375,16 +381,6 @@ fun NavigateScreen(
             screenState = screenState,
             isOfflineMode = offlineMode,
         )
-
-        // ---- Drive foreground pinning from keepAppOpen ----
-        // Keep-app-open controls foreground pinning only; GPS runtime is gated by shouldTrackLocation.
-        LaunchedEffect(keepAppOpen) {
-            if (!hasAppliedInitialKeepAppOpenSync) {
-                hasAppliedInitialKeepAppOpenSync = true
-                if (!keepAppOpen) return@LaunchedEffect
-            }
-            locationViewModel.setKeepAppOpen(keepAppOpen)
-        }
 
         // In follow modes, keep user location centered at all times.
         // autoRecenterEnabled only controls whether we exit panning automatically.
@@ -478,6 +474,7 @@ fun NavigateScreen(
                 shouldFollowPosition = shouldFollowPosition,
                 screenState = screenState,
                 expectedGpsIntervalMs = expectedMarkerGpsIntervalMs,
+                isBikeActivityProfile = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE,
                 navigationMarkerBitmap = navigationMarkerBitmap,
                 suppressLocationMarker = offlineMode,
                 navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
@@ -558,6 +555,7 @@ fun NavigateScreen(
                     ?: displayedRouteToolCreatePreview?.previewPoints
                     ?: emptyList(),
             recordingTraceSegments = recordingTraceSegments,
+            recordingTraceFollowsMarker = traceRecordingState.active && !traceRecordingState.paused,
             routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
             routeToolDraftPoints = routeToolDraftConnectorPoints,
             poiViewModel = poiViewModel,
@@ -942,6 +940,8 @@ fun NavigateScreen(
             zoomDefault = zoomDefault,
             zoomMin = zoomMin,
             zoomMax = zoomMax,
+            zoomMinScaleMeters = zoomMinScaleMeters,
+            zoomMaxScaleMeters = zoomMaxScaleMeters,
             crownZoomEnabled = crownZoomEnabled,
             crownZoomInverted = crownZoomInverted,
             mapZoomButtonsMode = mapZoomButtonsMode,
@@ -1005,7 +1005,6 @@ fun NavigateScreen(
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
             bikeWeightKg = bikeWeightKg,
-            activityProfile = activityProfile,
             recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
             recordingActionPromptRequestToken = recordingActionPromptRequestToken,
             onRecordingTimeTap = onRecordingTimeTap,
@@ -1100,6 +1099,19 @@ fun NavigateScreen(
             poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
             poiPopupManualCloseOnly = poiPopupManualCloseOnly,
             markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
+            onCompassIssueNow =
+                if (gpsDebugTelemetry && gpsDebugTelemetryPopupEnabled && !offlineMode) {
+                    {
+                        reportCompassIssueNow(
+                            renderState = compassRenderState,
+                            renderedHeadingDeg = renderedCompassHeadingDeg,
+                            renderedMapRotationDeg = renderedMapRotationDeg,
+                            screenState = screenState,
+                        )
+                    }
+                } else {
+                    null
+                },
         )
 
         LaunchedEffect(isScreenResumed) {
@@ -1148,6 +1160,16 @@ private fun expectedMarkerGpsIntervalMs(
     return when (runtimeReason) {
         NavigationRuntimeDemandReason.RECORDING ->
             if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs
+        NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ->
+            maxOf(
+                if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs,
+                AUTO_PAUSE_GPS_INTERVAL_MS,
+            )
+        NavigationRuntimeDemandReason.RECORDING_GUIDANCE ->
+            minOf(
+                if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs,
+                if (screenState.isNonInteractive) turnByTurnScreenOffMs else turnByTurnScreenOnMs,
+            )
         NavigationRuntimeDemandReason.GUIDANCE_VISIBLE,
         NavigationRuntimeDemandReason.GUIDANCE_AMBIENT,
         NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND,
@@ -1155,6 +1177,11 @@ private fun expectedMarkerGpsIntervalMs(
         else -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
     }
 }
+
+internal fun resolveMarkerGpsIntervalMs(
+    serviceEffectiveIntervalMs: Long,
+    configuredIntervalMs: Long,
+): Long = serviceEffectiveIntervalMs.takeIf { it > 0L } ?: configuredIntervalMs
 
 private fun screenOffGpsIntervalMs(
     screenOnIntervalMs: Long,

@@ -304,6 +304,7 @@ fun RecordingExternalSensorsScreen(
                             device = device,
                             onClick = {
                                 if (device.canLinkHeartRate()) {
+                                    scanner.stopScan()
                                     unsupportedSensorMessage = null
                                     unsupportedSensorDetail = null
                                     pendingSensorLink =
@@ -315,6 +316,7 @@ fun RecordingExternalSensorsScreen(
                                     ExternalSensorConnectionStatus.markConnecting(device.address)
                                     viewModel.setRecordingExternalHeartRateDevice(device.address, device.name)
                                 } else if (device.canLinkRunPod()) {
+                                    scanner.stopScan()
                                     unsupportedSensorMessage = null
                                     unsupportedSensorDetail = null
                                     pendingSensorLink =
@@ -328,7 +330,8 @@ fun RecordingExternalSensorsScreen(
                                 } else {
                                     unsupportedSensorMessage = "${device.name} is not supported yet"
                                     unsupportedSensorDetail =
-                                        "The sensor does not advertise a supported heart-rate, run-pod, or cycling speed/cadence service."
+                                        "The sensor does not advertise a supported heart-rate, run-pod, " +
+                                        "cycling speed/cadence, or cycling power service."
                                     DebugTelemetry.log(
                                         "ExternalSensors",
                                         "event=device_tap_unsupported name=${device.name.sanitizeTelemetryToken()} " +
@@ -628,7 +631,8 @@ private fun ExternalSensorDevice.canLinkHeartRate(): Boolean = kinds.isEmpty() |
 
 private fun ExternalSensorDevice.canLinkRunPod(): Boolean =
     ExternalSensorKind.RUNNING_SPEED_CADENCE in kinds ||
-        ExternalSensorKind.CYCLING_SPEED_CADENCE in kinds
+        ExternalSensorKind.CYCLING_SPEED_CADENCE in kinds ||
+        ExternalSensorKind.CYCLING_POWER in kinds
 
 private fun String.sanitizeTelemetryToken(): String =
     replace(' ', '_')

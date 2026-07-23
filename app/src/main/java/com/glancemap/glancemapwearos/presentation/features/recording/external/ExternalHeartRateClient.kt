@@ -1,8 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.recording.external
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import java.util.UUID
 
@@ -13,24 +11,14 @@ class ExternalHeartRateClient(
     private val onUnavailable: () -> Unit = {},
     private val autoReconnect: Boolean = false,
 ) {
-    private val reconnectHandler = Handler(Looper.getMainLooper())
-    private var manualDisconnect = false
-    private var reconnectAttempt = 0
-    private var reconnectScheduled = false
-    private val reconnectRunnable: Runnable =
-        Runnable {
-            reconnectScheduled = false
-            if (manualDisconnect) return@Runnable
-            reconnectAttempt += 1
-            val attempt = reconnectAttempt
-            DebugTelemetry.log(
-                "ExternalHeartRate",
-                "event=reconnect_attempt attempt=$attempt",
-            )
-            client.connect()
-        }
-
-    private val client: ExternalBleGattClient =
+    private var telemetrySampleCount = 0
+    private val reconnectController =
+        ExternalSensorReconnectController(
+            logTag = "ExternalHeartRate",
+            autoReconnect = autoReconnect,
+            connect = { client.connect() },
+        )
+    private val client: ExternalBleGattClient by lazy(LazyThreadSafetyMode.NONE) {
         ExternalBleGattClient(
             context = context,
             address = address,
@@ -47,43 +35,26 @@ class ExternalHeartRateClient(
             onConnectionChanged = { connected ->
                 ExternalSensorConnectionStatus.update(address, connected)
                 if (connected) {
-                    reconnectAttempt = 0
-                    reconnectScheduled = false
-                    reconnectHandler.removeCallbacks(reconnectRunnable)
+                    reconnectController.markReady()
                 }
             },
-            onDisconnected = { status ->
-                if (!manualDisconnect) {
-                    onUnavailable()
-                    scheduleReconnect(status)
-                }
+            onDisconnected = { event ->
+                onUnavailable()
+                reconnectController.onDisconnected(event)
             },
             onCharacteristicRead = ::handleRead,
             onMeasurement = ::handleMeasurement,
         )
+    }
 
     fun connect() {
-        manualDisconnect = false
+        reconnectController.start()
         client.connect()
     }
 
     fun disconnect() {
-        manualDisconnect = true
-        reconnectScheduled = false
-        reconnectHandler.removeCallbacks(reconnectRunnable)
+        reconnectController.stop()
         client.disconnect()
-    }
-
-    private fun scheduleReconnect(status: Int) {
-        if (!autoReconnect || manualDisconnect || reconnectScheduled) return
-        val nextAttempt = reconnectAttempt + 1
-        val delayMs = reconnectDelayMs(nextAttempt)
-        reconnectScheduled = true
-        DebugTelemetry.log(
-            "ExternalHeartRate",
-            "event=reconnect_scheduled attempt=$nextAttempt delayMs=$delayMs status=$status",
-        )
-        reconnectHandler.postDelayed(reconnectRunnable, delayMs)
     }
 
     private fun handleMeasurement(
@@ -93,7 +64,15 @@ class ExternalHeartRateClient(
         if (characteristicUuid != HEART_RATE_MEASUREMENT_UUID) return
         val bpm = decodeHeartRateMeasurement(value) ?: return
         onHeartRate(bpm, System.currentTimeMillis())
-        DebugTelemetry.log("ExternalHeartRate", "event=sample bpm=$bpm")
+        if (DebugTelemetry.isEnabled()) {
+            telemetrySampleCount += 1
+            if (shouldLogExternalSensorSample(telemetrySampleCount)) {
+                DebugTelemetry.log(
+                    "ExternalHeartRate",
+                    "event=sample count=$telemetrySampleCount bpm=$bpm",
+                )
+            }
+        }
     }
 
     private fun handleRead(
@@ -135,11 +114,3 @@ class ExternalHeartRateClient(
                 ?.takeIf { it in 0..100 }
     }
 }
-
-private fun reconnectDelayMs(attempt: Int): Long =
-    when (attempt) {
-        1 -> 2_000L
-        2 -> 5_000L
-        3 -> 10_000L
-        else -> 30_000L
-    }

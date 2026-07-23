@@ -1,8 +1,11 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.core.service.diagnostics.export
 
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadSummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
 
 internal fun Appendable.writeLineDumpSection(
@@ -21,25 +24,125 @@ internal fun Appendable.writeLineDumpSection(
 
 internal fun Appendable.writeEnergyByModeSummarySection(energySummary: EnergyDiagnostics.Summary) {
     appendLine()
+    writeBatteryConsumptionSummary(energySummary.batteryUse)
+    appendLine()
     appendLine("Energy By Mode Summary")
     if (energySummary.modes.isEmpty()) {
         appendLine("No energy diagnostics samples yet.")
     } else {
         energySummary.modes.forEach { (mode, stats) ->
-            appendLine(
-                "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
-                    "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
-                    "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
-                    "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
-                    "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
-                    "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
-                    "levelAvg=${TelemetryFormatters.decimalOrNa(stats.avgLevelPct, 1)} " +
-                    "tempMinC=${TelemetryFormatters.decimalOrNa(stats.minTempC, 1)} " +
-                    "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
-                    "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
-            )
+            writeEnergyModeStats(mode, stats)
         }
     }
+    appendLine()
+    writeScreenStateEnergyAttribution(energySummary.screenStateEnergy)
+    appendLine()
+    writeGpsRuntimeSummary(energySummary.gpsRuntime)
+}
+
+internal fun Appendable.writeScreenStateSummarySection(summary: ScreenStateDiagnostics.Summary) {
+    appendLine()
+    appendLine("Screen State Summary")
+    appendLine("captureDurationMs=${summary.captureDurationMs}")
+    appendLine("interactiveDurationMs=${summary.interactiveDurationMs}")
+    appendLine("ambientDurationMs=${summary.ambientDurationMs}")
+    appendLine("screenOffDurationMs=${summary.offDurationMs}")
+    appendLine("appForegroundDurationMs=${summary.appForegroundDurationMs}")
+    appendLine("displayTransitionCount=${summary.displayTransitionCount}")
+    appendLine("appForegroundTransitionCount=${summary.appForegroundTransitionCount}")
+    appendLine("currentDisplayState=${summary.currentDisplayState?.name ?: "na"}")
+    appendLine("currentAppForeground=${summary.currentAppForeground?.toString() ?: "na"}")
+    appendLine("openIntervalsIncluded=${summary.openIntervalsIncluded}")
+}
+
+private fun Appendable.writeBatteryConsumptionSummary(batteryUse: EnergyDiagnostics.BatteryUseStats?) {
+    appendLine("Battery Consumption Summary")
+    batteryUse?.let {
+        appendLine("batteryUsedMah=${TelemetryFormatters.decimal(batteryUse.consumedMah, 2)}")
+        appendLine("averageDrawMa=${TelemetryFormatters.decimal(batteryUse.averageDrawMa, 1)}")
+        appendLine("durationMs=${batteryUse.durationMs}")
+        appendLine("measurement=${batteryUse.measurement}")
+        appendLine("confidence=${batteryUse.confidence}")
+        appendLine("medianDrawMa=${TelemetryFormatters.decimalOrNa(batteryUse.medianDrawMa, 1)}")
+        appendLine("p90DrawMa=${TelemetryFormatters.decimalOrNa(batteryUse.p90DrawMa, 1)}")
+        appendLine("integratedCurrentMah=${TelemetryFormatters.decimalOrNa(batteryUse.integratedCurrentMah, 2)}")
+        appendLine("chargeCounterStartUah=${batteryUse.chargeCounterStartUah?.toString() ?: "na"}")
+        appendLine("chargeCounterEndUah=${batteryUse.chargeCounterEndUah?.toString() ?: "na"}")
+    } ?: appendLine("No complete unplugged battery measurement yet.")
+}
+
+private fun Appendable.writeEnergyModeStats(
+    mode: String,
+    stats: EnergyDiagnostics.ModeStats,
+) = appendLine(
+    "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
+        "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
+        "medianAbsCurNowUa=${stats.medianAbsCurrentNowUa?.toString() ?: "na"} " +
+        "medianAbsCurNowMa=${
+            stats.medianAbsCurrentNowUa?.let { TelemetryFormatters.decimal(it / 1_000.0, 1) } ?: "na"
+        } " +
+        "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
+        "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
+        "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
+        "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
+        "levelAvg=${TelemetryFormatters.decimalOrNa(stats.avgLevelPct, 1)} " +
+        "tempMinC=${TelemetryFormatters.decimalOrNa(stats.minTempC, 1)} " +
+        "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
+        "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
+)
+
+private fun Appendable.writeScreenStateEnergyAttribution(
+    attribution: EnergyDiagnostics.ScreenStateEnergy?,
+) {
+    appendLine("Screen-State Energy Attribution")
+    if (attribution == null) {
+        appendLine("method=unavailable")
+        appendLine("reason=charge_counter_intervals_unavailable")
+        return
+    }
+    appendLine("method=${attribution.measurement}")
+    appendLine("totalMeasuredMah=${TelemetryFormatters.decimal(attribution.totalMeasuredMah, 2)}")
+    writeScreenEnergyUse(prefix = "screenOn", use = attribution.screenOn)
+    writeScreenEnergyUse(prefix = "screenOff", use = attribution.screenOff)
+    appendLine("attributedMah=${TelemetryFormatters.decimal(attribution.attributedMah, 2)}")
+    appendLine("unattributedMah=${TelemetryFormatters.decimal(attribution.unattributedMah, 2)}")
+    appendLine(
+        "attributionCoveragePct=${TelemetryFormatters.decimal(attribution.attributionCoveragePct, 1)}",
+    )
+    appendLine("attributionConfidence=${attribution.confidence}")
+}
+
+private fun Appendable.writeScreenEnergyUse(
+    prefix: String,
+    use: EnergyDiagnostics.ScreenEnergyUse?,
+) {
+    appendLine("${prefix}MeasuredMah=${use?.consumedMah?.let { TelemetryFormatters.decimal(it, 2) } ?: "na"}")
+    appendLine("${prefix}AttributedDurationMs=${use?.durationMs?.toString() ?: "na"}")
+    appendLine("${prefix}ChargeCounterIntervalCount=${use?.intervalCount?.toString() ?: "na"}")
+    appendLine(
+        "${prefix}AverageDrawMa=${use?.averageDrawMa?.let { TelemetryFormatters.decimal(it, 1) } ?: "na"}",
+    )
+}
+
+private fun Appendable.writeGpsRuntimeSummary(summary: EnergyDiagnostics.GpsRuntimeSummary) {
+    appendLine("GPS Runtime Summary")
+    writeGpsRuntimeStats(prefix = "screenOn", stats = summary.screenOn)
+    writeGpsRuntimeStats(prefix = "screenOff", stats = summary.screenOff)
+}
+
+private fun Appendable.writeGpsRuntimeStats(
+    prefix: String,
+    stats: EnergyDiagnostics.GpsRuntimeStats,
+) {
+    appendLine("${prefix}RuntimeSampleCount=${stats.sampleCount}")
+    appendLine("${prefix}GpsRequestActiveSampleCount=${stats.requestActiveSampleCount}")
+    appendLine("${prefix}GpsRequestInactiveSampleCount=${stats.requestInactiveSampleCount}")
+    appendLine(
+        "${prefix}GpsBackends=${stats.observedBackends.ifEmpty { listOf("na") }.joinToString(",")}",
+    )
+    appendLine(
+        "${prefix}GpsRequestIntervalsMs=${stats.observedRequestIntervalsMs.joinToString(",").ifBlank { "na" }}",
+    )
 }
 
 internal fun Appendable.writeDemDownloadSections(
@@ -48,7 +151,7 @@ internal fun Appendable.writeDemDownloadSections(
     demDownloadTruncated: Boolean,
 ) {
     appendLine()
-    appendLine("DEM Download Summary")
+    appendLine("Standalone DEM Download Summary")
     appendLine("eventCount=${demDownloadSummary.eventCount}")
     appendLine("bufferMaxLines=${demDownloadSummary.maxBufferedLines}")
     appendLine("droppedLines=${demDownloadSummary.droppedLineCount}")

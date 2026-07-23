@@ -7,6 +7,7 @@ import com.glancemap.glancemapwearos.core.service.location.activity.LocationActi
 internal class LocationServiceTelemetry(
     private val tag: String,
     private val summaryIntervalMs: Long,
+    private val logSink: (String) -> Unit = { message -> DebugTelemetry.log(tag, message) },
 ) {
     private var summaryWindowStartedAtMs: Long = 0L
     private var locationCallbacks: Int = 0
@@ -27,6 +28,8 @@ internal class LocationServiceTelemetry(
     private var fixGapMinMs: Long = Long.MAX_VALUE
     private var fixGapMaxMs: Long = 0L
     private var lastAcceptedFixAtMs: Long = 0L
+    private var lastAcceptedFixAccuracyM: Float? = null
+    private var activeBurstTelemetry: ActiveBurstTelemetry? = null
     private var interactiveFixGapStats = FixGapStats()
     private var nonInteractiveFixGapStats = FixGapStats()
     private var unknownScreenFixGapStats = FixGapStats()
@@ -233,11 +236,25 @@ internal class LocationServiceTelemetry(
     }
 
     fun onImmediateRequestStarted(
+        nowElapsedMs: Long,
         durationMs: Long,
         burstId: Long,
         source: String,
     ) {
         immediateRequests += 1
+        activeBurstTelemetry =
+            ActiveBurstTelemetry(
+                id = burstId,
+                source = source,
+                startedAtElapsedMs = nowElapsedMs,
+                priorFixAgeMs =
+                    lastAcceptedFixAtMs
+                        .takeIf { it > 0L }
+                        ?.let { (nowElapsedMs - it).coerceAtLeast(0L) },
+                priorFixAccuracyM = lastAcceptedFixAccuracyM,
+                screenState = latestScreenState,
+                expectedIntervalMs = latestExpectedIntervalMs,
+            )
         log("immediateRequest: burstStart id=$burstId source=$source durationMs=$durationMs")
     }
 
@@ -247,6 +264,31 @@ internal class LocationServiceTelemetry(
         source: String,
     ) {
         log("immediateRequest: burstEnd id=$burstId source=$source reason=$reason")
+    }
+
+    fun logBurstSummary(
+        burstId: Long,
+        source: String,
+        reason: String,
+        endedAtElapsedMs: Long,
+    ) {
+        val burst = activeBurstTelemetry?.takeIf { it.id == burstId } ?: return
+        activeBurstTelemetry = null
+        val firstFixDelayMs =
+            burst.firstFixAcceptedAtElapsedMs
+                ?.let { (it - burst.startedAtElapsedMs).coerceAtLeast(0L) }
+        log(
+            "burstSummary id=$burstId source=$source reason=$reason " +
+                "durationMs=${(endedAtElapsedMs - burst.startedAtElapsedMs).coerceAtLeast(0L)} " +
+                "screenState=${burst.screenState} expectedIntervalMs=${burst.expectedIntervalMs} " +
+                "priorFixAgeMs=${burst.priorFixAgeMs ?: "na"} " +
+                "priorFixAccuracyM=${burst.priorFixAccuracyM?.format(1) ?: "na"} " +
+                "firstFixSource=${burst.firstFixSource ?: "na"} " +
+                "firstFixDetail=${burst.firstFixDetail ?: "na"} " +
+                "firstFixDelayMs=${firstFixDelayMs ?: "na"} " +
+                "firstFixAgeMs=${burst.firstFixAgeMs ?: "na"} " +
+                "firstFixAccuracyM=${burst.firstFixAccuracyM?.format(1) ?: "na"}",
+        )
     }
 
     fun logImmediateRequestSkippedPassiveExperiment(
@@ -288,6 +330,35 @@ internal class LocationServiceTelemetry(
     ) {
         val detailSuffix = errorDetail?.takeIf { it.isNotBlank() }?.let { " errorDetail=$it" } ?: ""
         log("getCurrentLocation: failed source=$source backend=$backend errorType=$errorType$detailSuffix")
+    }
+
+    fun logNavigateOneShotRequested(
+        source: String,
+        backend: String,
+        maxUpdateAgeMs: Long,
+        timeoutMs: Long,
+    ) {
+        log(
+            "navigateOneShot: requested source=$source backend=$backend " +
+                "maxUpdateAgeMs=$maxUpdateAgeMs timeoutMs=$timeoutMs",
+        )
+    }
+
+    @Suppress("LongParameterList")
+    fun logNavigateOneShotOutcome(
+        source: String,
+        backend: String,
+        outcome: String,
+        reason: String,
+        durationMs: Long,
+        fixAgeMs: Long?,
+        accuracyM: Float?,
+    ) {
+        log(
+            "navigateOneShot: outcome=$outcome source=$source backend=$backend " +
+                "reason=$reason durationMs=$durationMs fixAgeMs=${fixAgeMs ?: "na"} " +
+                "accuracyM=${accuracyM?.format(1) ?: "na"}",
+        )
     }
 
     fun logRequestUpdatesFailed(
@@ -580,6 +651,19 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logImmediateRequestSkippedFreshStream(
+        source: String,
+        runtimeReason: String,
+        intervalMs: Long,
+        fixAgeMs: Long,
+        accuracyM: Float,
+    ) {
+        log(
+            "immediateRequest: skippedFreshStream source=$source reason=$runtimeReason " +
+                "intervalMs=$intervalMs fixAgeMs=$fixAgeMs accuracyM=${accuracyM.format(1)}",
+        )
+    }
+
     fun logActivityTransition(
         from: LocationActivityState,
         to: LocationActivityState,
@@ -682,7 +766,15 @@ internal class LocationServiceTelemetry(
         provider: String?,
         origin: String,
     ) {
+        activeBurstTelemetry?.recordFirstAcceptedFix(
+            nowElapsedMs = nowElapsedMs,
+            source = source,
+            sourceDetail = sourceDetail,
+            ageMs = ageMs,
+            accuracyM = accuracyM,
+        )
         val gapMs = recordAcceptedFix(nowElapsedMs)
+        lastAcceptedFixAccuracyM = accuracyM
         log(
             "fixAccepted: source=$source detail=$sourceDetail ageMs=$ageMs " +
                 "accuracyM=${accuracyM.format(1)} origin=$origin provider=${provider ?: "unknown"} " +
@@ -759,7 +851,7 @@ internal class LocationServiceTelemetry(
     }
 
     private fun log(message: String) {
-        DebugTelemetry.log(tag, message)
+        logSink(message)
     }
 
     private fun gapStatsFor(screenState: String): FixGapStats =
@@ -773,6 +865,36 @@ internal class LocationServiceTelemetry(
 }
 
 private fun Float.format(digits: Int): String = TelemetryFormatters.decimal(this, digits)
+
+private data class ActiveBurstTelemetry(
+    val id: Long,
+    val source: String,
+    val startedAtElapsedMs: Long,
+    val priorFixAgeMs: Long?,
+    val priorFixAccuracyM: Float?,
+    val screenState: String,
+    val expectedIntervalMs: Long,
+    var firstFixAcceptedAtElapsedMs: Long? = null,
+    var firstFixSource: String? = null,
+    var firstFixDetail: String? = null,
+    var firstFixAgeMs: Long? = null,
+    var firstFixAccuracyM: Float? = null,
+) {
+    fun recordFirstAcceptedFix(
+        nowElapsedMs: Long,
+        source: String,
+        sourceDetail: String,
+        ageMs: Long,
+        accuracyM: Float,
+    ) {
+        if (firstFixAcceptedAtElapsedMs != null) return
+        firstFixAcceptedAtElapsedMs = nowElapsedMs
+        firstFixSource = source
+        firstFixDetail = sourceDetail
+        firstFixAgeMs = ageMs
+        firstFixAccuracyM = accuracyM
+    }
+}
 
 private class FixGapStats {
     var count: Int = 0

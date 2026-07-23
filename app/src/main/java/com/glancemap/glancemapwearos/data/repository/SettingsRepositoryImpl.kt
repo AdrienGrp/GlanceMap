@@ -55,6 +55,7 @@ class SettingsRepositoryImpl private constructor(
         val WATCH_GPS_ONLY = booleanPreferencesKey("watch_gps_only")
         val GPS_IN_AMBIENT_MODE = booleanPreferencesKey("gps_in_ambient_mode")
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
+        val DIAGNOSTICS_CAPTURE_MODE = stringPreferencesKey("diagnostics_capture_mode")
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
@@ -63,6 +64,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_AUTO_PAUSE_MODE = stringPreferencesKey("recording_auto_pause_mode")
         val RECORDING_AUTO_PAUSE_MODE_HIKE = stringPreferencesKey("recording_auto_pause_mode_hike")
         val RECORDING_AUTO_PAUSE_MODE_BIKE = stringPreferencesKey("recording_auto_pause_mode_bike")
+        val RECORDING_TRACK_SMOOTHING_MODE_HIKE = stringPreferencesKey("recording_track_smoothing_mode_hike")
+        val RECORDING_TRACK_SMOOTHING_MODE_BIKE = stringPreferencesKey("recording_track_smoothing_mode_bike")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_HEART_RATE_SOURCE = stringPreferencesKey("recording_heart_rate_source")
         val RECORDING_CADENCE_SOURCE = stringPreferencesKey("recording_cadence_source")
@@ -70,6 +73,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_DISTANCE_SOURCE = stringPreferencesKey("recording_distance_source")
         val RECORDING_STEPS_SOURCE = stringPreferencesKey("recording_steps_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
+        val RECORDING_BIKE_DASHBOARD_METRIC_SLOTS =
+            stringPreferencesKey("recording_bike_dashboard_metric_slots")
         val RECORDING_SHOW_SAVED_GPX_ON_MAP = booleanPreferencesKey("recording_show_saved_gpx_on_map")
         val RECORDING_START_WITH_TURN_BY_TURN = booleanPreferencesKey("recording_start_with_turn_by_turn")
         val RECORDING_EXTERNAL_HEART_RATE_ADDRESS = stringPreferencesKey("recording_external_heart_rate_address")
@@ -95,6 +100,8 @@ class SettingsRepositoryImpl private constructor(
             intPreferencesKey("turn_by_turn_off_route_repeat_seconds")
         val TURN_BY_TURN_GPS_IN_AMBIENT_MODE =
             booleanPreferencesKey("turn_by_turn_gps_in_ambient_mode")
+        val TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED =
+            booleanPreferencesKey("turn_by_turn_screen_off_batching_enabled")
         val TURN_BY_TURN_GPS_INTERVAL_SECONDS =
             intPreferencesKey("turn_by_turn_gps_interval_seconds")
         val TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS =
@@ -145,6 +152,7 @@ class SettingsRepositoryImpl private constructor(
         val KEEP_APP_OPEN = booleanPreferencesKey("keep_app_open")
         val KEEP_APP_OPEN_TIP_SHOWN = booleanPreferencesKey("keep_app_open_tip_shown")
         val COMPASS_MODE = booleanPreferencesKey("compass_mode")
+        val GPX_LAST_VISITED_LIST_PAGE = stringPreferencesKey("gpx_last_visited_list_page")
         val GPX_INSPECTION_ENABLED = booleanPreferencesKey("gpx_inspection_enabled")
         val GPX_FLAT_SPEED_MPS = floatPreferencesKey("gpx_flat_speed_mps")
         val GPX_ADVANCED_ETA_ENABLED = booleanPreferencesKey("gpx_advanced_eta_enabled")
@@ -214,6 +222,17 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY] = enabled }
     }
 
+    override val diagnosticsCaptureMode: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeDiagnosticsCaptureMode(it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE])
+        }
+
+    override suspend fun setDiagnosticsCaptureMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE] = sanitizeDiagnosticsCaptureMode(mode)
+        }
+    }
+
     override val gpsPassiveLocationExperiment: Flow<Boolean> =
         context.dataStore.data.map { it[PrefKeys.GPS_PASSIVE_LOCATION_EXPERIMENT] ?: false }
 
@@ -222,7 +241,12 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val gpsDebugTelemetryPopupEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] ?: true }
+        context.dataStore.data.map {
+            val fullDiagnostics =
+                sanitizeDiagnosticsCaptureMode(it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE]) ==
+                    SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
+            fullDiagnostics && (it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] ?: true)
+        }
 
     override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
@@ -280,6 +304,19 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit {
             val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
             it[autoPauseModeKeyFor(profile)] = sanitizeRecordingAutoPauseMode(mode)
+        }
+    }
+
+    override val recordingTrackSmoothingMode: Flow<String> =
+        context.dataStore.data.map {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeRecordingTrackSmoothingMode(it[recordingTrackSmoothingModeKeyFor(profile)])
+        }
+
+    override suspend fun setRecordingTrackSmoothingMode(mode: String) {
+        context.dataStore.edit {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            it[recordingTrackSmoothingModeKeyFor(profile)] = sanitizeRecordingTrackSmoothingMode(mode)
         }
     }
 
@@ -371,8 +408,12 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val recordingDashboardMetricSlots: Flow<List<String>> =
-        context.dataStore.data.map {
-            sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+        context.dataStore.data.map { preferences ->
+            val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeRecordingDashboardMetricSlots(
+                raw = preferences[recordingDashboardMetricSlotsKeyForProfile(profile)],
+                profile = profile,
+            )
         }
 
     override suspend fun setRecordingDashboardMetricSlot(
@@ -380,10 +421,16 @@ class SettingsRepositoryImpl private constructor(
         metricId: String,
     ) {
         context.dataStore.edit {
-            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            val key = recordingDashboardMetricSlotsKeyForProfile(profile)
+            val current =
+                sanitizeRecordingDashboardMetricSlots(
+                    raw = it[key],
+                    profile = profile,
+                )
             val sanitizedMetric =
-                metricId.takeIf { candidate -> candidate in allowedRecordingDashboardMetricIds }
-                    ?: SettingsRepository.RECORDING_METRIC_DISTANCE
+                metricId.takeIf { candidate -> isRecordingDashboardMetricAllowedForProfile(profile, candidate) }
+                    ?: fallbackRecordingDashboardMetricForSlot(profile, slotIndex)
             val next =
                 current
                     .toMutableList()
@@ -392,23 +439,34 @@ class SettingsRepositoryImpl private constructor(
                             slots[slotIndex] = sanitizedMetric
                         }
                     }
-            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+            it[key] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
         }
     }
 
     override suspend fun addRecordingDashboardPage() {
         context.dataStore.edit {
-            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            val key = recordingDashboardMetricSlotsKeyForProfile(profile)
+            val current =
+                sanitizeRecordingDashboardMetricSlots(
+                    raw = it[key],
+                    profile = profile,
+                )
             if (current.size >= RECORDING_DASHBOARD_MAX_SLOT_COUNT) return@edit
-            val next = current + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS
-            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
-                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+            val next = current + newRecordingDashboardPageMetricSlotsForProfile(profile)
+            it[key] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
         }
     }
 
     override suspend fun deleteRecordingDashboardPage(pageIndex: Int) {
         context.dataStore.edit {
-            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            val key = recordingDashboardMetricSlotsKeyForProfile(profile)
+            val current =
+                sanitizeRecordingDashboardMetricSlots(
+                    raw = it[key],
+                    profile = profile,
+                )
             val pageCount = current.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
             if (pageCount <= RECORDING_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
             val startIndex = pageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT
@@ -416,8 +474,7 @@ class SettingsRepositoryImpl private constructor(
                 current.filterIndexed { index, _ ->
                     index !in startIndex until startIndex + RECORDING_DASHBOARD_PAGE_SLOT_COUNT
                 }
-            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
-                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+            it[key] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
         }
     }
 
@@ -601,7 +658,7 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.data.map {
             it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE]
                 .takeIf { mode -> mode in allowedTurnByTurnTurnAlertModes }
-                ?: SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE
         }
 
     override suspend fun setTurnByTurnTurnAlertsMode(mode: String) {
@@ -610,7 +667,7 @@ class SettingsRepositoryImpl private constructor(
                 if (mode in allowedTurnByTurnTurnAlertModes) {
                     mode
                 } else {
-                    SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE
                 }
         }
     }
@@ -703,6 +760,16 @@ class SettingsRepositoryImpl private constructor(
                 }
             it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] = enabled
         }
+    }
+
+    override val turnByTurnScreenOffBatchingEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED
+        }
+
+    override suspend fun setTurnByTurnScreenOffBatchingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED] = enabled }
     }
 
     override val turnByTurnGpsIntervalSeconds: Flow<Int> =
@@ -1274,6 +1341,21 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.COMPASS_MODE] = isCompassMode }
     }
 
+    override val gpxLastVisitedListPage: Flow<String> =
+        context.dataStore.data.map { preferences ->
+            preferences[PrefKeys.GPX_LAST_VISITED_LIST_PAGE]
+                .takeIf { it in allowedGpxListPages }
+                ?: SettingsRepository.DEFAULT_GPX_LIST_PAGE
+        }
+
+    override suspend fun setGpxLastVisitedListPage(page: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PrefKeys.GPX_LAST_VISITED_LIST_PAGE] =
+                page.takeIf { it in allowedGpxListPages }
+                    ?: SettingsRepository.DEFAULT_GPX_LIST_PAGE
+        }
+    }
+
     override val isGpxInspectionEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.GPX_INSPECTION_ENABLED] ?: true }
 
     override suspend fun setGpxInspectionEnabled(enabled: Boolean) {
@@ -1656,6 +1738,12 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
                 SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
             )
+        private val allowedGpxListPages =
+            setOf(
+                SettingsRepository.GPX_LIST_PAGE_TRACKS,
+                SettingsRepository.GPX_LIST_PAGE_HIKE_ACTIVITIES,
+                SettingsRepository.GPX_LIST_PAGE_BIKE_ACTIVITIES,
+            )
         private val allowedNorthReferenceModes =
             setOf(
                 SettingsRepository.NORTH_REFERENCE_TRUE,
@@ -1704,33 +1792,6 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.ACTIVITY_PROFILE_HIKE,
                 SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE,
                 SettingsRepository.ACTIVITY_PROFILE_BIKE,
-            )
-        private val allowedRecordingDashboardMetricIds =
-            setOf(
-                SettingsRepository.RECORDING_METRIC_DISTANCE,
-                SettingsRepository.RECORDING_METRIC_DURATION,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
-                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
-                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
-                SettingsRepository.RECORDING_METRIC_MAX_SPEED,
-                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
-                SettingsRepository.RECORDING_METRIC_MAX_PACE,
-                SettingsRepository.RECORDING_METRIC_HEART_RATE,
-                SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
-                SettingsRepository.RECORDING_METRIC_STEPS,
-                SettingsRepository.RECORDING_METRIC_CADENCE,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
-                SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
-                SettingsRepository.RECORDING_METRIC_POWER,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
-                SettingsRepository.RECORDING_METRIC_MAX_POWER,
-                SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
-                SettingsRepository.RECORDING_METRIC_CALORIES,
-                SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
-                SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
             )
         private val LEGACY_RECORDING_DASHBOARD_ALL_METRICS =
             listOf(
@@ -1793,6 +1854,12 @@ class SettingsRepositoryImpl private constructor(
             setOf(
                 SettingsRepository.RECORDING_AUTO_PAUSE_OFF,
                 SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS,
+            )
+        private val allowedRecordingTrackSmoothingModes =
+            setOf(
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF,
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_ADAPTIVE,
+                SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG,
             )
         private val allowedPoiIconSizesPx =
             setOf(
@@ -1967,6 +2034,13 @@ class SettingsRepositoryImpl private constructor(
                 else -> SettingsRepository.DEFAULT_ACTIVITY_PROFILE
             }
 
+        private fun recordingDashboardMetricSlotsKeyForProfile(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.RECORDING_BIKE_DASHBOARD_METRIC_SLOTS
+            } else {
+                PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS
+            }
+
         private fun defaultGpxFlatSpeedMpsForProfile(profile: String): Float =
             when (profile) {
                 SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.DEFAULT_BIKE_GPX_FLAT_SPEED_MPS
@@ -2035,6 +2109,18 @@ class SettingsRepositoryImpl private constructor(
                 PrefKeys.RECORDING_AUTO_PAUSE_MODE_HIKE
             }
 
+        private fun sanitizeRecordingTrackSmoothingMode(mode: String?): String =
+            mode
+                ?.takeIf { it in allowedRecordingTrackSmoothingModes }
+                ?: SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE
+
+        private fun recordingTrackSmoothingModeKeyFor(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.RECORDING_TRACK_SMOOTHING_MODE_BIKE
+            } else {
+                PrefKeys.RECORDING_TRACK_SMOOTHING_MODE_HIKE
+            }
+
         private fun sanitizeTurnByTurnScreenOffGpsIntervalSeconds(preferences: Preferences): Int {
             preferences[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS]
                 ?.takeIf { it in allowedScreenOffGpsIntervalsSeconds }
@@ -2057,22 +2143,44 @@ class SettingsRepositoryImpl private constructor(
                 ?.takeIf { it in allowedRecordingSensorSources }
                 ?: defaultSource
 
+        private fun sanitizeDiagnosticsCaptureMode(mode: String?): String =
+            mode
+                ?.takeIf {
+                    it == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL ||
+                        it == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+                } ?: SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE
+
         private fun sanitizeRecordingStepsSource(source: String?): String =
             source
                 ?.takeIf { it in allowedRecordingStepsSources }
                 ?: SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE
 
-        private fun sanitizeRecordingDashboardMetricSlots(raw: String?): List<String> {
-            val parsed =
+        private fun sanitizeRecordingDashboardMetricSlots(
+            raw: String?,
+            profile: String,
+        ): List<String> {
+            val rawSlots =
                 raw
                     ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
-                    ?.mapNotNull { value ->
-                        value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
-                    }.orEmpty()
-            if (parsed == LEGACY_RECORDING_DASHBOARD_ALL_METRICS || parsed == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS) {
-                return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+                    ?.map(String::trim)
+                    .orEmpty()
+            val defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile)
+            if (
+                rawSlots == LEGACY_RECORDING_DASHBOARD_ALL_METRICS ||
+                rawSlots == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS
+            ) {
+                return defaultMetricSlots
             }
-            return normalizeRecordingDashboardMetricSlots(parsed)
+            val parsed =
+                rawSlots.mapIndexed { index, metricId ->
+                    metricId.takeIf { isRecordingDashboardMetricAllowedForProfile(profile, it) }
+                        ?: fallbackRecordingDashboardMetricForSlot(profile, index)
+                }
+            return normalizeRecordingDashboardMetricSlots(
+                metricSlots = parsed,
+                defaultMetricSlots = defaultMetricSlots,
+                newPageMetricSlots = newRecordingDashboardPageMetricSlotsForProfile(profile),
+            )
         }
 
         private fun sanitizeTurnByTurnDashboardMetricSlots(raw: String?): List<String> {
@@ -2125,12 +2233,6 @@ class SettingsRepositoryImpl private constructor(
         previousProfile: String,
         nextProfile: String,
     ) {
-        val nextRecordingDashboard =
-            if (nextProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
-                SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS
-            } else {
-                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
-            }
         val nextTurnByTurnDashboard =
             if (nextProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
                 SettingsRepository.DEFAULT_BIKE_TURN_BY_TURN_DASHBOARD_METRICS
@@ -2141,8 +2243,6 @@ class SettingsRepositoryImpl private constructor(
         val nextFlatSpeed = defaultGpxFlatSpeedMpsForProfile(nextProfile)
         val nextRecordingSampleInterval = defaultRecordingSampleIntervalSecondsForProfile(nextProfile)
 
-        val currentRecordingDashboard =
-            sanitizeRecordingDashboardMetricSlots(preferences[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
         val currentTurnByTurnDashboard =
             sanitizeTurnByTurnDashboardMetricSlots(preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
         val currentFlatSpeed =
@@ -2150,10 +2250,6 @@ class SettingsRepositoryImpl private constructor(
                 ?.takeIf { it.isFinite() }
                 ?.coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
 
-        if (currentRecordingDashboard.isProfileDefaultRecordingDashboard()) {
-            preferences[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
-                nextRecordingDashboard.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
-        }
         if (currentTurnByTurnDashboard.isProfileDefaultTurnByTurnDashboard()) {
             preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
                 nextTurnByTurnDashboard.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
@@ -2169,12 +2265,6 @@ class SettingsRepositoryImpl private constructor(
             preferences[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS] = nextRecordingSampleInterval
         }
     }
-
-    private fun List<String>.isProfileDefaultRecordingDashboard(): Boolean =
-        this == SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS ||
-            this == SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS ||
-            this == LEGACY_RECORDING_DASHBOARD_ALL_METRICS ||
-            this == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS
 
     private fun List<String>.isProfileDefaultTurnByTurnDashboard(): Boolean =
         this == SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS ||
