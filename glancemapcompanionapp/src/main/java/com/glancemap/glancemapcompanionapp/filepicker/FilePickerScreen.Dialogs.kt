@@ -960,7 +960,7 @@ private const val GUIDE_SEND_TO_WATCH_ICON_ID = "guide_send_to_watch_icon"
 private const val GUIDE_LIVE_TRACKING_ICON_ID = "guide_live_tracking_icon"
 private const val QUICK_GUIDE_PAGE_SWIPE_THRESHOLD_DP = 64
 private const val ARKLUZ_CONTACT_URL = "https://arkluz.com/trk?contact"
-private const val ARKLUZ_WEBSITE_URL = "https://arkluz.com/trk"
+private const val ARKLUZ_WEBSITE_URL = "https://arkluz.com/trk?api"
 private const val WELCOME_WATCH_DOWNLOAD_INTRO =
     "Start on the watch and use the download icon to download offline maps."
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
