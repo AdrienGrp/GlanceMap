@@ -69,6 +69,25 @@ class MarkerMotionTelemetryTest {
     }
 
     @Test
+    fun separatesVisibleAndScreenOffPredictionResiduals() {
+        MarkerMotionTelemetry.recordNextFixPredictionResidual(
+            residualDistanceM = 2f,
+            isMarkerVisible = true,
+        )
+        MarkerMotionTelemetry.recordNextFixPredictionResidual(
+            residualDistanceM = 6f,
+            isMarkerVisible = false,
+        )
+
+        val summary = MarkerMotionTelemetry.summary()
+        assertEquals(2, summary.nextFixPredictionResidualM.samples)
+        assertEquals(1, summary.visibleNextFixPredictionResidualM.samples)
+        assertEquals(2f, summary.visibleNextFixPredictionResidualM.max ?: 0f, 0.001f)
+        assertEquals(1, summary.screenOffNextFixPredictionResidualM.samples)
+        assertEquals(6f, summary.screenOffNextFixPredictionResidualM.max ?: 0f, 0.001f)
+    }
+
+    @Test
     fun tracksModeDwellWithoutRetainingFrameSamples() {
         MarkerMotionTelemetry.clear()
 

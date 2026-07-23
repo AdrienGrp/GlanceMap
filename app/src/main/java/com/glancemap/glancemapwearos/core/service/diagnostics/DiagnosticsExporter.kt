@@ -876,6 +876,20 @@ object DiagnosticsExporter {
                     formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
             )
             writer.appendLine(
+                "markerMotionVisibleNextFixResidualM=" +
+                    formatMarkerMotionMetricSummary(
+                        markerMotionSummary.visibleNextFixPredictionResidualM,
+                        digits = 1,
+                    ),
+            )
+            writer.appendLine(
+                "markerMotionScreenOffNextFixResidualM=" +
+                    formatMarkerMotionMetricSummary(
+                        markerMotionSummary.screenOffNextFixPredictionResidualM,
+                        digits = 1,
+                    ),
+            )
+            writer.appendLine(
                 "markerMotionRenderStepPx=" +
                     formatMarkerMotionMetricSummary(markerMotionSummary.renderDisplacementPx, digits = 2),
             )
@@ -1951,6 +1965,20 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "nextFixPredictionResidualM=" +
                     formatMarkerMotionMetricSummary(markerMotionSummary.nextFixPredictionResidualM, digits = 1),
+            )
+            writer.appendLine(
+                "visibleNextFixPredictionResidualM=" +
+                    formatMarkerMotionMetricSummary(
+                        markerMotionSummary.visibleNextFixPredictionResidualM,
+                        digits = 1,
+                    ),
+            )
+            writer.appendLine(
+                "screenOffNextFixPredictionResidualM=" +
+                    formatMarkerMotionMetricSummary(
+                        markerMotionSummary.screenOffNextFixPredictionResidualM,
+                        digits = 1,
+                    ),
             )
             writer.appendLine("correctionComponentSamples=${markerMotionSummary.correctionComponentSamples}")
             writer.appendLine(

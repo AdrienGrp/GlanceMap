@@ -37,6 +37,8 @@ internal data class MarkerMotionGpsFix(
     val reading: MarkerMotionReading,
     val allowLargeCorrection: Boolean = false,
     val sourceMode: LocationSourceMode = LocationSourceMode.AUTO_FUSED,
+    /** Whether the map can render this correction for the user. */
+    val isMarkerVisible: Boolean = true,
 )
 
 internal data class MarkerMotionUpdate(
@@ -131,6 +133,7 @@ internal class MarkerMotionController(
     fun seedAnchor(
         seed: MarkerMotionSeed,
         nowElapsedMs: Long = seed.reading.fixElapsedMs,
+        allowPredictionUntilFreshFix: Boolean = false,
     ) {
         val sanitizedSpeed = sanitizeSpeed(seed.reading.speedMps)
         val motionAccuracyM = effectiveMotionAccuracy(seed.reading.accuracyM, seed.sourceMode)
@@ -147,7 +150,7 @@ internal class MarkerMotionController(
         state.lastAcceptedFix = motionFix
         state.displayedLatLong = seed.latLong
         state.visualTrajectory.seed(motionFix.toVisualAnchor(seed.latLong)).recordTelemetryInterruption()
-        state.predictionRequiresFreshFix = true
+        state.predictionRequiresFreshFix = !allowPredictionUntilFreshFix
         state.clampedCorrectionStreak = 0
         MarkerMotionTelemetry.recordSeedAnchor(
             nowElapsedMs = nowElapsedMs,
@@ -550,8 +553,11 @@ private class MarkerMotionGpsFixProcessor(
     private fun applyAcceptedGpsFix(
         context: GpsFixContext,
         motion: ResolvedMotion,
-    ): LatLong =
-        context.currentDisplayed
+    ): LatLong {
+        if (shouldUpdateScreenOffAnchor(context)) {
+            return acceptScreenOffAnchor(context, motion)
+        }
+        return context.currentDisplayed
             ?.let { currentDisplayed ->
                 val correction =
                     CorrectionContext(
@@ -562,6 +568,42 @@ private class MarkerMotionGpsFixProcessor(
                 acceptCorrection(context, motion, correction)
             }
             ?: acceptInitialFix(context, motion)
+    }
+
+    private fun shouldUpdateScreenOffAnchor(context: GpsFixContext): Boolean =
+        !context.fix.isMarkerVisible &&
+            context.accuracyM <= settings.maxVisualCorrectionAccuracyM
+
+    private fun acceptScreenOffAnchor(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+    ): LatLong {
+        state.displayedLatLong = context.fix.latLong
+        state.visualTrajectory
+            .seed(
+                visualAnchor(
+                    context = context,
+                    motion = motion,
+                    latLong = context.fix.latLong,
+                ),
+            ).recordTelemetryInterruption()
+        state.clampedCorrectionStreak = 0
+        recordFixAccepted(
+            context = context,
+            motion = motion,
+            event =
+                FixAcceptedTelemetry(
+                    mode = MarkerMotionMode.FIXED,
+                    reason = "screen_off_anchor",
+                    correctionDistanceM =
+                        context.currentDisplayed?.let { displayed ->
+                            MarkerMotionGeometry.distanceMeters(displayed, context.fix.latLong)
+                        },
+                    blendDurationMs = null,
+                ),
+        )
+        return context.fix.latLong
+    }
 
     private fun acceptInitialFix(
         context: GpsFixContext,
@@ -763,6 +805,8 @@ private class MarkerMotionGpsFixProcessor(
     ): LatLong {
         val displayedLatLong = state.displayedLatLong ?: correctionTarget.targetLatLong
         val correctionReason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget)
+        val correctionDurationMs =
+            fastReanchorDurationMs(correctionTarget.visibleCorrectionDistanceM)
         rebaseVisualTrajectory(
             context = context,
             motion = motion,
@@ -772,8 +816,11 @@ private class MarkerMotionGpsFixProcessor(
                     displayedLatLong = displayedLatLong,
                     correctionPlan =
                         MarkerVisualCorrectionPlan(
-                            durationMs = FAST_REANCHOR_CORRECTION_DURATION_MS,
+                            durationMs = correctionDurationMs,
                             reason = correctionReason,
+                            bypassRemovalRateLimit =
+                                context.fix.allowLargeCorrection ||
+                                    sustainedLagCatchUpReason != null,
                         ),
                 ),
         )
@@ -785,7 +832,7 @@ private class MarkerMotionGpsFixProcessor(
                     mode = MarkerMotionMode.BLEND,
                     reason = correctionReason,
                     correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
-                    blendDurationMs = FAST_REANCHOR_CORRECTION_DURATION_MS,
+                    blendDurationMs = correctionDurationMs,
                 ),
         )
         return displayedLatLong
@@ -901,6 +948,7 @@ private class MarkerMotionGpsFixProcessor(
         sustainedLagCatchUpReason: String?,
     ): Boolean =
         context.fix.sourceMode == LocationSourceMode.WATCH_GPS ||
+            context.fix.allowLargeCorrection ||
             sustainedLagCatchUpReason != null ||
             isSourceModeTransition(context)
 
@@ -939,6 +987,7 @@ private class MarkerMotionGpsFixProcessor(
                 residualDistanceM = residualDistanceM,
                 alongTrackErrorM = components?.alongTrackM,
                 crossTrackErrorM = components?.crossTrackM,
+                isMarkerVisible = context.fix.isMarkerVisible,
             )
         }
         MarkerMotionTelemetry.recordFixAccepted(
@@ -1074,13 +1123,58 @@ private class MarkerMotionGpsFixProcessor(
             LocationSourceMode.AUTO_FUSED,
             LocationSourceMode.PASSIVE_EXTERNAL,
             ->
-                "auto_fused_catch_up".takeIf {
+                when {
                     context.accuracyM <= AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M &&
                         motion.speedMps >= AUTO_FUSED_CATCH_UP_MIN_SPEED_MPS &&
-                        correction.correctionDistanceM >= AUTO_FUSED_CATCH_UP_MIN_LAG_M
+                        correction.correctionDistanceM >= AUTO_FUSED_CATCH_UP_MIN_LAG_M ->
+                        "auto_fused_catch_up"
+                    context.accuracyM <= AUTO_FUSED_HIGH_SPEED_CATCH_UP_MAX_ACCURACY_M &&
+                        motion.speedMps >= AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_SPEED_MPS &&
+                        isConfirmedHighSpeedMotion(context, motion) &&
+                        correction.correctionDistanceM >=
+                        maxOf(
+                            AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_LAG_M,
+                            context.accuracyM * AUTO_FUSED_HIGH_SPEED_CATCH_UP_ACCURACY_MULTIPLIER,
+                        ) ->
+                        "auto_fused_high_speed_catch_up"
+                    else -> null
                 }
         }
     }
+
+    private fun isConfirmedHighSpeedMotion(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+    ): Boolean {
+        val previousFix = context.previousFix
+        val derivedMotion =
+            previousFix
+                ?.takeIf { it.sourceMode == context.fix.sourceMode }
+                ?.deriveMotionTo(
+                    target = context.fix.latLong,
+                    targetFixElapsedMs = context.timing.reliableFixElapsedMs,
+                )
+        val motionBearingDeg = motion.bearingDeg
+        val derivedBearingDeg = derivedMotion?.bearingDeg
+        if (derivedMotion == null || motionBearingDeg == null || derivedBearingDeg == null) return false
+        val speedDifferenceMps = abs(derivedMotion.speedMps - motion.speedMps)
+        val maximumSpeedDifferenceMps =
+            maxOf(
+                AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_SPEED_DIFFERENCE_MPS,
+                motion.speedMps * AUTO_FUSED_HIGH_SPEED_CATCH_UP_SPEED_DIFFERENCE_RATIO,
+            )
+        return derivedMotion.speedMps >= AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_SPEED_MPS &&
+            speedDifferenceMps <= maximumSpeedDifferenceMps &&
+            angularDistanceDegrees(motionBearingDeg, derivedBearingDeg) <=
+            AUTO_FUSED_HIGH_SPEED_CATCH_UP_MAX_BEARING_DIFFERENCE_DEG
+    }
+
+    private fun fastReanchorDurationMs(correctionDistanceM: Float): Long =
+        (
+            FAST_REANCHOR_MIN_DURATION_MS +
+                correctionDistanceM.coerceAtLeast(0f) * FAST_REANCHOR_DURATION_PER_METER_MS
+        ).toLong()
+            .coerceIn(FAST_REANCHOR_MIN_DURATION_MS, FAST_REANCHOR_MAX_DURATION_MS)
 
     private fun resolveMotionSpeedMps(
         rawSpeedMps: Float?,
@@ -1348,6 +1442,11 @@ private fun normalize360(angleDeg: Float): Float {
     return normalized
 }
 
+private fun angularDistanceDegrees(
+    firstDeg: Float,
+    secondDeg: Float,
+): Float = abs((((firstDeg - secondDeg) + 540f) % 360f) - 180f)
+
 private fun MarkerVisualCorrectionEnd?.recordTelemetryInterruption() {
     this?.let { interruption ->
         MarkerMotionTelemetry.recordCorrectionInterrupted(
@@ -1375,6 +1474,13 @@ private const val WATCH_GPS_CATCH_UP_MAX_ACCURACY_M = 25f
 private const val AUTO_FUSED_CATCH_UP_MIN_LAG_M = 35f
 private const val AUTO_FUSED_CATCH_UP_MIN_SPEED_MPS = 0.8f
 private const val AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M = 12f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_LAG_M = 60f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_SPEED_MPS = 5f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_MAX_ACCURACY_M = 25f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_ACCURACY_MULTIPLIER = 3f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_MIN_SPEED_DIFFERENCE_MPS = 5f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_SPEED_DIFFERENCE_RATIO = 0.5f
+private const val AUTO_FUSED_HIGH_SPEED_CATCH_UP_MAX_BEARING_DIFFERENCE_DEG = 45f
 private const val GPS_BEARING_MIN_SPEED_MPS = 0.45f
 private const val MAX_TRUSTED_SPEED_ACCURACY_MPS = 1.5f
 private const val MAX_SPEED_ACCURACY_RATIO = 0.75f
@@ -1403,7 +1509,9 @@ private const val STATIONARY_JITTER_MIN_RADIUS_M = 3f
 private const val STATIONARY_JITTER_MAX_RADIUS_M = 10f
 private const val MOVING_CORRECTION_DEADBAND_M = 1.2f
 private const val SMALL_CORRECTION_DURATION_MS = 500L
-private const val FAST_REANCHOR_CORRECTION_DURATION_MS = 600L
+private const val FAST_REANCHOR_MIN_DURATION_MS = 600L
+private const val FAST_REANCHOR_MAX_DURATION_MS = 1_200L
+private const val FAST_REANCHOR_DURATION_PER_METER_MS = 2f
 private const val MIN_CONTINUOUS_CORRECTION_DURATION_MS = 600L
 private const val MAX_CONTINUOUS_CORRECTION_DURATION_MS = 1_800L
 private const val CORRECTION_CADENCE_FRACTION = 0.35
