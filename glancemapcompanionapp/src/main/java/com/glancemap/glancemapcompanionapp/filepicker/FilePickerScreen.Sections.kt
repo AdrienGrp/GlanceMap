@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.Button
@@ -129,6 +130,114 @@ internal fun FilePickerDownloadSection(
                     modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
+                        label = "POI",
+                        buttonHeight = downloadButtonHeight,
+                        iconSize = 22.dp,
+                        onClick = { onShowRefugesMenuChange(true) },
+                        enabled = !uiLocked,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            Icon(Icons.Filled.Place, contentDescription = "Download POI")
+                        },
+                    )
+                    DropdownMenu(
+                        expanded = showRefugesMenu,
+                        onDismissRequest = { onShowRefugesMenuChange(false) },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Import POI (Refuges / OSM)") },
+                            onClick = {
+                                onShowRefugesMenuChange(false)
+                                onShowRefugesDialog()
+                            },
+                            enabled = !uiLocked,
+                        )
+                        if (canRefreshLastRefuges) {
+                            DropdownMenuItem(
+                                text = { Text("Refresh last import") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Update,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    onShowRefugesMenuChange(false)
+                                    onRefreshLastRefuges()
+                                },
+                                enabled = !uiLocked,
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    DownloadActionButton(
+                        label = "GPX",
+                        buttonHeight = downloadButtonHeight,
+                        iconSize = 22.dp,
+                        onClick = { showGpxSourcesMenu = true },
+                        enabled = !uiLocked,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            Icon(Icons.Filled.Timeline, contentDescription = "Download GPX")
+                        },
+                    )
+                    DropdownMenu(
+                        expanded = showGpxSourcesMenu,
+                        onDismissRequest = { showGpxSourcesMenu = false },
+                    ) {
+                        Text(
+                            "GlanceMap can read and display .gpx tracks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                        Text(
+                            "Download GPX from your favorite website, or create your own route:",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 8.dp),
+                        )
+                        GpxSourceMenuItem(
+                            label = "gpx.studio",
+                            url = "https://gpx.studio/",
+                            onOpen = { url ->
+                                showGpxSourcesMenu = false
+                                openUrl(url)
+                            },
+                        )
+                        GpxSourceMenuItem(
+                            label = "Trackbook",
+                            url = "https://trackbook.com/",
+                            onOpen = { url ->
+                                showGpxSourcesMenu = false
+                                openUrl(url)
+                            },
+                        )
+                        HorizontalDivider()
+                        Text(
+                            "Send route-planning data to the watch to create GPX routes directly in the watch app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    DownloadActionButton(
                         label = "Maps",
                         buttonHeight = downloadButtonHeight,
                         iconSize = 22.dp,
@@ -213,115 +322,7 @@ internal fun FilePickerDownloadSection(
                     modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
-                        label = "GPX",
-                        buttonHeight = downloadButtonHeight,
-                        iconSize = 22.dp,
-                        onClick = { showGpxSourcesMenu = true },
-                        enabled = !uiLocked,
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = {
-                            Icon(Icons.Filled.Timeline, contentDescription = "Download GPX")
-                        },
-                    )
-                    DropdownMenu(
-                        expanded = showGpxSourcesMenu,
-                        onDismissRequest = { showGpxSourcesMenu = false },
-                    ) {
-                        Text(
-                            "GlanceMap can read and display .gpx tracks.",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier =
-                                Modifier
-                                    .widthIn(max = 260.dp)
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                        Text(
-                            "Download GPX from your favorite website, or create your own route:",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier =
-                                Modifier
-                                    .widthIn(max = 260.dp)
-                                    .padding(horizontal = 16.dp)
-                                    .padding(bottom = 8.dp),
-                        )
-                        GpxSourceMenuItem(
-                            label = "gpx.studio",
-                            url = "https://gpx.studio/",
-                            onOpen = { url ->
-                                showGpxSourcesMenu = false
-                                openUrl(url)
-                            },
-                        )
-                        GpxSourceMenuItem(
-                            label = "Trackbook",
-                            url = "https://trackbook.com/",
-                            onOpen = { url ->
-                                showGpxSourcesMenu = false
-                                openUrl(url)
-                            },
-                        )
-                        HorizontalDivider()
-                        Text(
-                            "Send routing files to the watch to create GPX routes directly in the watch app.",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier =
-                                Modifier
-                                    .widthIn(max = 260.dp)
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    DownloadActionButton(
-                        label = "POI",
-                        buttonHeight = downloadButtonHeight,
-                        iconSize = 22.dp,
-                        onClick = { onShowRefugesMenuChange(true) },
-                        enabled = !uiLocked,
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = {
-                            Icon(Icons.Filled.Place, contentDescription = "Download POI")
-                        },
-                    )
-                    DropdownMenu(
-                        expanded = showRefugesMenu,
-                        onDismissRequest = { onShowRefugesMenuChange(false) },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Import POI (Refuges / OSM)") },
-                            onClick = {
-                                onShowRefugesMenuChange(false)
-                                onShowRefugesDialog()
-                            },
-                            enabled = !uiLocked,
-                        )
-                        if (canRefreshLastRefuges) {
-                            DropdownMenuItem(
-                                text = { Text("Refresh last import") },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Filled.Update,
-                                        contentDescription = null,
-                                    )
-                                },
-                                onClick = {
-                                    onShowRefugesMenuChange(false)
-                                    onRefreshLastRefuges()
-                                },
-                                enabled = !uiLocked,
-                            )
-                        }
-                    }
-                }
-
-                Box(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    DownloadActionButton(
-                        label = "Routing",
+                        label = "Plan route",
                         buttonHeight = downloadButtonHeight,
                         iconSize = 22.dp,
                         onClick = { onShowRoutingMenuChange(true) },
@@ -329,8 +330,8 @@ internal fun FilePickerDownloadSection(
                         modifier = Modifier.fillMaxWidth(),
                         icon = {
                             Icon(
-                                Icons.Filled.Timeline,
-                                contentDescription = "Download routing data",
+                                Icons.Filled.Route,
+                                contentDescription = "Plan routes offline",
                             )
                         },
                     )
@@ -339,7 +340,7 @@ internal fun FilePickerDownloadSection(
                         onDismissRequest = { onShowRoutingMenuChange(false) },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Download routing data") },
+                            text = { Text("Download route data") },
                             onClick = {
                                 onShowRoutingMenuChange(false)
                                 onShowRoutingDialog()

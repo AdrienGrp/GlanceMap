@@ -178,7 +178,7 @@ internal fun RoutingDownloadDialog(
         onDismissRequest = {
             if (!isDownloadingRouting) onDismiss()
         },
-        title = { Text("Download routing data") },
+        title = { Text("Plan routes offline") },
         text = {
             Box(
                 modifier =
@@ -195,8 +195,12 @@ internal fun RoutingDownloadDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "BRouter routing packs (.rd5) are downloaded on the phone, " +
-                            "then added to section 2 so you can decide if you want to send them.",
+                        "Download data for the areas you use to create GPX routes directly on your watch, even without a connection.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+
+                    Text(
+                        "The files are downloaded to your phone. In section 2, select the ones you want to send to the watch.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
