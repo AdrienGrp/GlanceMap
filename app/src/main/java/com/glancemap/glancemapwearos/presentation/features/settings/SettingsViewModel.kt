@@ -1243,6 +1243,19 @@ class SettingsViewModel(
             settingsRepository.setPoiTapToCenterEnabled(enabled)
         }
 
+    val linkGpxWaypointPoiFolders: StateFlow<Boolean> =
+        settingsRepository.linkGpxWaypointPoiFolders
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_LINK_GPX_WAYPOINT_POI_FOLDERS,
+            )
+
+    fun setLinkGpxWaypointPoiFolders(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setLinkGpxWaypointPoiFolders(enabled)
+        }
+
     val poiPopupTimeoutSeconds: StateFlow<Int> =
         settingsRepository.poiPopupTimeoutSeconds
             .stateIn(

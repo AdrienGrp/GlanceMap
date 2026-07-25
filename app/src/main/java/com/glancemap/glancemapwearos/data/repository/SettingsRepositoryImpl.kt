@@ -185,6 +185,7 @@ class SettingsRepositoryImpl private constructor(
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
         val POI_MARKER_STYLE = stringPreferencesKey("poi_marker_style")
         val POI_TAP_TO_CENTER_ENABLED = booleanPreferencesKey("poi_tap_to_center_enabled")
+        val LINK_GPX_WAYPOINT_POI_FOLDERS = booleanPreferencesKey("link_gpx_waypoint_poi_folders")
         val POI_POPUP_TIMEOUT_SECONDS = intPreferencesKey("poi_popup_timeout_seconds")
         val POI_POPUP_MANUAL_CLOSE_ONLY = booleanPreferencesKey("poi_popup_manual_close_only")
     }
@@ -1662,6 +1663,16 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setPoiTapToCenterEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.POI_TAP_TO_CENTER_ENABLED] = enabled }
+    }
+
+    override val linkGpxWaypointPoiFolders: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.LINK_GPX_WAYPOINT_POI_FOLDERS]
+                ?: SettingsRepository.DEFAULT_LINK_GPX_WAYPOINT_POI_FOLDERS
+        }
+
+    override suspend fun setLinkGpxWaypointPoiFolders(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.LINK_GPX_WAYPOINT_POI_FOLDERS] = enabled }
     }
 
     override val poiPopupTimeoutSeconds: Flow<Int> =

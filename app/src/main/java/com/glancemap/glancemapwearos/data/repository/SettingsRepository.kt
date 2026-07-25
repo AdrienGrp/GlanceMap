@@ -78,6 +78,7 @@ interface SettingsRepository {
         const val GPX_LIST_PAGE_HIKE_ACTIVITIES = "HIKE_ACTIVITIES"
         const val GPX_LIST_PAGE_BIKE_ACTIVITIES = "BIKE_ACTIVITIES"
         const val DEFAULT_GPX_LIST_PAGE = GPX_LIST_PAGE_TRACKS
+        const val DEFAULT_LINK_GPX_WAYPOINT_POI_FOLDERS = true
         const val DEFAULT_USER_WEIGHT_KG = 75f
         const val MIN_USER_WEIGHT_KG = 35f
         const val MAX_USER_WEIGHT_KG = 160f
@@ -725,6 +726,10 @@ interface SettingsRepository {
     val poiTapToCenterEnabled: Flow<Boolean>
 
     suspend fun setPoiTapToCenterEnabled(enabled: Boolean)
+
+    val linkGpxWaypointPoiFolders: Flow<Boolean>
+
+    suspend fun setLinkGpxWaypointPoiFolders(enabled: Boolean)
 
     val poiPopupTimeoutSeconds: Flow<Int>
 

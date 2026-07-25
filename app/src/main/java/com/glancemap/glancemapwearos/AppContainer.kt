@@ -98,6 +98,7 @@ class DefaultAppContainer(
             gpxExportRepository = gpxExportRepository,
             syncManager = syncManager,
             settingsRepository = settingsRepository,
+            poiRepository = poiRepository,
             routePlanner = routePlanner,
             elevationProvider = RecordingElevationProvider(applicationContext),
         )

@@ -75,6 +75,10 @@ import com.google.android.horologist.compose.layout.rememberResponsiveColumnStat
 import kotlinx.coroutines.launch
 
 private sealed interface PoiListRow {
+    data class SectionHeader(
+        val label: String,
+    ) : PoiListRow
+
     data class FileRow(
         val file: PoiFileUiState,
     ) : PoiListRow
@@ -346,58 +350,74 @@ fun PoiScreen(
     val rows =
         remember(poiFiles, categoryPreviews, isDeleteMode, expandedByFileSnapshot) {
             buildList<PoiListRow> {
-                poiFiles.forEach { file ->
-                    add(PoiListRow.FileRow(file))
-                    val showExpandedRows =
-                        file.isExpanded &&
-                            (
-                                !isDeleteMode || file.path == USER_POI_SOURCE_PATH
-                            )
-                    if (showExpandedRows) {
-                        if (file.path == USER_POI_SOURCE_PATH) {
-                            addCategoryPreviewRows(
-                                filePath = file.path,
-                                categoryId = USER_POI_CATEGORY_ID,
-                                depth = 1,
-                                preview =
-                                    categoryPreviews[
-                                        PoiCategoryPreviewKey(file.path, USER_POI_CATEGORY_ID),
-                                    ],
-                                emptyText = "No saved places yet.",
-                            )
-                            return@forEach
-                        }
-                        val expandedIds = expandedByFileSnapshot[file.path].orEmpty()
-                        val categoriesById = file.categories.associateBy { it.id }
-                        file.categories.forEach { category ->
-                            if (isCategoryVisible(category, categoriesById, expandedIds)) {
-                                val isCategoryExpanded = category.id in expandedIds
-                                add(
-                                    PoiListRow.CategoryRow(
-                                        filePath = file.path,
-                                        category = category,
-                                        isExpanded = isCategoryExpanded,
-                                    ),
+                val userFiles = poiFiles.filter { it.path == USER_POI_SOURCE_PATH }
+                val waypointFiles =
+                    poiFiles.filter { it.path != USER_POI_SOURCE_PATH && it.isGpxWaypointFolder }
+                val importedPoiFiles =
+                    poiFiles.filter { it.path != USER_POI_SOURCE_PATH && !it.isGpxWaypointFolder }
+                val sections =
+                    listOf(
+                        "My creation" to userFiles,
+                        "GPX waypoints" to waypointFiles,
+                        "POI files" to importedPoiFiles,
+                    )
+
+                sections.forEach { (label, files) ->
+                    if (files.isEmpty()) return@forEach
+                    add(PoiListRow.SectionHeader(label))
+                    files.forEach { file ->
+                        add(PoiListRow.FileRow(file))
+                        val showExpandedRows =
+                            file.isExpanded &&
+                                (
+                                    !isDeleteMode || file.path == USER_POI_SOURCE_PATH
                                 )
-                                if (isCategoryExpanded) {
-                                    val isSyntheticGroup = category.id < 0 && category.hasChildren
-                                    if (!isSyntheticGroup) {
-                                        val poiDepth = category.depth + 1
-                                        addCategoryPreviewRows(
+                        if (showExpandedRows) {
+                            if (file.path == USER_POI_SOURCE_PATH) {
+                                addCategoryPreviewRows(
+                                    filePath = file.path,
+                                    categoryId = USER_POI_CATEGORY_ID,
+                                    depth = 1,
+                                    preview =
+                                        categoryPreviews[
+                                            PoiCategoryPreviewKey(file.path, USER_POI_CATEGORY_ID),
+                                        ],
+                                    emptyText = "No saved places yet.",
+                                )
+                                return@forEach
+                            }
+                            val expandedIds = expandedByFileSnapshot[file.path].orEmpty()
+                            val categoriesById = file.categories.associateBy { it.id }
+                            file.categories.forEach { category ->
+                                if (isCategoryVisible(category, categoriesById, expandedIds)) {
+                                    val isCategoryExpanded = category.id in expandedIds
+                                    add(
+                                        PoiListRow.CategoryRow(
                                             filePath = file.path,
-                                            categoryId = category.id,
-                                            depth = poiDepth,
-                                            preview =
-                                                categoryPreviews[
-                                                    PoiCategoryPreviewKey(file.path, category.id),
-                                                ],
-                                            emptyText =
-                                                if (category.hasChildren) {
-                                                    "No direct POI. Expand sub-folders."
-                                                } else {
-                                                    "No POI in this folder."
-                                                },
-                                        )
+                                            category = category,
+                                            isExpanded = isCategoryExpanded,
+                                        ),
+                                    )
+                                    if (isCategoryExpanded) {
+                                        val isSyntheticGroup = category.id < 0 && category.hasChildren
+                                        if (!isSyntheticGroup) {
+                                            val poiDepth = category.depth + 1
+                                            addCategoryPreviewRows(
+                                                filePath = file.path,
+                                                categoryId = category.id,
+                                                depth = poiDepth,
+                                                preview =
+                                                    categoryPreviews[
+                                                        PoiCategoryPreviewKey(file.path, category.id),
+                                                    ],
+                                                emptyText =
+                                                    if (category.hasChildren) {
+                                                        "No direct POI. Expand sub-folders."
+                                                    } else {
+                                                        "No POI in this folder."
+                                                    },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -700,6 +720,7 @@ fun PoiScreen(
                         items = rows,
                         key = { row ->
                             when (row) {
+                                is PoiListRow.SectionHeader -> "s:${row.label}"
                                 is PoiListRow.FileRow -> "f:${row.file.path}"
                                 is PoiListRow.CategoryRow -> "c:${row.filePath}:${row.category.id}"
                                 is PoiListRow.CategoryPoiRow -> {
@@ -712,6 +733,16 @@ fun PoiScreen(
                         },
                     ) { row ->
                         when (row) {
+                            is PoiListRow.SectionHeader -> {
+                                Text(
+                                    text = row.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+
                             is PoiListRow.FileRow -> {
                                 PoiFileRow(
                                     file = row.file,
