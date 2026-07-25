@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.core.routing.LoopRouteSuggestionException
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
@@ -52,14 +53,14 @@ private data class PendingDirectPoiRouteTriggers(
     val session: RouteToolSession?,
     val currentLocation: LatLong?,
     val locationAvailable: Boolean,
-    val lastFixFresh: Boolean,
+    val lastFixElapsedRealtimeMs: Long,
+    val lastFixAgeMs: Long,
     val offlineMode: Boolean,
     val selectedMapPath: String?,
 )
 
 private data class PendingDirectPoiRouteActions(
     val evaluatePreflight: (RouteToolSession) -> RouteToolPreflightResult,
-    val requestFreshLocation: () -> Unit,
     val onReady: (RouteToolSession) -> Unit,
     val onBlocked: (String?) -> Unit,
     val onTimeout: (RouteToolSession) -> Unit,
@@ -76,7 +77,8 @@ private fun PendingDirectPoiRouteEffect(
         triggers.session,
         triggers.currentLocation,
         triggers.locationAvailable,
-        triggers.lastFixFresh,
+        triggers.lastFixElapsedRealtimeMs,
+        triggers.lastFixAgeMs,
         triggers.offlineMode,
         triggers.selectedMapPath,
     ) {
@@ -84,11 +86,33 @@ private fun PendingDirectPoiRouteEffect(
         val currentActions = latestActions.value
         val preflight = currentActions.evaluatePreflight(pendingSession)
         when {
-            preflight.canStart -> currentActions.onReady(pendingSession)
-            !preflight.shouldRequestFreshLocation -> currentActions.onBlocked(preflight.message)
+            preflight.canStart -> {
+                logPoiRoutePreflight(
+                    event = "pending_ready",
+                    triggers = triggers,
+                )
+                currentActions.onReady(pendingSession)
+            }
+
+            !preflight.shouldRequestFreshLocation -> {
+                logPoiRoutePreflight(
+                    event = "pending_blocked",
+                    triggers = triggers,
+                    message = preflight.message,
+                )
+                currentActions.onBlocked(preflight.message)
+            }
+
             else -> {
-                currentActions.requestFreshLocation()
+                logPoiRoutePreflight(
+                    event = "pending_waiting",
+                    triggers = triggers,
+                )
                 delay(DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS)
+                logPoiRoutePreflight(
+                    event = "pending_timeout",
+                    triggers = triggers,
+                )
                 latestActions.value.onTimeout(pendingSession)
             }
         }
@@ -504,16 +528,14 @@ internal fun rememberNavigateRouteToolActions(
                 session = pendingDirectPoiRoute.value,
                 currentLocation = recenterTarget,
                 locationAvailable = gpsSignalSnapshot.isLocationAvailable,
-                lastFixFresh = gpsSignalSnapshot.lastFixFresh,
+                lastFixElapsedRealtimeMs = gpsSignalSnapshot.lastFixElapsedRealtimeMs,
+                lastFixAgeMs = gpsSignalSnapshot.lastFixAgeMs,
                 offlineMode = offlineMode,
                 selectedMapPath = selectedMapPath,
             ),
         actions =
             PendingDirectPoiRouteActions(
                 evaluatePreflight = ::evaluatePendingPoiRoutePreflight,
-                requestFreshLocation = {
-                    locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
-                },
                 onReady = ::startPendingPoiRoute,
                 onBlocked = ::showPendingPoiRouteBlocker,
                 onTimeout = ::showPendingPoiRouteTimeout,
@@ -569,6 +591,20 @@ internal fun rememberNavigateRouteToolActions(
                 hasSingleActiveGpx = activeGpxDetailsCount == 1,
                 selectedMapPath = selectedMapPath,
             )
+        logPoiRoutePreflight(
+            event = "click_preflight",
+            currentLocationPresent = recenterTarget != null,
+            locationAvailable = gpsSignalSnapshot.isLocationAvailable,
+            lastFixElapsedRealtimeMs = gpsSignalSnapshot.lastFixElapsedRealtimeMs,
+            lastFixAgeMs = gpsSignalSnapshot.lastFixAgeMs,
+            result =
+                when {
+                    preflight.canStart -> "ready"
+                    preflight.shouldRequestFreshLocation -> "waiting"
+                    else -> "blocked"
+                },
+            message = preflight.message,
+        )
         when {
             preflight.canStart -> startRouteToolSelection(session)
             preflight.shouldRequestFreshLocation -> {
@@ -770,4 +806,55 @@ internal fun rememberNavigateRouteToolActions(
     )
 }
 
+private fun logPoiRoutePreflight(
+    event: String,
+    triggers: PendingDirectPoiRouteTriggers,
+    message: String? = null,
+) {
+    logPoiRoutePreflight(
+        event = event,
+        currentLocationPresent = triggers.currentLocation != null,
+        locationAvailable = triggers.locationAvailable,
+        lastFixElapsedRealtimeMs = triggers.lastFixElapsedRealtimeMs,
+        lastFixAgeMs = triggers.lastFixAgeMs,
+        message = message,
+    )
+}
+
+private fun logPoiRoutePreflight(
+    event: String,
+    currentLocationPresent: Boolean,
+    locationAvailable: Boolean,
+    lastFixElapsedRealtimeMs: Long,
+    lastFixAgeMs: Long,
+    result: String? = null,
+    message: String? = null,
+) {
+    if (!DebugTelemetry.isEnabled()) return
+    DebugTelemetry.log(
+        POI_ROUTE_TELEMETRY_TAG,
+        buildString {
+            append("event=")
+            append(event)
+            result?.let {
+                append(" result=")
+                append(it)
+            }
+            append(" currentLocation=")
+            append(currentLocationPresent)
+            append(" locationAvailable=")
+            append(locationAvailable)
+            append(" fixElapsedMs=")
+            append(lastFixElapsedRealtimeMs)
+            append(" fixAgeMs=")
+            append(lastFixAgeMs)
+            message?.let {
+                append(" message=")
+                append(it.replace(' ', '_'))
+            }
+        },
+    )
+}
+
 private const val DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS = 12_000L
+private const val POI_ROUTE_TELEMETRY_TAG = "PoiRoute"
