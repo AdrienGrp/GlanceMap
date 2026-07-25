@@ -322,7 +322,7 @@ internal fun FilePickerDownloadSection(
                     modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
-                        label = "Plan route",
+                        label = "Routing",
                         buttonHeight = downloadButtonHeight,
                         iconSize = 22.dp,
                         onClick = { onShowRoutingMenuChange(true) },
@@ -331,7 +331,7 @@ internal fun FilePickerDownloadSection(
                         icon = {
                             Icon(
                                 Icons.Filled.Route,
-                                contentDescription = "Plan routes offline",
+                                contentDescription = "Download routing data",
                             )
                         },
                     )
@@ -340,7 +340,7 @@ internal fun FilePickerDownloadSection(
                         onDismissRequest = { onShowRoutingMenuChange(false) },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Download route data") },
+                            text = { Text("Download routing data") },
                             onClick = {
                                 onShowRoutingMenuChange(false)
                                 onShowRoutingDialog()
