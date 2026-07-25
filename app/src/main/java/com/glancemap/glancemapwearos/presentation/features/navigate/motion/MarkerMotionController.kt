@@ -106,7 +106,6 @@ internal class MarkerMotionController(
         state.visualTrajectory.reset(nowElapsedMs).recordTelemetryInterruption()
         state.predictionRequiresFreshFix = true
         state.clampedCorrectionStreak = 0
-        predictionCadence.resetObservedIntervals()
         MarkerMotionTelemetry.recordIdle(
             nowElapsedMs = nowElapsedMs,
             reason = reason,
@@ -224,12 +223,6 @@ internal class MarkerMotionController(
         val previousAcceptedFix = state.lastAcceptedFix
         val displayedLatLong = fixProcessor.onGpsFix(fix)
         val acceptedFix = state.lastAcceptedFix
-        if (acceptedFix !== previousAcceptedFix && previousAcceptedFix != null && acceptedFix != null) {
-            predictionCadence.recordAcceptedFixGap(
-                gapMs = (acceptedFix.fixElapsedMs - previousAcceptedFix.fixElapsedMs).coerceAtLeast(0L),
-                sourceChanged = acceptedFix.sourceMode != previousAcceptedFix.sourceMode,
-            )
-        }
         return MarkerMotionUpdate(
             displayedLatLong = displayedLatLong,
             fixAccepted = acceptedFix !== previousAcceptedFix,
@@ -1513,8 +1506,11 @@ private const val FAST_REANCHOR_MIN_DURATION_MS = 600L
 private const val FAST_REANCHOR_MAX_DURATION_MS = 1_200L
 private const val FAST_REANCHOR_DURATION_PER_METER_MS = 2f
 private const val MIN_CONTINUOUS_CORRECTION_DURATION_MS = 600L
-private const val MAX_CONTINUOUS_CORRECTION_DURATION_MS = 1_800L
-private const val CORRECTION_CADENCE_FRACTION = 0.35
+private const val MAX_CONTINUOUS_CORRECTION_DURATION_MS = 2_400L
+
+// Spread ordinary GPS residuals across most of the selected cadence, keeping the base trajectory
+// visibly forward-moving instead of front-loading every correction into a short deceleration.
+private const val CORRECTION_CADENCE_FRACTION = 0.75
 private const val CORRECTION_DURATION_PER_METER_MS = 100f
 private const val LARGE_CORRECTION_MIN_DISTANCE_M = 18f
 private const val LARGE_CORRECTION_MIN_ACCURACY_M = 14f

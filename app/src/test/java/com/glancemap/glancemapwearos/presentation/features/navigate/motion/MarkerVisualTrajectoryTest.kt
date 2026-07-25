@@ -144,6 +144,26 @@ class MarkerVisualTrajectoryTest {
     }
 
     @Test
+    fun leadingCorrectionPreservesMostForwardMotion() {
+        val trajectory = MarkerVisualTrajectory()
+        val displayedAhead = moveLatLong(base, bearing = 90f, distanceMeters = 5f)
+        trajectory.rebase(
+            anchor = movingAnchor(base, fixElapsedMs = 10_000L),
+            displayedAtRebase = displayedAhead,
+            nowElapsedMs = 10_000L,
+            predictionWindow = window,
+            correctionPlan = MarkerVisualCorrectionPlan(durationMs = 2_400L),
+        )
+
+        val initial = trajectory.sample(10_000L, window) ?: error("Expected initial sample")
+        val afterOneTick = trajectory.sample(10_100L, window) ?: error("Expected next sample")
+
+        // After the 50 ms prediction guard, the 2 m/s base trajectory has advanced 0.1 m. A
+        // cadence-length correction must retain most of that movement rather than visibly pausing.
+        assertTrue(distanceMeters(initial.latLong, afterOneTick.latLong) > 0.05f)
+    }
+
+    @Test
     fun predictionEasesToAStableStopAtHorizon() {
         val trajectory = MarkerVisualTrajectory()
         trajectory.seed(movingAnchor(base, fixElapsedMs = 10_000L, speedMps = 2f))
