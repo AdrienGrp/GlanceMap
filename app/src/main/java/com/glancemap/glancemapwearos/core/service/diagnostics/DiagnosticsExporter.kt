@@ -371,6 +371,9 @@ object DiagnosticsExporter {
         var turnByTurnTurnAlertOffRouteCount: Int = 0
         var turnByTurnTurnAlertMissedWindowCount: Int = 0
         var recordingTrackFilter: RecordingTrackFilterInsights = RecordingTrackFilterInsights()
+        var recordingGapEndpointDistanceSampleCount: Int = 0
+        var recordingGapEndpointDistanceAvgMeters: Float? = null
+        var recordingGapEndpointDistanceMaxMeters: Float? = null
     }
 
     internal data class CompassTelemetryInsights(
@@ -1507,6 +1510,17 @@ object DiagnosticsExporter {
             )
             writer.appendLine("recordingGapCount=${telemetryInsights.recordingGapCount?.toString() ?: "na"}")
             writer.appendLine("recordingGapEventCount=${telemetryInsights.recordingGapEventCount}")
+            writer.appendLine("recordingGapDefinition=accepted_point_time_gap_not_confirmed_movement_loss")
+            writer.appendLine(
+                "recordingGapEndpointDistanceM=" +
+                    if (telemetryInsights.recordingGapEndpointDistanceSampleCount <= 0) {
+                        "samples:0"
+                    } else {
+                        "samples:${telemetryInsights.recordingGapEndpointDistanceSampleCount}," +
+                            "avg:${TelemetryFormatters.decimalOrNa(telemetryInsights.recordingGapEndpointDistanceAvgMeters, 1)}," +
+                            "max:${TelemetryFormatters.decimalOrNa(telemetryInsights.recordingGapEndpointDistanceMaxMeters, 1)}"
+                    },
+            )
             writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")
             writer.appendLine(
                 "recordingLastPointAgeMs=${telemetryInsights.recordingLastPointAgeMs?.toString() ?: "na"}",

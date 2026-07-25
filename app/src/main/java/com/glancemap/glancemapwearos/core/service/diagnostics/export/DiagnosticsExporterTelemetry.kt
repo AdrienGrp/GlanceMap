@@ -205,6 +205,9 @@ internal fun deriveTelemetryInsights(
     var recordingPointCaptureRatePercent: Int? = null
     var recordingGapCount: Int? = null
     var recordingGapEventCount = 0
+    var recordingGapEndpointDistanceSampleCount = 0
+    var recordingGapEndpointDistanceSumMeters = 0.0
+    var recordingGapEndpointDistanceMaxMeters = 0f
     var recordingMaxGapMs: Long? = null
     var recordingLastPointAgeMs: Long? = null
     var recordingForcedAcceptCount: Int? = null
@@ -539,7 +542,15 @@ internal fun deriveTelemetryInsights(
                 "pause" -> recordingPauseCount += 1
                 "resume" -> recordingResumeCount += 1
                 "point" -> recordingPointSampleCount += 1
-                "gap" -> recordingGapEventCount += 1
+                "gap" -> {
+                    recordingGapEventCount += 1
+                    parseFloatToken(line, "gapEndpointDistanceM=")?.takeIf { it >= 0f }?.let { distance ->
+                        recordingGapEndpointDistanceSampleCount += 1
+                        recordingGapEndpointDistanceSumMeters += distance
+                        recordingGapEndpointDistanceMaxMeters =
+                            maxOf(recordingGapEndpointDistanceMaxMeters, distance)
+                    }
+                }
                 "gap_recovery_accept" -> {
                     parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
                         recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
@@ -1329,6 +1340,15 @@ internal fun deriveTelemetryInsights(
         insights.turnByTurnTurnAlertFilteredCount = turnByTurnTurnAlertFilteredCount
         insights.turnByTurnTurnAlertOffRouteCount = turnByTurnTurnAlertOffRouteCount
         insights.turnByTurnTurnAlertMissedWindowCount = turnByTurnTurnAlertMissedWindowCount
+        insights.recordingGapEndpointDistanceSampleCount = recordingGapEndpointDistanceSampleCount
+        insights.recordingGapEndpointDistanceAvgMeters =
+            if (recordingGapEndpointDistanceSampleCount > 0) {
+                (recordingGapEndpointDistanceSumMeters / recordingGapEndpointDistanceSampleCount).toFloat()
+            } else {
+                null
+            }
+        insights.recordingGapEndpointDistanceMaxMeters =
+            recordingGapEndpointDistanceMaxMeters.takeIf { recordingGapEndpointDistanceSampleCount > 0 }
         insights.recordingTrackFilter =
             RecordingTrackFilterInsights(
                 smoothingMode = recordingTrackSmoothingMode,

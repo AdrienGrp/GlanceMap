@@ -204,6 +204,28 @@ class DiagnosticsExporterTelemetryTest {
     }
 
     @Test
+    fun recordingGapEndpointDistanceTelemetryIsSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [TraceRecording] event=gap gapMs=16000 " +
+                    "gapEndpointDistanceM=3.0 gapPreviousSpeedMps=0.00 gapCurrentSpeedMps=0.00",
+                "2026-04-20 20:07:32.000 [TraceRecording] event=gap gapMs=17000 " +
+                    "gapEndpointDistanceM=21.0 gapPreviousSpeedMps=4.00 gapCurrentSpeedMps=4.50",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:39"),
+            )
+
+        assertEquals(2, insights.recordingGapEventCount)
+        assertEquals(2, insights.recordingGapEndpointDistanceSampleCount)
+        assertEquals(12f, insights.recordingGapEndpointDistanceAvgMeters)
+        assertEquals(21f, insights.recordingGapEndpointDistanceMaxMeters)
+    }
+
+    @Test
     fun recordingTrackFilterTelemetryIsSummarized() {
         val lines =
             listOf(
