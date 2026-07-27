@@ -27,6 +27,7 @@ import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
+import com.glancemap.glancemapwearos.domain.sensors.HeadingTurnRateHysteresis
 import com.glancemap.glancemapwearos.domain.sensors.hasRecentGoogleFusedCachedHeading
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
@@ -40,6 +41,7 @@ import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
 import kotlin.math.abs
+import kotlin.math.exp
 
 /**
  * Synchronized Map + Marker rotation for Compass, North-Up and Panning modes.
@@ -288,10 +290,16 @@ fun NavigationOrientationEffect(
         // Local var: safe because both coroutines run on Main (single-threaded).
         var liveTarget = displayedHeading.floatValue
         var latestRenderState = renderStateFlow.value
-        var lastTargetUpdateAtElapsedMs = SystemClock.elapsedRealtime()
-        var fastTurnUntilElapsedMs = 0L
-        var activeMapTurnUntilElapsedMs = 0L
-        var previousRawHeading: Float? = null
+        var activeHeadingTurn = false
+        var previousFrameTimeNanos = 0L
+        val headingTurnTracker =
+            HeadingTurnRateHysteresis(
+                enterRateDegPerSec = RENDER_ACTIVE_TURN_ENTER_RATE_DEG_PER_SEC,
+                exitRateDegPerSec = RENDER_ACTIVE_TURN_EXIT_RATE_DEG_PER_SEC,
+                exitHoldMs = RENDER_ACTIVE_TURN_EXIT_HOLD_MS,
+                minimumEntryStepDeg = RENDER_ACTIVE_TURN_MIN_ENTRY_STEP_DEG,
+                maximumSampleGapMs = RENDER_ACTIVE_TURN_MAX_SAMPLE_GAP_MS,
+            )
 
         // Keep liveTarget current without blocking the animation loop.
         launch {
@@ -299,44 +307,31 @@ fun NavigationOrientationEffect(
                 latestRenderState = state
                 val canDriveHeading = shouldDriveHeadingForNavMode(navMode, state)
                 if (!canDriveHeading) {
-                    fastTurnUntilElapsedMs = 0L
-                    activeMapTurnUntilElapsedMs = 0L
-                    previousRawHeading = null
+                    headingTurnTracker.reset()
+                    activeHeadingTurn = false
                     return@collect
                 }
                 val heading = normalize360(state.headingDeg)
                 val nowElapsedMs = SystemClock.elapsedRealtime()
-                val elapsedSinceTargetMs = nowElapsedMs - lastTargetUpdateAtElapsedMs
-                previousRawHeading?.let { previous ->
-                    if (
-                        isFastHeadingTurn(
-                            previousHeadingDeg = previous,
-                            nextHeadingDeg = heading,
-                            elapsedMs = elapsedSinceTargetMs,
-                        )
-                    ) {
-                        fastTurnUntilElapsedMs = nowElapsedMs + FAST_TURN_RENDER_HOLD_MS
-                    }
-                    if (
-                        isActiveMapHeadingTurn(
-                            previousHeadingDeg = previous,
-                            nextHeadingDeg = heading,
-                            elapsedMs = elapsedSinceTargetMs,
-                        )
-                    ) {
-                        activeMapTurnUntilElapsedMs = nowElapsedMs + ACTIVE_MAP_TURN_RENDER_HOLD_MS
-                    }
-                }
+                activeHeadingTurn =
+                    headingTurnTracker.update(
+                        headingDeg = heading,
+                        atElapsedMs = nowElapsedMs,
+                    )
                 liveTarget = heading
-                previousRawHeading = heading
-                lastTargetUpdateAtElapsedMs = nowElapsedMs
                 CompassRenderPerfTelemetry.recordTargetUpdate(navMode)
             }
         }
 
         // Animate toward liveTarget on every display frame.
         while (true) {
-            withFrameNanos {
+            withFrameNanos { frameTimeNanos ->
+                val frameDeltaMs =
+                    resolveHeadingAnimationFrameDeltaMs(
+                        frameTimeNanos = frameTimeNanos,
+                        previousFrameTimeNanos = previousFrameTimeNanos,
+                    )
+                previousFrameTimeNanos = frameTimeNanos
                 if (navMode == NavMode.PANNING) return@withFrameNanos
                 if (!shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                     return@withFrameNanos
@@ -384,7 +379,8 @@ fun NavigationOrientationEffect(
                 val animationDelta =
                     resolveHeadingAnimationDelta(
                         diffDeg = diff,
-                        fastTurn = nowElapsedMs <= fastTurnUntilElapsedMs,
+                        activeTurn = activeHeadingTurn,
+                        frameDeltaMs = frameDeltaMs,
                     )
                 val next = normalize360(current + animationDelta)
                 displayedHeading.floatValue = next
@@ -394,8 +390,7 @@ fun NavigationOrientationEffect(
                     NavMode.COMPASS_FOLLOW -> {
                         applyMapRotation(
                             targetRotationDeg = -next,
-                            highFrequencyRotation =
-                                nowElapsedMs <= activeMapTurnUntilElapsedMs,
+                            highFrequencyRotation = activeHeadingTurn,
                         )
                     }
                     NavMode.NORTH_UP_FOLLOW -> {
@@ -605,63 +600,63 @@ internal fun shouldThrottleMapsforgeRotation(
         nowElapsedMs - lastAppliedAtElapsedMs < minimumIntervalMs
 }
 
-internal fun isFastHeadingTurn(
-    previousHeadingDeg: Float,
-    nextHeadingDeg: Float,
-    elapsedMs: Long,
-): Boolean =
-    isHeadingTurnAtLeastRate(
-        previousHeadingDeg = previousHeadingDeg,
-        nextHeadingDeg = nextHeadingDeg,
-        elapsedMs = elapsedMs,
-        minimumRateDegPerSec = FAST_TURN_MIN_RATE_DEG_PER_SEC,
-    )
-
-internal fun isActiveMapHeadingTurn(
-    previousHeadingDeg: Float,
-    nextHeadingDeg: Float,
-    elapsedMs: Long,
-): Boolean =
-    isHeadingTurnAtLeastRate(
-        previousHeadingDeg = previousHeadingDeg,
-        nextHeadingDeg = nextHeadingDeg,
-        elapsedMs = elapsedMs,
-        minimumRateDegPerSec = ACTIVE_MAP_TURN_MIN_RATE_DEG_PER_SEC,
-    )
-
-private fun isHeadingTurnAtLeastRate(
-    previousHeadingDeg: Float,
-    nextHeadingDeg: Float,
-    elapsedMs: Long,
-    minimumRateDegPerSec: Float,
-): Boolean {
-    if (!previousHeadingDeg.isFinite() || !nextHeadingDeg.isFinite()) return false
-    if (elapsedMs <= 0L || elapsedMs > FAST_TURN_MAX_SAMPLE_GAP_MS) return false
-    val rotationRateDegPerSec =
-        abs(angleDeltaDeg(nextHeadingDeg, previousHeadingDeg)) * 1_000f / elapsedMs.toFloat()
-    return rotationRateDegPerSec >= minimumRateDegPerSec
-}
-
 internal fun resolveHeadingAnimationAlpha(
     diffDeg: Float,
-    fastTurn: Boolean,
-): Float =
-    when {
-        !diffDeg.isFinite() -> 0f
-        fastTurn && abs(diffDeg) >= FAST_TURN_LARGE_ERROR_DEG -> FAST_TURN_LARGE_ERROR_ALPHA
-        fastTurn -> FAST_TURN_ANIMATION_ALPHA
-        else -> HEADING_ANIMATION_ALPHA
-    }
+    activeTurn: Boolean,
+    frameDeltaMs: Float,
+): Float {
+    if (!diffDeg.isFinite() || !frameDeltaMs.isFinite() || frameDeltaMs <= 0f) return 0f
+    val timeConstantMs =
+        when {
+            activeTurn && abs(diffDeg) >= ACTIVE_TURN_LARGE_ERROR_DEG ->
+                ACTIVE_TURN_LARGE_ERROR_TIME_CONSTANT_MS
+            activeTurn -> ACTIVE_TURN_ANIMATION_TIME_CONSTANT_MS
+            else -> HEADING_ANIMATION_TIME_CONSTANT_MS
+        }
+    return (1.0 - exp(-frameDeltaMs.toDouble() / timeConstantMs.toDouble())).toFloat()
+}
 
 internal fun resolveHeadingAnimationDelta(
     diffDeg: Float,
-    fastTurn: Boolean,
+    activeTurn: Boolean,
+    frameDeltaMs: Float,
 ): Float {
     if (!diffDeg.isFinite()) return 0f
-    val animatedDelta = diffDeg * resolveHeadingAnimationAlpha(diffDeg = diffDeg, fastTurn = fastTurn)
+    val animatedDelta =
+        diffDeg *
+            resolveHeadingAnimationAlpha(
+                diffDeg = diffDeg,
+                activeTurn = activeTurn,
+                frameDeltaMs = frameDeltaMs,
+            )
+    val maximumStepDeg =
+        (
+            HEADING_ANIMATION_MAX_STEP_DEG *
+                frameDeltaMs.coerceIn(
+                    minimumValue = HEADING_ANIMATION_MIN_FRAME_DELTA_MS,
+                    maximumValue = HEADING_ANIMATION_MAX_FRAME_DELTA_MS,
+                ) /
+                HEADING_ANIMATION_NOMINAL_FRAME_DELTA_MS
+        )
     return animatedDelta.coerceIn(
-        minimumValue = -HEADING_ANIMATION_MAX_STEP_DEG,
-        maximumValue = HEADING_ANIMATION_MAX_STEP_DEG,
+        minimumValue = -maximumStepDeg,
+        maximumValue = maximumStepDeg,
+    )
+}
+
+internal fun resolveHeadingAnimationFrameDeltaMs(
+    frameTimeNanos: Long,
+    previousFrameTimeNanos: Long,
+): Float {
+    if (previousFrameTimeNanos <= 0L || frameTimeNanos <= previousFrameTimeNanos) {
+        return HEADING_ANIMATION_NOMINAL_FRAME_DELTA_MS
+    }
+    return (
+        (frameTimeNanos - previousFrameTimeNanos).toDouble() /
+            NANOS_PER_MILLISECOND
+    ).toFloat().coerceIn(
+        minimumValue = HEADING_ANIMATION_MIN_FRAME_DELTA_MS,
+        maximumValue = HEADING_ANIMATION_MAX_FRAME_DELTA_MS,
     )
 }
 
@@ -695,19 +690,25 @@ private const val MAP_ROTATION_ACTIVE_TURN_MIN_APPLY_INTERVAL_MS = 16L
 // screen state at the same 25fps cadence as the existing map-overlay redraw flow.
 private const val RENDERED_COMPASS_UI_PUBLISH_INTERVAL_MS = 40L
 
-// Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
-// gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
-// updates with at most 1-2 frames of visual lag.
-private const val HEADING_ANIMATION_ALPHA = 0.5f
-private const val FAST_TURN_ANIMATION_ALPHA = 0.78f
-private const val FAST_TURN_LARGE_ERROR_ALPHA = 0.9f
-private const val FAST_TURN_LARGE_ERROR_DEG = 25f
-private const val FAST_TURN_MIN_RATE_DEG_PER_SEC = 55f
-private const val ACTIVE_MAP_TURN_MIN_RATE_DEG_PER_SEC = 24f
-private const val FAST_TURN_MAX_SAMPLE_GAP_MS = 250L
-private const val FAST_TURN_RENDER_HOLD_MS = 180L
-private const val ACTIVE_MAP_TURN_RENDER_HOLD_MS = 180L
+// Time-based interpolation keeps the same visual response when the watch renders at 30, 45 or
+// 60fps. A deliberate turn uses a shorter time constant, while large corrections remain bounded.
+private const val HEADING_ANIMATION_TIME_CONSTANT_MS = 80f
+private const val ACTIVE_TURN_ANIMATION_TIME_CONSTANT_MS = 42f
+private const val ACTIVE_TURN_LARGE_ERROR_TIME_CONSTANT_MS = 20f
+private const val ACTIVE_TURN_LARGE_ERROR_DEG = 25f
+private const val HEADING_ANIMATION_NOMINAL_FRAME_DELTA_MS = 16.666_667f
+private const val HEADING_ANIMATION_MIN_FRAME_DELTA_MS = 4f
+private const val HEADING_ANIMATION_MAX_FRAME_DELTA_MS = 50f
 private const val HEADING_ANIMATION_MAX_STEP_DEG = 12f
+private const val NANOS_PER_MILLISECOND = 1_000_000.0
+
+// Enter turning mode promptly, then leave only after angular movement stays low. This prevents a
+// slow 360-degree sweep from repeatedly switching between 25Hz and high-frequency rendering.
+private const val RENDER_ACTIVE_TURN_ENTER_RATE_DEG_PER_SEC = 25f
+private const val RENDER_ACTIVE_TURN_EXIT_RATE_DEG_PER_SEC = 15f
+private const val RENDER_ACTIVE_TURN_EXIT_HOLD_MS = 300L
+private const val RENDER_ACTIVE_TURN_MIN_ENTRY_STEP_DEG = 0.35f
+private const val RENDER_ACTIVE_TURN_MAX_SAMPLE_GAP_MS = 300L
 
 // Stop animating when within this threshold — below the useful visual precision of a watch map.
 private const val HEADING_ANIMATION_DONE_DEG = 0.2f

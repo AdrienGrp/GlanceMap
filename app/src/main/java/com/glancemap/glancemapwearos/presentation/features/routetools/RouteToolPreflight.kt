@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import android.content.Context
+import android.os.SystemClock
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
 import com.glancemap.glancemapwearos.core.routing.routingSegmentsDir
@@ -61,11 +62,13 @@ internal fun RouteToolSession.preflightStart(
         )
     }
 
-    val hasFreshLocation =
-        currentLocation != null &&
-            gpsSignalSnapshot.isLocationAvailable &&
-            gpsSignalSnapshot.lastFixFresh
-    if (hasFreshLocation) {
+    if (
+        hasUsableRouteToolCurrentLocation(
+            currentLocation = currentLocation,
+            gpsSignalSnapshot = gpsSignalSnapshot,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+        )
+    ) {
         return RouteToolPreflightResult(canStart = true)
     }
 
@@ -75,6 +78,24 @@ internal fun RouteToolSession.preflightStart(
         shouldRequestFreshLocation = true,
     )
 }
+
+/**
+ * A route can safely start from a recently accepted position even while the fused provider reports
+ * a transient availability change. This is deliberately less strict than the live-marker policy:
+ * the origin is used once to plan a route, rather than to continuously render the user's position.
+ */
+internal fun hasUsableRouteToolCurrentLocation(
+    currentLocation: LatLong?,
+    gpsSignalSnapshot: GpsSignalSnapshot,
+    nowElapsedMs: Long,
+): Boolean {
+    if (currentLocation == null || gpsSignalSnapshot.lastFixElapsedRealtimeMs <= 0L) return false
+    val fixAgeMs =
+        (nowElapsedMs - gpsSignalSnapshot.lastFixElapsedRealtimeMs).coerceAtLeast(0L)
+    return fixAgeMs <= ROUTE_TOOL_CURRENT_LOCATION_MAX_AGE_MS
+}
+
+internal const val ROUTE_TOOL_CURRENT_LOCATION_MAX_AGE_MS = 10_000L
 
 private fun hasInstalledRoutingData(context: Context): Boolean {
     val installedFiles = routingSegmentsDir(context).listFiles() ?: return false

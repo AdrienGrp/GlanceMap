@@ -21,7 +21,7 @@ data class GpxFileState(
     val activitySummary: RecordingDashboardSnapshot? = null,
 ) {
     val displayTitle: String
-        get() = title?.takeIf { it.isNotBlank() } ?: name
+        get() = name
 
     fun formattedDistance(isMetric: Boolean): Pair<String, String> = UnitFormatter.formatDistance(distance, isMetric)
 

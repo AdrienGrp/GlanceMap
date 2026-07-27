@@ -53,6 +53,7 @@ internal class MarkerVisualTrajectory {
                     startedAtElapsedMs = nowElapsedMs,
                     durationMs = correctionPlan.durationMs,
                     reason = correctionPlan.reason,
+                    bypassRemovalRateLimit = correctionPlan.bypassRemovalRateLimit,
                     remainingDistanceM = correctionDistanceM,
                     lastSampleAtElapsedMs = nowElapsedMs,
                 )
@@ -142,15 +143,19 @@ internal class MarkerVisualTrajectory {
                         context.predictionWindow,
                     )
             ).coerceAtLeast(0f)
-        val maximumRemovalM =
-            maximumCorrectionRemovalMeters(
-                anchor = context.anchor,
-                correction = activeCorrection,
-                projectedBaseAdvanceM = projectedBaseAdvanceM,
-                sampleIntervalMs = sampleIntervalMs,
-            )
         val rateLimitedRemainingDistanceM =
-            (activeCorrection.remainingDistanceM - maximumRemovalM).coerceAtLeast(0f)
+            if (activeCorrection.bypassRemovalRateLimit) {
+                scheduledRemainingDistanceM
+            } else {
+                val maximumRemovalM =
+                    maximumCorrectionRemovalMeters(
+                        anchor = context.anchor,
+                        correction = activeCorrection,
+                        projectedBaseAdvanceM = projectedBaseAdvanceM,
+                        sampleIntervalMs = sampleIntervalMs,
+                    )
+                (activeCorrection.remainingDistanceM - maximumRemovalM).coerceAtLeast(0f)
+            }
         val remainingDistanceM =
             maxOf(scheduledRemainingDistanceM, rateLimitedRemainingDistanceM)
                 .coerceAtMost(activeCorrection.remainingDistanceM)
@@ -201,6 +206,7 @@ internal data class MarkerPredictionWindow(
 internal data class MarkerVisualCorrectionPlan(
     val durationMs: Long,
     val reason: String = "gps_correction",
+    val bypassRemovalRateLimit: Boolean = false,
 )
 
 internal data class MarkerVisualCorrectionEnd(
@@ -225,6 +231,7 @@ private data class MarkerVisualCorrection(
     val startedAtElapsedMs: Long,
     val durationMs: Long,
     val reason: String,
+    val bypassRemovalRateLimit: Boolean,
     var remainingDistanceM: Float,
     var lastSampleAtElapsedMs: Long,
 )

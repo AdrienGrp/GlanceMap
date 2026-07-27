@@ -386,7 +386,7 @@ internal fun FilePickerQuickGuideDialog(
                                 listOf(
                                     "For POI and routing downloads, first choose the area you need.",
                                     "POI downloads OSM points of interest.",
-                                    "Routing downloads BRouter tiles for offline route calculation.",
+                                    "Routing downloads data for creating GPX routes offline on the watch.",
                                     "You can choose an area on the map, pick a region.",
                                     "Refresh last import repeats the previous area.",
                                 ),

@@ -105,47 +105,13 @@ class GpxWaypointPoiImporter(
                 "rotatoria",
                 "uscita",
             )
-        private val STRONG_POI_KEYWORDS =
-            setOf(
-                "peak",
-                "summit",
-                "sommet",
-                "mountain",
-                "water",
-                "spring",
-                "source",
-                "font",
-                "fountain",
-                "drinking",
-                "camp",
-                "bivouac",
-                "bivacco",
-                "hut",
-                "refuge",
-                "cabane",
-                "abri",
-                "gite",
-                "gite",
-                "shelter",
-                "viewpoint",
-                "belved",
-                "panorama",
-                "lookout",
-                "toilet",
-                "wc",
-                "parking",
-                "restaurant",
-                "cafe",
-                "bar",
-                "grotte",
-                "cave",
-            )
     }
 
     suspend fun importWaypointsFromGpxText(
         gpxText: String,
         fileNameInput: String,
         categoryNameInput: String,
+        linkedGpxFileName: String,
     ): GpxWaypointPoiImportOutcome =
         withContext(Dispatchers.IO) {
             val parsed =
@@ -171,7 +137,11 @@ class GpxWaypointPoiImporter(
                         PoiSqliteWriteOptions(
                             comment = "Data source: GPX waypoints",
                             writer = "glancemap-gpx-waypoint-importer-1",
-                            extraMetadata = linkedMapOf("gpx_waypoints_import" to "true"),
+                            extraMetadata =
+                                linkedMapOf(
+                                    "gpx_waypoints_import" to "true",
+                                    "linked_gpx_file_name" to File(linkedGpxFileName).name,
+                                ),
                         ),
                 )
             val uri: Uri =
@@ -279,18 +249,6 @@ class GpxWaypointPoiImporter(
                     name = waypoint.name,
                     description = waypoint.description,
                     type = waypoint.type,
-                )
-            ) {
-                return@forEach
-            }
-            if (
-                hasTrackOrRoutePoints &&
-                !isLikelyRealPoiWaypoint(
-                    name = waypoint.name,
-                    description = waypoint.description,
-                    type = waypoint.type,
-                    website = waypoint.website,
-                    elevation = waypoint.elevation,
                 )
             ) {
                 return@forEach
@@ -412,48 +370,6 @@ class GpxWaypointPoiImporter(
 
         return (hasAction && (hasDirection || hasContext)) ||
             (hasDirection && hasContext && text.length <= 180)
-    }
-
-    private fun isLikelyRealPoiWaypoint(
-        name: String?,
-        description: String?,
-        type: String?,
-        website: String?,
-        elevation: String?,
-    ): Boolean {
-        if (!website.isNullOrBlank()) return true
-
-        val cleanName = name?.trim().takeUnless { it.isNullOrBlank() } ?: ""
-        val cleanDescription = sanitizeDescription(description).orEmpty()
-        val cleanType = type?.trim().orEmpty()
-        val parsedElevation =
-            elevation
-                ?.trim()
-                ?.toDoubleOrNull()
-                ?.toInt()
-                ?.takeIf { it > 0 }
-
-        val (poiKey, poiValue) =
-            inferPoiTag(
-                type = cleanType,
-                name = cleanName,
-                description = cleanDescription,
-            )
-        if (poiKey != "tourism" || poiValue != "information") return true
-
-        val haystack =
-            "$cleanType $cleanName $cleanDescription"
-                .lowercase(Locale.ROOT)
-                .replace('’', '\'')
-        if (STRONG_POI_KEYWORDS.any { keyword -> haystack.contains(keyword) }) return true
-
-        return parsedElevation != null &&
-            (
-                "summit" in haystack ||
-                    "sommet" in haystack ||
-                    "peak" in haystack ||
-                    "col" in haystack
-            )
     }
 
     private fun normalizeInstructionText(

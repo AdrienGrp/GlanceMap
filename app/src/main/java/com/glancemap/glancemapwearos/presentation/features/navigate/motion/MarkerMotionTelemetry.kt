@@ -48,6 +48,8 @@ internal data class MarkerMotionSummary(
     val activeRenderIntervalP95Ms: Long? = null,
     val activeRenderIntervalMaxMs: Long? = null,
     val nextFixPredictionResidualM: MarkerMotionMetricSummary = MarkerMotionMetricSummary(),
+    val visibleNextFixPredictionResidualM: MarkerMotionMetricSummary = MarkerMotionMetricSummary(),
+    val screenOffNextFixPredictionResidualM: MarkerMotionMetricSummary = MarkerMotionMetricSummary(),
     val correctionComponentSamples: Int = 0,
     val correctionAlongTrackMeanM: Float? = null,
     val correctionCrossTrackMeanM: Float? = null,
@@ -73,7 +75,12 @@ internal data class MarkerMotionSummary(
             append(" drop=$outlierDrops")
             firstRenderDelayMeanMs?.let { append(" firstRender=${it}ms") }
             activeRenderIntervalMeanMs?.let { append(" renderGap=${it}ms") }
-            nextFixPredictionResidualM.p95?.let { append(" residualP95=${it.format(1)}m") }
+            visibleNextFixPredictionResidualM.p95?.let {
+                append(" visibleResidualP95=${it.format(1)}m")
+            }
+            screenOffNextFixPredictionResidualM.p95?.let {
+                append(" screenOffResidualP95=${it.format(1)}m")
+            }
             renderDisplacementPx.p95?.let { append(" renderStepP95=${it.format(1)}px") }
         }
 }
@@ -160,6 +167,8 @@ internal object MarkerMotionTelemetry {
     private var activeRenderIntervalMaxMs: Long = 0L
     private val activeRenderIntervalsMs = StreamingMetricAccumulator(RENDER_INTERVAL_BUCKETS_MS)
     private val nextFixPredictionResidualsM = StreamingMetricAccumulator(DISTANCE_BUCKETS_M)
+    private val visibleNextFixPredictionResidualsM = StreamingMetricAccumulator(DISTANCE_BUCKETS_M)
+    private val screenOffNextFixPredictionResidualsM = StreamingMetricAccumulator(DISTANCE_BUCKETS_M)
     private val correctionAlongTrackAbsM = StreamingMetricAccumulator(DISTANCE_BUCKETS_M)
     private val correctionCrossTrackAbsM = StreamingMetricAccumulator(DISTANCE_BUCKETS_M)
     private var correctionComponentSamples: Int = 0
@@ -202,6 +211,8 @@ internal object MarkerMotionTelemetry {
             activeRenderIntervalMaxMs = 0L
             activeRenderIntervalsMs.clear()
             nextFixPredictionResidualsM.clear()
+            visibleNextFixPredictionResidualsM.clear()
+            screenOffNextFixPredictionResidualsM.clear()
             correctionAlongTrackAbsM.clear()
             correctionCrossTrackAbsM.clear()
             correctionComponentSamples = 0
@@ -269,6 +280,8 @@ internal object MarkerMotionTelemetry {
             activeRenderIntervalP95Ms = activeRenderIntervalsMs.percentile(0.95f)?.toLong(),
             activeRenderIntervalMaxMs = activeRenderIntervalMaxMs.takeIf { activeRenderIntervalSamples > 0 },
             nextFixPredictionResidualM = nextFixPredictionResidualsM.summary(),
+            visibleNextFixPredictionResidualM = visibleNextFixPredictionResidualsM.summary(),
+            screenOffNextFixPredictionResidualM = screenOffNextFixPredictionResidualsM.summary(),
             correctionComponentSamples = correctionComponentSamples,
             correctionAlongTrackMeanM = correctionAlongTrackTotalM.meanOrNull(correctionComponentSamples),
             correctionCrossTrackMeanM = correctionCrossTrackTotalM.meanOrNull(correctionComponentSamples),
@@ -634,15 +647,26 @@ internal object MarkerMotionTelemetry {
         }
     }
 
-    /** Records how far the last displayed prediction was from the next accepted fix. */
+    /**
+     * Records the motion-model residual at the next accepted fix.
+     *
+     * The aggregate is retained for continuity, while visible and screen-off buckets prevent
+     * invisible screen-off catch-up from being mistaken for on-screen marker quality.
+     */
     fun recordNextFixPredictionResidual(
         residualDistanceM: Float,
         alongTrackErrorM: Float? = null,
         crossTrackErrorM: Float? = null,
+        isMarkerVisible: Boolean = true,
     ) {
         if (!shouldCollect()) return
         synchronized(lock) {
             residualDistanceM.recordNonNegativeIn(nextFixPredictionResidualsM)
+            if (isMarkerVisible) {
+                residualDistanceM.recordNonNegativeIn(visibleNextFixPredictionResidualsM)
+            } else {
+                residualDistanceM.recordNonNegativeIn(screenOffNextFixPredictionResidualsM)
+            }
             recordCorrectionComponentsLocked(alongTrackErrorM, crossTrackErrorM)
         }
     }
@@ -919,6 +943,9 @@ private fun reasonLabel(reason: String?): String? =
         "between_fixes" -> "between"
         "degraded_gps" -> "gps weak"
         "watch_gps_catch_up" -> "watch catch up"
+        "auto_fused_catch_up" -> "fused catch up"
+        "auto_fused_high_speed_catch_up" -> "fused fast catch up"
+        "screen_off_anchor" -> "screen off anchor"
         "reset" -> "reset"
         "interactive_start" -> "screen wake"
         "tracking_stopped" -> "track off"

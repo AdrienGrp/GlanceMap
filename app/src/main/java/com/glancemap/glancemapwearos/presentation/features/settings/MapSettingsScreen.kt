@@ -104,11 +104,10 @@ fun MapSettingsScreen(
                 .first { source -> source != readiness.selectedSource }
         WearActionDialog(
             visible = true,
-            title = "Using available terrain",
+            title = "Live elevation",
             message =
-                "${readiness.selectedSource.displayName} is not fully downloaded for this map. " +
-                    "Live elevation is using ${fallbackSource.displayName} where needed. " +
-                    "Download ${readiness.selectedSource.displayName} in Maps to use it instead.",
+                "${readiness.selectedSource.displayName} is not available for all of this map.\n" +
+                    "Using ${fallbackSource.displayName} instead.",
             confirmText = "OK",
             onConfirm = { fallbackTerrainNotice = null },
             onDismissRequest = { fallbackTerrainNotice = null },

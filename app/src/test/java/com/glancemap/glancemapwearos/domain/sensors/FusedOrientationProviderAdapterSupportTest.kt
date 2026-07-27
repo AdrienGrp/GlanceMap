@@ -65,14 +65,6 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
-    fun activeTurnRequiresRelativeMovementRateInsteadOfAbsoluteHeadingNoise() {
-        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.3f, elapsedMs = 20L))
-        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.5f, elapsedMs = 40L))
-        assertTrue(isActiveRelativeTurnStep(stepDeg = 1.2f, elapsedMs = 40L))
-        assertFalse(isActiveRelativeTurnStep(stepDeg = 10f, elapsedMs = 500L))
-    }
-
-    @Test
     fun lowPowerHeadingPublishingKeepsFiveHertzCadence() {
         assertFalse(
             shouldPublishFusedHeading(

@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.Executor
-import kotlin.math.abs
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class FusedOrientationProviderAdapter(
@@ -156,11 +155,14 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastFusedHeadingPublishAtElapsedMs = 0L
 
-    @Volatile private var activeTurnPublishUntilElapsedMs = 0L
-
-    @Volatile private var lastRelativeTurnHeadingDeg: Float? = null
-
-    @Volatile private var lastRelativeTurnAtElapsedMs = 0L
+    private val activeTurnPublicationTracker =
+        HeadingTurnRateHysteresis(
+            enterRateDegPerSec = FUSED_ACTIVE_TURN_ENTER_RATE_DEG_PER_SEC,
+            exitRateDegPerSec = FUSED_ACTIVE_TURN_EXIT_RATE_DEG_PER_SEC,
+            exitHoldMs = FUSED_ACTIVE_TURN_EXIT_HOLD_MS,
+            minimumEntryStepDeg = FUSED_ACTIVE_TURN_MIN_STEP_DEG,
+            maximumSampleGapMs = FUSED_ACTIVE_TURN_MAX_SAMPLE_GAP_MS,
+        )
 
     @Volatile private var lastConfirmedFusedSampleElapsedRealtimeMs = 0L
 
@@ -310,9 +312,7 @@ internal class FusedOrientationProviderAdapter(
         )
         latestIntegritySnapshot = headingIntegrityEngine.snapshot()
         lastFusedHeadingPublishAtElapsedMs = 0L
-        activeTurnPublishUntilElapsedMs = 0L
-        lastRelativeTurnHeadingDeg = null
-        lastRelativeTurnAtElapsedMs = 0L
+        activeTurnPublicationTracker.reset()
         lastConfirmedFusedSampleElapsedRealtimeMs = 0L
         fusedStaleRecoveryAttempted = false
         fusedStaleRecoveryStartedAtElapsedMs = 0L
@@ -551,9 +551,7 @@ internal class FusedOrientationProviderAdapter(
     ) {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         lastFusedHeadingPublishAtElapsedMs = 0L
-        activeTurnPublishUntilElapsedMs = 0L
-        lastRelativeTurnHeadingDeg = null
-        lastRelativeTurnAtElapsedMs = 0L
+        activeTurnPublicationTracker.reset()
         markHeadingPendingRestart(
             preserveRecentFusedHeading = preserveRecentFusedHeading,
         )
@@ -598,7 +596,6 @@ internal class FusedOrientationProviderAdapter(
                             horizontalProjection = witness.horizontalProjection,
                         )
                 } else {
-                    updateActiveTurnPublicationState(headingDeg, atElapsedMs)
                     latestIntegritySnapshot =
                         headingIntegrityEngine.onRelativeHeading(
                             headingDeg = headingDeg,
@@ -736,6 +733,10 @@ internal class FusedOrientationProviderAdapter(
             atElapsedMs = arrivalElapsedMs,
         )
         val renderHeadingDeg = snapshot.renderHeadingDeg ?: return
+        activeTurnPublicationTracker.update(
+            headingDeg = renderHeadingDeg,
+            atElapsedMs = arrivalElapsedMs,
+        )
         if (firstUsableForRequest) {
             forcePublishFusedHeading(
                 displayHeading = renderHeadingDeg,
@@ -856,8 +857,7 @@ internal class FusedOrientationProviderAdapter(
     ) {
         val activeTurn =
             !lowPowerMode &&
-                latestIntegritySnapshot.relativeWitnessSupportsHighRate &&
-                nowElapsedMs <= activeTurnPublishUntilElapsedMs
+                activeTurnPublicationTracker.active
         if (
             !shouldPublishFusedHeading(
                 nowElapsedMs = nowElapsedMs,
@@ -880,23 +880,6 @@ internal class FusedOrientationProviderAdapter(
         updateHeadingSourceState(HeadingSource.FUSED_ORIENTATION)
         lastFusedHeadingPublishAtElapsedMs = nowElapsedMs
         recordFusedPerfHeadingPublish(nowElapsedMs, activeTurn)
-    }
-
-    private fun updateActiveTurnPublicationState(
-        relativeHeadingDeg: Float,
-        atElapsedMs: Long,
-    ) {
-        val previousHeadingDeg = lastRelativeTurnHeadingDeg
-        val previousAtElapsedMs = lastRelativeTurnAtElapsedMs
-        lastRelativeTurnHeadingDeg = relativeHeadingDeg
-        lastRelativeTurnAtElapsedMs = atElapsedMs
-        if (lowPowerMode || previousHeadingDeg == null || previousAtElapsedMs <= 0L) return
-        val elapsedMs = atElapsedMs - previousAtElapsedMs
-        if (elapsedMs !in 1L..FUSED_ACTIVE_TURN_MAX_SAMPLE_GAP_MS) return
-        val stepDeg = abs(shortestAngleDiffDeg(relativeHeadingDeg, previousHeadingDeg))
-        if (isActiveRelativeTurnStep(stepDeg, elapsedMs)) {
-            activeTurnPublishUntilElapsedMs = atElapsedMs + FUSED_ACTIVE_TURN_PUBLISH_HOLD_MS
-        }
     }
 
     private fun forcePublishFusedHeading(
@@ -1331,9 +1314,10 @@ private const val FUSED_NORMAL_PUBLISH_MIN_INTERVAL_MS = 40L // 25 Hz
 private const val FUSED_ACTIVE_TURN_PUBLISH_MIN_INTERVAL_MS = 20L // 50 Hz
 private const val FUSED_LOW_POWER_PUBLISH_MIN_INTERVAL_MS = 180L
 private const val FUSED_ACTIVE_TURN_MIN_STEP_DEG = 0.4f
-private const val FUSED_ACTIVE_TURN_MIN_RATE_DEG_PER_SEC = 30f
+private const val FUSED_ACTIVE_TURN_ENTER_RATE_DEG_PER_SEC = 30f
+private const val FUSED_ACTIVE_TURN_EXIT_RATE_DEG_PER_SEC = 15f
+private const val FUSED_ACTIVE_TURN_EXIT_HOLD_MS = 300L
 private const val FUSED_ACTIVE_TURN_MAX_SAMPLE_GAP_MS = 300L
-private const val FUSED_ACTIVE_TURN_PUBLISH_HOLD_MS = 300L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES = 5
@@ -1356,14 +1340,4 @@ internal fun shouldPublishFusedHeading(
             FUSED_NORMAL_PUBLISH_MIN_INTERVAL_MS
         }
     return nowElapsedMs - lastPublishAtElapsedMs >= minimumIntervalMs
-}
-
-internal fun isActiveRelativeTurnStep(
-    stepDeg: Float,
-    elapsedMs: Long,
-): Boolean {
-    if (!stepDeg.isFinite() || elapsedMs !in 1L..FUSED_ACTIVE_TURN_MAX_SAMPLE_GAP_MS) return false
-    val rateDegPerSec = abs(stepDeg) * 1_000f / elapsedMs
-    return abs(stepDeg) >= FUSED_ACTIVE_TURN_MIN_STEP_DEG &&
-        rateDegPerSec >= FUSED_ACTIVE_TURN_MIN_RATE_DEG_PER_SEC
 }
