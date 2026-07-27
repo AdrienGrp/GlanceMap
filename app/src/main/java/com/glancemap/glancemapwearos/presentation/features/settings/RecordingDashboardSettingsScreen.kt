@@ -15,9 +15,12 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MAX_PAGE_COUNT
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MIN_PAGE_COUNT
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.defaultRecordingDashboardMetricSlotsForProfile
+import com.glancemap.glancemapwearos.data.repository.newRecordingDashboardPageMetricSlotsForProfile
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptions
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptionsForProfile
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
@@ -27,7 +30,13 @@ fun RecordingDashboardSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val dashboardMetricSlots by viewModel.recordingDashboardMetricSlots.collectAsState()
-    val dashboardSlots = normalizeRecordingDashboardMetricSlots(dashboardMetricSlots)
+    val activityProfile by viewModel.activityProfile.collectAsState()
+    val dashboardSlots =
+        normalizeRecordingDashboardMetricSlots(
+            metricSlots = dashboardMetricSlots,
+            defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(activityProfile),
+            newPageMetricSlots = newRecordingDashboardPageMetricSlotsForProfile(activityProfile),
+        )
     val dashboardPageCount = dashboardSlots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
     var selectedDashboardPage by remember { mutableStateOf(0) }
     var pendingAddedPage by remember { mutableStateOf<Int?>(null) }
@@ -61,6 +70,12 @@ fun RecordingDashboardSettingsScreen(
             RecordingDashboardPageSwitcher(
                 pageIndex = selectedDashboardPage,
                 pageCount = dashboardPageCount,
+                dashboardLabel =
+                    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                        "Bike"
+                    } else {
+                        "Hike"
+                    },
                 onClick = {
                     selectedDashboardPage = (selectedDashboardPage + 1) % dashboardPageCount
                 },
@@ -107,6 +122,7 @@ fun RecordingDashboardSettingsScreen(
     }
     RecordingDashboardInfoDialog(
         visible = showInfoDialog,
+        activityProfile = activityProfile,
         onDismiss = { showInfoDialog = false },
     )
     selectedDashboardSlot?.let { slotIndex ->
@@ -114,7 +130,7 @@ fun RecordingDashboardSettingsScreen(
             visible = true,
             title = RECORDING_DASHBOARD_SLOT_LABELS[slotIndex % RECORDING_DASHBOARD_PAGE_SLOT_COUNT],
             selectedValue = dashboardSlots[slotIndex],
-            options = recordingMetricPickerOptions,
+            options = recordingMetricPickerOptionsForProfile(activityProfile),
             onDismiss = { selectedDashboardSlot = null },
             onSelect = { metricId ->
                 viewModel.setRecordingDashboardMetricSlot(slotIndex, metricId)
@@ -128,16 +144,27 @@ fun RecordingDashboardSettingsScreen(
     }
 }
 
+@Suppress("FunctionNaming") // Compose functions use PascalCase by convention.
 @Composable
 private fun RecordingDashboardInfoDialog(
     visible: Boolean,
+    activityProfile: String,
     onDismiss: () -> Unit,
 ) {
     WearHelpDialog(
         visible = visible,
-        title = "Dashboard",
+        title =
+            if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                "Bike dashboard"
+            } else {
+                "Hike dashboard"
+            },
         onDismiss = onDismiss,
-        lines = listOf("In the REC popup, long press any metric to change it."),
+        lines =
+            listOf(
+                "Hike and Bike keep separate dashboards.",
+                "In the REC popup, long press any metric to change it.",
+            ),
     )
 }
 

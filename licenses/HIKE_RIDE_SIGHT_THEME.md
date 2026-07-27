@@ -1,6 +1,6 @@
 # Hike, Ride & Sight Theme
 
-Last reviewed: 2026-04-28
+Last reviewed: 2026-07-11
 
 This note tracks the bundled Hike, Ride & Sight Mapsforge render theme used by GlanceMap.
 
@@ -27,11 +27,11 @@ This note tracks the bundled Hike, Ride & Sight Mapsforge render theme used by G
 
 ## Snapshot information
 
-- Snapshot reviewed from the author ZIP dated:
-  - 2026-04-24 content snapshot
-- Current ZIP SHA-256 observed on 2026-04-28:
-  - `23eeb1d04119664aa1a8ed31372337668850734cd2c6682bc6bce00937338099`
-- Observed archive contents on 2026-04-28:
+- Snapshot refreshed from the author ZIP:
+  - XML dated 2026-05-31 in the package
+- Current ZIP SHA-256 observed on 2026-07-11:
+  - `6f82216d598d5bd85586cc6007bca5f2494279036cfc0af47990239fef3c392c`
+- Observed archive contents on 2026-07-11:
   - `Hike, Ride & Sight!.xml`
   - `PATTERNS/`
   - `SYMBOLS/`

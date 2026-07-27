@@ -177,6 +177,7 @@ internal class LocationCallbackProcessor(
             engine.filterLocationForOutput(
                 location = acceptedLocation,
                 nowElapsedMs = nowElapsedMs,
+                deliveredSourceMode = callbackOrigin,
             ),
             nowElapsedMs,
         )

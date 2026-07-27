@@ -1,6 +1,6 @@
 # OpenHiking Theme
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-07-11
 
 This note tracks the bundled OpenHiking Mapsforge render theme used by GlanceMap.
 
@@ -22,9 +22,9 @@ This note tracks the bundled OpenHiking Mapsforge render theme used by GlanceMap
 ## Snapshot information
 
 - Pinned upstream version in project config:
-  - `2026-02-10`
+  - `2026-05-17`
 - ZIP SHA-256 recorded in `gradle.properties`:
-  - `e923421c2143c1e937c5239a8166e2986f769d97683735ae6d8dc3eb3dedacee`
+  - `bd62c6d219bc2ed035975e33262506b14ee0b60daad97dfc96aa2d2ca18cb2ba`
 
 ## License and redistribution status
 

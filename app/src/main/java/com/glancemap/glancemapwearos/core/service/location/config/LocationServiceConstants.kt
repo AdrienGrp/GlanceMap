@@ -4,7 +4,7 @@ internal const val NOTIFICATION_ID = 1
 internal const val CHANNEL_ID = "LocationServiceChannel"
 internal const val TELEMETRY_TAG = "LocTelemetry"
 internal const val TELEMETRY_SUMMARY_INTERVAL_MS = 15_000L
-internal const val ENERGY_SAMPLE_INTERVAL_MS = 45_000L
+internal const val ENERGY_SAMPLE_INTERVAL_MS = 60_000L
 
 internal const val JITTER_THRESHOLD_MOVING = 2.0f
 internal const val JITTER_THRESHOLD_STATIONARY = 8.0f
@@ -17,13 +17,18 @@ internal const val MAX_USER_INTERVAL_MS = 120_000L
 internal const val FOREGROUND_MIN_DISTANCE_M = 1f
 internal const val BACKGROUND_MIN_DISTANCE_M = 5f
 
+// Keep auto-resume responsive without spending the normal REC cadence while stationary.
+internal const val AUTO_PAUSE_GPS_INTERVAL_MS = 5_000L
+internal const val AUTO_PAUSE_PROLONGED_GPS_INTERVAL_MS = 12_000L
+internal const val AUTO_PAUSE_PROLONGED_AFTER_MS = 60_000L
+internal const val AUTO_PAUSE_MIN_DISTANCE_M = 5f
+internal const val SCREEN_OFF_RECORDING_MAX_BATCH_DELAY_MS = 15_000L
+
 internal const val HIGH_ACCURACY_BURST_DURATION = 8_000L
+internal const val HIGH_ACCURACY_BURST_INITIAL_DURATION = 4_000L
 internal const val HIGH_ACCURACY_BURST_INTERVAL = 1_000L
 internal const val HIGH_ACCURACY_BURST_EARLY_STOP_ACCURACY_M = 20f
-internal const val HIGH_ACCURACY_BURST_EARLY_STOP_MAX_AGE_MS = 6_000L
 internal const val WAKE_BURST_START_DEBOUNCE_MS = 350L
-internal const val STRICT_FRESH_FIX_MIN_AGE_MS = 6_000L
-internal const val STRICT_FRESH_FIX_INTERVAL_MULTIPLIER = 2L
 internal const val BIND_CACHED_FIX_MAX_ACCURACY_M = 35f
 internal const val BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M = 80f
 internal const val BIND_CACHED_FIX_MIN_MAX_AGE_MS = 6_000L

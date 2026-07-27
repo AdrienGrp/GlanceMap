@@ -425,6 +425,18 @@ internal fun compassProviderModeLabel(mode: String): String =
         CompassProviderType.GOOGLE_FUSED -> "Google Fused (default)"
     }
 
+internal fun usesAutomaticGoogleNorthReference(
+    providerType: CompassProviderType,
+): Boolean = providerType == CompassProviderType.GOOGLE_FUSED
+
+internal fun automaticNorthReferenceStatusLabel(
+    activeProviderType: CompassProviderType,
+): String =
+    when (activeProviderType) {
+        CompassProviderType.GOOGLE_FUSED -> "Automatic (Google)"
+        CompassProviderType.SENSOR_MANAGER -> "True north (sensor fallback)"
+    }
+
 internal fun compassProviderStatusLabel(
     requestedMode: String,
     activeProviderType: CompassProviderType,
@@ -456,6 +468,7 @@ internal fun northReferenceStatusSecondaryLabel(
 ): String {
     val requestedLabel = northReferenceModeLabel(requestedMode)
     return when {
+        status.automaticByProvider -> "Automatic (Google)"
         status.waitingForDeclination && status.requestedMode == NorthReferenceMode.TRUE ->
             "$requestedLabel (waiting for location)"
         status.waitingForDeclination && status.requestedMode == NorthReferenceMode.MAGNETIC ->

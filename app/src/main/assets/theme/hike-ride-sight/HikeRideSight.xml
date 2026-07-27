@@ -1155,6 +1155,17 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 </rule>
 
 <!-- protected areas -->
+<!-- note: the protected cat is used to fill the areas on low zoom levels,
+but we always draw the contour -->
+<rule e="any" k="boundary|leisure" v="protected_area|national_park|nature_reserve">
+	<rule e="way" k="protect_class" v="pr_1|pr_2|pr_3|pr_4|pr_5|pr_6|pr_7|pr_97|pr_98|pr_99|~" zoom-min="15">
+		<line stroke="#257F7FFF" stroke-width="1.7" stroke-linecap="round"/>
+		<line stroke="#7f7F7FFF" stroke-width="0.5" dy="-1" stroke-linecap="round"/>
+		<rule e="any" k="bBoxWeight" v="small|xsmall|tiny" zoom-min="14">
+			<caption k="name" dy="15" priority="110" font-style="bold_italic" font-size="10" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
+		</rule>
+	</rule>
+</rule>
 <rule cat="protected" e="any" k="boundary|leisure" v="protected_area|national_park|nature_reserve">
 	<rule e="way" k="protect_class" v="pr_1|pr_2|pr_3|pr_4|pr_5|pr_6|pr_7|pr_97|pr_98|pr_99|~">
 		<rule e="way" k="*" v="*" zoom-min="8" zoom-max="9">	<area fill="#4a7F7FFF"/>											</rule>
@@ -1177,41 +1188,26 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 		</rule>
 	</rule>
 	<rule cat="placenames" e="node" k="protect_class" v="pr_1|pr_2|pr_3|pr_4|pr_5|pr_6|pr_7|pr_97|pr_98|pr_99|~">
-		<!-- only show captions up to zoom 15, as we don't draw the area higher -->
-		<rule e="node" k="bBoxWeight" v="xxxlarge|xxlarge">
-			<rule e="node" k="*" v="*" zoom-min="13" zoom-max="15">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="15" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
-			<rule e="node" k="*" v="*" zoom-min="11" zoom-max="12">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="12" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
-			<rule e="node" k="*" v="*" zoom-min="9" zoom-max="10">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="9" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
+		<rule e="any" k="bBoxWeight" v="xxxlarge|xxlarge" zoom-max="8" zoom-min="7">
+			<caption k="name" dy="15" font-style="bold_italic" font-size="10" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
 		</rule>
-		<rule e="node" k="bBoxWeight" v="xlarge|large">
-			<rule e="node" k="*" v="*" zoom-min="15">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="15" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
-			<rule e="node" k="*" v="*" zoom-min="13" zoom-max="14">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="12" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
-			<rule e="node" k="*" v="*" zoom-min="11" zoom-max="12">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="9" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
+		<rule e="any" k="bBoxWeight" v="xlarge" zoom-max="8" zoom-min="8">
+			<caption k="name" dy="15" font-style="bold_italic" font-size="10" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
 		</rule>
-		<rule e="node" k="bBoxWeight" v="mid|~|small">
-			<rule e="node" k="*" v="*" zoom-min="15" zoom-max="15">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="12" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
-			<rule e="node" k="*" v="*" zoom-min="13" zoom-max="14">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="9" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
+		<rule e="any" k="bBoxWeight" v="xxxlarge|xxlarge|xlarge" zoom-max="10" zoom-min="9">
+			<caption k="name" dy="15" font-style="bold_italic" font-size="12" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
 		</rule>
-		<rule e="node" k="bBoxWeight" v="xsmall|tiny">
-			<rule e="node" k="*" v="*" zoom-min="15" zoom-max="15">
-				<caption k="name" dy="15" font-style="bold_italic" font-size="9" fill="#6F996F" stroke="#FFFFFF" stroke-width="2" />
-			</rule>
+		<rule e="any" k="bBoxWeight" v="xxxlarge|xxlarge|xlarge" zoom-min="11">
+			<caption k="name" dy="15" priority="110" font-style="bold_italic" font-size="14" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
+		</rule>
+		<rule e="any" k="bBoxWeight" v="large" zoom-min="11">
+			<caption k="name" dy="15" priority="110" font-style="bold_italic" font-size="13" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
+		</rule>
+		<rule e="any" k="bBoxWeight" v="mid|~" zoom-min="13">
+			<caption k="name" dy="15" priority="110" font-style="bold_italic" font-size="11" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
+		</rule>
+		<rule e="any" k="bBoxWeight" v="small|xsmall|tiny" zoom-min="14" zoom-max="14">
+			<caption k="name" dy="15" priority="110" font-style="bold_italic" font-size="10" fill="#7F7FFF" stroke="#FFFFFF" stroke-width="2" />
 		</rule>
 	</rule>
 </rule>
@@ -2836,8 +2832,10 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 	<area fill="#BBAAAAAA" stroke="#777777" stroke-width="0.1"/>
 	<rule e="way" k="tourism" v="-|alpine_hut|wilderness_hut|hotel|motel|hostel|guest_house|chalet|apartment|camp_site|caravan_site|artwork|information|attraction|zoo">
 		<rule e="way" k="historic" v="-|castle|ruins">
-			<rule cat="placenames" e="way" k="*" v="*" zoom-min="16">
-				<caption k="name" dy="-20" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+			<rule e="way" k="building" v="-|castle|ruins">
+				<rule cat="placenames" e="way" k="*" v="*" zoom-min="16">
+					<caption k="name" dy="-20" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+				</rule>
 			</rule>
 		</rule>
 	</rule>
@@ -3379,7 +3377,12 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 	</rule>
 </rule>
 <rule cat="placenames" e="any" k="*" v="ruins|castle" zoom-min="15">
-	<caption k="name" dy="-15" display="always" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+	<rule e="way" k="*" v="*">
+		<caption k="name" display="always" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+	</rule>
+	<rule e="node" k="*" v="*">
+		<caption k="name" dy="-15" display="always" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+	</rule>
 </rule>
 <rule e="any" k="tourism" v="information">
 	<rule e="any" k="information" v="yes|~" zoom-min="15">

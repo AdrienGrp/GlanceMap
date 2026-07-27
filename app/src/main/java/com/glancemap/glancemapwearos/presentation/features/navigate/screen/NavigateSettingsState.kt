@@ -101,7 +101,7 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
         initial = SettingsRepository.DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED,
     )
     val turnByTurnTurnAlertsMode by settingsViewModel.turnByTurnTurnAlertsMode.collectAsState(
-        initial = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+        initial = SettingsRepository.DEFAULT_TURN_BY_TURN_TURN_ALERTS_MODE,
     )
     val turnByTurnOffRouteAlertsEnabled by settingsViewModel.turnByTurnOffRouteAlertsEnabled.collectAsState(
         initial = true,

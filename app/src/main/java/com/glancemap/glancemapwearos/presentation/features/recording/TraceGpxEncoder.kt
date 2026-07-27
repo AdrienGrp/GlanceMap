@@ -62,12 +62,14 @@ internal fun recordedTraceSegments(points: List<RecordedTracePoint>): List<List<
 data class RecordedTraceSummary(
     val activityProfile: String?,
     val durationSeconds: Double,
+    val totalDurationSeconds: Double,
     val distanceMeters: Double,
     val elevationGainMeters: Double,
     val elevationLossMeters: Double,
     val currentElevationMeters: Double?,
     val currentSpeedMps: Float?,
     val averageSpeedMps: Double?,
+    val fastestSpeedMps: Double?,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int,
     val gpsActiveDurationSeconds: Double,
@@ -81,17 +83,38 @@ data class RecordedTraceSummary(
     val cyclingPowerSampleSegments: Int,
     val cyclingPhysicsSegments: Int,
     val heartRateBpm: Int?,
+    val averageHeartRateBpm: Int?,
+    val maxHeartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
+    val averageCadenceSpm: Int?,
+    val maxCadenceSpm: Int?,
     val powerWatts: Int?,
+    val averagePowerWatts: Int?,
+    val maxPowerWatts: Int?,
     val barometricPressureHpa: Double?,
+    val recordingTrackSmoothingMode: String? = null,
+    val recordingTrackFilterVersion: Int? = null,
 )
 
 private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceSummary) {
+    writeRecordingMotionSummary(summary)
+    writeRecordingEnergySummary(summary)
+    writeRecordingSensorSummary(summary)
+}
+
+private fun StringWriter.writeRecordingMotionSummary(summary: RecordedTraceSummary) {
     summary.activityProfile?.takeIf { it.isNotBlank() }?.let {
         textTag("gmap:activityProfile", it)
     }
+    summary.recordingTrackSmoothingMode?.takeIf { it.isNotBlank() }?.let {
+        textTag("gmap:recordingTrackSmoothingMode", it)
+    }
+    summary.recordingTrackFilterVersion?.takeIf { it > 0 }?.let {
+        textTag("gmap:recordingTrackFilterVersion", it.toString())
+    }
     textTag("gmap:durationSeconds", formatDouble(summary.durationSeconds))
+    textTag("gmap:totalDurationSeconds", formatDouble(summary.totalDurationSeconds))
     textTag("gmap:distanceMeters", formatDouble(summary.distanceMeters))
     textTag("gmap:elevationGainMeters", formatDouble(summary.elevationGainMeters))
     textTag("gmap:elevationLossMeters", formatDouble(summary.elevationLossMeters))
@@ -104,6 +127,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.averageSpeedMps?.takeIf { it.isFinite() && it >= 0.0 }?.let {
         textTag("gmap:averageSpeedMps", formatDouble(it))
     }
+    summary.fastestSpeedMps?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+        textTag("gmap:fastestSpeedMps", formatDouble(it))
+    }
     summary.gpsAccuracyMeters?.takeIf { it.isFinite() && it >= 0f }?.let {
         textTag("gmap:gpsAccuracyMeters", formatFloat(it))
     }
@@ -111,6 +137,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     textTag("gmap:gpsActiveDurationSeconds", formatDouble(summary.gpsActiveDurationSeconds))
     textTag("gmap:recordingGapCount", summary.recordingGapCount.coerceAtLeast(0).toString())
     textTag("gmap:recordingMaxGapSeconds", formatDouble(summary.recordingMaxGapSeconds))
+}
+
+private fun StringWriter.writeRecordingEnergySummary(summary: RecordedTraceSummary) {
     textTag("gmap:caloriesGrossKcal", formatDouble(summary.caloriesGrossKcal))
     textTag("gmap:caloriesActiveKcal", formatDouble(summary.caloriesActiveKcal))
     textTag("gmap:caloriesRestingKcal", formatDouble(summary.caloriesRestingKcal))
@@ -126,8 +155,17 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.cyclingPhysicsSegments.takeIf { it > 0 }?.let {
         textTag("gmap:cyclingPhysicsSegments", it.toString())
     }
+}
+
+private fun StringWriter.writeRecordingSensorSummary(summary: RecordedTraceSummary) {
     summary.heartRateBpm?.takeIf { it > 0 }?.let {
         textTag("gmap:heartRateBpm", it.toString())
+    }
+    summary.averageHeartRateBpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:averageHeartRateBpm", it.toString())
+    }
+    summary.maxHeartRateBpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:maxHeartRateBpm", it.toString())
     }
     summary.stepCount?.takeIf { it >= 0 }?.let {
         textTag("gmap:stepCount", it.toString())
@@ -135,8 +173,20 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.cadenceSpm?.takeIf { it > 0 }?.let {
         textTag("gmap:cadenceSpm", it.toString())
     }
+    summary.averageCadenceSpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:averageCadenceSpm", it.toString())
+    }
+    summary.maxCadenceSpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:maxCadenceSpm", it.toString())
+    }
     summary.powerWatts?.takeIf { it >= 0 }?.let {
         textTag("gmap:powerWatts", it.toString())
+    }
+    summary.averagePowerWatts?.takeIf { it >= 0 }?.let {
+        textTag("gmap:averagePowerWatts", it.toString())
+    }
+    summary.maxPowerWatts?.takeIf { it >= 0 }?.let {
+        textTag("gmap:maxPowerWatts", it.toString())
     }
     summary.barometricPressureHpa?.takeIf { it.isFinite() && it > 0.0 }?.let {
         textTag("gmap:pressureHpa", formatDouble(it))
@@ -219,11 +269,20 @@ private fun StringWriter.textTag(
     append(">")
 }
 
-internal fun buildRecordingFileName(nowMillis: Long): String = "Recording-${RECORDING_FILE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}.gpx"
+internal fun buildRecordingFileName(
+    startedAtMillis: Long,
+    endedAtMillis: Long,
+): String = buildRecordingFileNameFromTitle(buildRecordingTitle(startedAtMillis, endedAtMillis))
 
 internal fun buildRecordingFileNameFromTitle(title: String): String = "${sanitizeRecordingFileStem(title)}.gpx"
 
-internal fun buildRecordingTitle(nowMillis: Long): String = "Recording ${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}"
+internal fun buildRecordingTitle(
+    startedAtMillis: Long,
+    endedAtMillis: Long,
+): String =
+    "${RECORDING_TITLE_DATE_FORMAT.format(Instant.ofEpochMilli(startedAtMillis))} " +
+        "${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(startedAtMillis))} " +
+        RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(endedAtMillis))
 
 private fun formatCoordinate(value: Double): String = String.format(Locale.US, "%.8f", value)
 
@@ -254,14 +313,14 @@ private fun sanitizeRecordingFileStem(input: String): String =
         .trim('-')
         .ifBlank { "Recording" }
 
-private val RECORDING_FILE_TIME_FORMAT: DateTimeFormatter =
-    DateTimeFormatter
-        .ofPattern("yyyyMMdd-HHmmss")
-        .withZone(java.time.ZoneId.systemDefault())
-
 private val RECORDING_TITLE_TIME_FORMAT: DateTimeFormatter =
     DateTimeFormatter
-        .ofPattern("yyyy-MM-dd HH:mm")
+        .ofPattern("HH:mm")
+        .withZone(java.time.ZoneId.systemDefault())
+
+private val RECORDING_TITLE_DATE_FORMAT: DateTimeFormatter =
+    DateTimeFormatter
+        .ofPattern("yyyy-MM-dd")
         .withZone(java.time.ZoneId.systemDefault())
 
 private const val GLANCEMAP_GPX_EXTENSION_NAMESPACE = "https://glancemap.app/gpx/extensions/1"

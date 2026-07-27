@@ -21,9 +21,19 @@ class ExternalRunPodClient(
     private val address: String,
     private val wheelCircumferenceMeters: Double = SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS.toDouble(),
     private val onMeasurement: (ExternalRunPodMeasurement) -> Unit,
+    private val onUnavailable: () -> Unit = {},
+    private val autoReconnect: Boolean = false,
 ) {
     private val cscDecoder = CyclingSpeedCadenceDecoder(wheelCircumferenceMeters)
-    private val client =
+    private var telemetrySampleCount = 0
+    private var telemetryPowerSampleCount = 0
+    private val reconnectController =
+        ExternalSensorReconnectController(
+            logTag = "ExternalRunPod",
+            autoReconnect = autoReconnect,
+            connect = { client.connect() },
+        )
+    private val client: ExternalBleGattClient by lazy(LazyThreadSafetyMode.NONE) {
         ExternalBleGattClient(
             context = context,
             address = address,
@@ -36,6 +46,12 @@ class ExternalRunPodClient(
                     BleCharacteristicRef(CYCLING_POWER_SERVICE_UUID, CYCLING_POWER_MEASUREMENT_UUID),
                     BleCharacteristicRef(STRYD_CUSTOM_SERVICE_PRIMARY_UUID, STRYD_CUSTOM_NOTIFY_PRIMARY_UUID),
                     BleCharacteristicRef(STRYD_CUSTOM_SERVICE_SECONDARY_UUID, STRYD_CUSTOM_NOTIFY_SECONDARY_UUID),
+                ),
+            readyMeasurementUuids =
+                setOf(
+                    RSC_MEASUREMENT_UUID,
+                    CSC_MEASUREMENT_UUID,
+                    CYCLING_POWER_MEASUREMENT_UUID,
                 ),
             readCharacteristics =
                 listOf(
@@ -57,22 +73,32 @@ class ExternalRunPodClient(
             onCharacteristicRead = ::handleRead,
             onConnectionChanged = { connected ->
                 ExternalSensorConnectionStatus.update(address, connected)
-                if (!connected) {
+                if (connected) {
+                    reconnectController.markReady()
+                } else {
                     ExternalRunPodRuntimeStatus.markDisconnected(address)
                 }
             },
+            onDisconnected = { event ->
+                onUnavailable()
+                reconnectController.onDisconnected(event)
+            },
             onMeasurement = ::handleMeasurement,
         )
+    }
 
     fun connect() {
+        reconnectController.start()
         client.connect()
     }
 
     fun disconnect() {
+        reconnectController.stop()
         client.disconnect()
     }
 
     private fun logGattTable(services: List<BluetoothGattService>) {
+        if (!DebugTelemetry.isEnabled()) return
         DebugTelemetry.log("ExternalRunPod", "event=gatt_table serviceCount=${services.size}")
         services.take(MAX_GATT_SERVICES_TO_LOG).forEach { service ->
             DebugTelemetry.log(
@@ -97,43 +123,60 @@ class ExternalRunPodClient(
             RSC_MEASUREMENT_UUID -> {
                 val measurement = decodeRscMeasurement(value) ?: return
                 onMeasurement(measurement)
-                DebugTelemetry.log(
-                    "ExternalRunPod",
-                    "event=sample speedMps=${measurement.speedMps?.let { formatTelemetryFloat(it) } ?: "na"} " +
-                        "cadenceSpm=${measurement.cadenceSpm ?: -1} " +
-                        "rawDistanceUnits=${measurement.rawTotalDistanceUnits ?: -1} " +
-                        "distanceMeters=${measurement.totalDistanceMeters?.let { formatTelemetryDouble(it) } ?: "na"} " +
-                        "source=rsc",
-                )
+                logMeasurementSample(measurement, source = "rsc")
             }
             CSC_MEASUREMENT_UUID -> {
                 val measurement =
                     cscDecoder.decode(value, timeMillis = System.currentTimeMillis())
                         ?: return
                 onMeasurement(measurement)
-                DebugTelemetry.log(
-                    "ExternalRunPod",
-                    "event=sample speedMps=${measurement.speedMps?.let { formatTelemetryFloat(it) } ?: "na"} " +
-                        "cadenceSpm=${measurement.cadenceSpm ?: -1} " +
-                        "rawDistanceUnits=${measurement.rawTotalDistanceUnits ?: -1} " +
-                        "distanceMeters=${measurement.totalDistanceMeters?.let { formatTelemetryDouble(it) } ?: "na"} " +
-                        "wheelCircumferenceM=${formatTelemetryDouble(wheelCircumferenceMeters)} " +
-                        "source=csc raw=${value.toHexSnippet()}",
-                )
+                logMeasurementSample(measurement, source = "csc", raw = value)
             }
             CYCLING_POWER_MEASUREMENT_UUID -> {
                 val measurement = decodeCyclingPowerMeasurement(value) ?: return
                 onMeasurement(measurement)
                 ExternalRunPodRuntimeStatus.updatePower(address, measurement.powerWatts, measurement.timeMillis)
-                DebugTelemetry.log(
-                    "ExternalRunPod",
-                    "event=power_sample powerWatts=${measurement.powerWatts ?: -1} raw=${value.toHexSnippet()}",
-                )
+                if (DebugTelemetry.isEnabled()) {
+                    telemetryPowerSampleCount += 1
+                    if (shouldLogExternalSensorSample(telemetryPowerSampleCount)) {
+                        DebugTelemetry.log(
+                            "ExternalRunPod",
+                            "event=power_sample count=$telemetryPowerSampleCount " +
+                                "powerWatts=${measurement.powerWatts ?: -1} raw=${value.toHexSnippet()}",
+                        )
+                    }
+                }
             }
             STRYD_CUSTOM_NOTIFY_PRIMARY_UUID,
             STRYD_CUSTOM_NOTIFY_SECONDARY_UUID,
             -> logCustomNotification(characteristicUuid, value)
         }
+    }
+
+    private fun logMeasurementSample(
+        measurement: ExternalRunPodMeasurement,
+        source: String,
+        raw: ByteArray? = null,
+    ) {
+        if (!DebugTelemetry.isEnabled()) return
+        telemetrySampleCount += 1
+        if (!shouldLogExternalSensorSample(telemetrySampleCount)) return
+        val sourceDetails =
+            if (source == "csc") {
+                " wheelCircumferenceM=${formatTelemetryDouble(wheelCircumferenceMeters)} " +
+                    "raw=${raw?.toHexSnippet() ?: "na"}"
+            } else {
+                ""
+            }
+        DebugTelemetry.log(
+            "ExternalRunPod",
+            "event=sample count=$telemetrySampleCount " +
+                "speedMps=${measurement.speedMps?.let { formatTelemetryFloat(it) } ?: "na"} " +
+                "cadenceSpm=${measurement.cadenceSpm ?: -1} " +
+                "rawDistanceUnits=${measurement.rawTotalDistanceUnits ?: -1} " +
+                "distanceMeters=${measurement.totalDistanceMeters?.let { formatTelemetryDouble(it) } ?: "na"} " +
+                "source=$source$sourceDetails",
+        )
     }
 
     private fun handleRead(
@@ -200,6 +243,7 @@ class ExternalRunPodClient(
         characteristicUuid: UUID,
         value: ByteArray,
     ) {
+        if (!DebugTelemetry.isEnabled()) return
         val count = (customNotificationCounts[characteristicUuid] ?: 0) + 1
         customNotificationCounts[characteristicUuid] = count
         if (count <= CUSTOM_RAW_LOG_INITIAL_SAMPLES || count % CUSTOM_RAW_LOG_INTERVAL == 0) {

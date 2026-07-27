@@ -257,38 +257,6 @@ class CompassManagerMathTest {
     }
 
     @Test
-    fun resolveLargeJumpActionAcceptsImmediatelyDuringRelock() {
-        val action =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = true,
-                hasPendingLargeJump = false,
-                pendingDeltaDeg = Float.NaN,
-            )
-        assertEquals(LargeJumpAction.ACCEPT_IMMEDIATE, action)
-    }
-
-    @Test
-    fun resolveLargeJumpActionRequiresCoherentConfirmationOutsideRelock() {
-        val confirmed =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 20f,
-            )
-        val rejected =
-            resolveLargeJumpAction(
-                jumpDeg = 140f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 60f,
-            )
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, confirmed)
-        assertEquals(LargeJumpAction.REJECT_PENDING, rejected)
-    }
-
-    @Test
     fun resolveStartupTransientActionFirstSampleAwaitsConfirmation() {
         val decision =
             resolveStartupTransientAction(
@@ -343,7 +311,7 @@ class CompassManagerMathTest {
     }
 
     @Test
-    fun resolveStartupTransientActionStopsFilteringAfterBudgetExpires() {
+    fun resolveStartupTransientActionKeepsFilteringInconsistentSampleAfterBudget() {
         val decision =
             resolveStartupTransientAction(
                 rawDeg = 200f,
@@ -354,10 +322,65 @@ class CompassManagerMathTest {
                 hasInit = false,
             )
         require(decision != null)
-        assertEquals(StartupTransientAction.ACCEPT_FORCED, decision.action)
-        assertNull(decision.nextCandidateHeadingDeg)
-        assertEquals(0, decision.nextRemainingSamplesToIgnore)
-        assertEquals(200f, decision.acceptedHeadingDeg!!, 0.0001f)
+        assertEquals(StartupTransientAction.IGNORE_REPLACE_CANDIDATE, decision.action)
+        assertEquals(200f, decision.nextCandidateHeadingDeg!!, 0.0001f)
+        assertEquals(1, decision.nextRemainingSamplesToIgnore)
+        assertNull(decision.acceptedHeadingDeg)
+    }
+
+    @Test
+    fun resolveStartupTransientTraceDoesNotForceWildlyInconsistentThirdSample() {
+        val first =
+            requireNotNull(
+                resolveStartupTransientAction(
+                    rawDeg = 4.3f,
+                    candidateHeadingDeg = null,
+                    remainingSamplesToIgnore = 2,
+                    withinStartupWindow = true,
+                    usingRotationVector = true,
+                    hasInit = false,
+                ),
+            )
+        val second =
+            requireNotNull(
+                resolveStartupTransientAction(
+                    rawDeg = 290f,
+                    candidateHeadingDeg = first.nextCandidateHeadingDeg,
+                    remainingSamplesToIgnore = first.nextRemainingSamplesToIgnore,
+                    withinStartupWindow = true,
+                    usingRotationVector = true,
+                    hasInit = false,
+                ),
+            )
+        val third =
+            requireNotNull(
+                resolveStartupTransientAction(
+                    rawDeg = 200f,
+                    candidateHeadingDeg = second.nextCandidateHeadingDeg,
+                    remainingSamplesToIgnore = second.nextRemainingSamplesToIgnore,
+                    withinStartupWindow = true,
+                    usingRotationVector = true,
+                    hasInit = false,
+                ),
+            )
+        val coherentFourth =
+            requireNotNull(
+                resolveStartupTransientAction(
+                    rawDeg = 204f,
+                    candidateHeadingDeg = third.nextCandidateHeadingDeg,
+                    remainingSamplesToIgnore = third.nextRemainingSamplesToIgnore,
+                    withinStartupWindow = true,
+                    usingRotationVector = true,
+                    hasInit = false,
+                ),
+            )
+
+        assertEquals(StartupTransientAction.IGNORE_AWAIT_CONFIRMATION, first.action)
+        assertEquals(StartupTransientAction.IGNORE_REPLACE_CANDIDATE, second.action)
+        assertEquals(StartupTransientAction.IGNORE_REPLACE_CANDIDATE, third.action)
+        assertNull(third.acceptedHeadingDeg)
+        assertEquals(StartupTransientAction.ACCEPT_CONFIRMED, coherentFourth.action)
+        assertEquals(204f, coherentFourth.acceptedHeadingDeg!!, 0.0001f)
     }
 
     @Test

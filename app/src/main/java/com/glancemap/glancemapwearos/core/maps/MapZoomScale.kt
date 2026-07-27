@@ -8,7 +8,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 const val MAP_ZOOM_MIN_LEVEL = 1
-const val MAP_ZOOM_MAX_LEVEL = 20
+const val MAP_ZOOM_MAX_LEVEL = 22
 const val MAP_SCALE_TARGET_RATIO = 0.28
 const val MAP_ZOOM_METERS_PER_PIXEL_EQUATOR_ZOOM_0 = 156543.03392804097
 const val MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES = 45.0
@@ -59,8 +59,7 @@ fun scaleMetersForZoomLevel(
     val latitudeScale = latitudeScale(latitudeDegrees)
     val metersPerPixelAtEquator =
         MAP_ZOOM_METERS_PER_PIXEL_EQUATOR_ZOOM_0 / 2.0.pow(safeZoom.toDouble())
-    return (metersPerPixelAtEquator * latitudeScale * safeViewportWidthPx * MAP_SCALE_TARGET_RATIO)
-        .coerceAtLeast(mapZoomScaleStepsMeters.first().toDouble())
+    return metersPerPixelAtEquator * latitudeScale * safeViewportWidthPx * MAP_SCALE_TARGET_RATIO
 }
 
 fun zoomLevelForScaleNearest(

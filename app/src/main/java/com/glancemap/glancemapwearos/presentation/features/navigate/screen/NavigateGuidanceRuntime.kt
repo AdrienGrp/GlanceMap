@@ -153,6 +153,16 @@ internal fun rememberNavigateGuidanceRuntime(
         rawCurrentLocation
             ?.takeIf { it.hasAltitude() && it.altitude.isFinite() }
             ?.altitude
+    val guidanceGpsDeliveryIntervalMs =
+        rememberGuidanceGpsDeliveryIntervalMs(
+            sessionKey = activeSession?.let { "${it.trackId}:${it.reversed}" },
+            locationElapsedRealtimeNanos = rawCurrentLocation?.elapsedRealtimeNanos,
+            fallbackIntervalMs =
+                expectedGuidanceGpsIntervalMs(
+                    recordingActive = recordingActive,
+                    recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                ),
+        )
     LaunchedEffect(
         activeSession?.trackId,
         activeSession?.reversed,
@@ -183,6 +193,8 @@ internal fun rememberNavigateGuidanceRuntime(
             offRoute = offRouteConfirmation.offRoute,
             estimatedRemainingSeconds = estimatedRemainingSeconds,
             currentAltitudeMeters = currentAltitudeMeters,
+            alertSessionKey = activeSession?.let { "${it.trackId}:${it.reversed}" },
+            alertGpsDeliveryIntervalMs = guidanceGpsDeliveryIntervalMs,
         )
     var guideBackToRouteActive by remember { mutableStateOf(false) }
     var brouterGuideBackRoute by remember { mutableStateOf<List<LatLong>>(emptyList()) }
@@ -413,11 +425,7 @@ internal fun rememberNavigateGuidanceRuntime(
                 offRouteAlertsEnabled = offRouteAlertsEnabled,
                 guidanceGpsInAmbient = guidanceGpsInAmbient,
                 activityProfile = activityProfile,
-                resolvedGpsIntervalMs =
-                    expectedGuidanceGpsIntervalMs(
-                        recordingActive = recordingActive,
-                        recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
-                    ),
+                resolvedGpsIntervalMs = guidanceGpsDeliveryIntervalMs,
                 resolvedEtaFlatSpeedMps = gpxFlatSpeedMps,
                 resolvedTurnAlertMaxDistanceMeters = turnAlertMaxDistanceMeters(activityProfile),
             ),
@@ -494,6 +502,30 @@ private fun List<LatLong>.sumRouteDistanceMeters(): Double =
         haversineMeters(start, end)
     }
 
+@Composable
+private fun rememberGuidanceGpsDeliveryIntervalMs(
+    sessionKey: String?,
+    locationElapsedRealtimeNanos: Long?,
+    fallbackIntervalMs: Long,
+): Long {
+    var previousLocationElapsedRealtimeNanos by remember(sessionKey) { mutableStateOf<Long?>(null) }
+    var observedIntervalMs by remember(sessionKey) { mutableStateOf(fallbackIntervalMs) }
+    LaunchedEffect(sessionKey, locationElapsedRealtimeNanos, fallbackIntervalMs) {
+        val currentNanos = locationElapsedRealtimeNanos?.takeIf { it > 0L }
+        val previousNanos = previousLocationElapsedRealtimeNanos
+        if (currentNanos != null && previousNanos != null && currentNanos > previousNanos) {
+            val intervalMs = (currentNanos - previousNanos) / NANOS_PER_MILLISECOND
+            if (intervalMs in MIN_OBSERVED_GPS_INTERVAL_MS..MAX_OBSERVED_GPS_INTERVAL_MS) {
+                observedIntervalMs = intervalMs
+            }
+        } else if (previousNanos == null) {
+            observedIntervalMs = fallbackIntervalMs
+        }
+        previousLocationElapsedRealtimeNanos = currentNanos
+    }
+    return observedIntervalMs
+}
+
 private fun expectedGuidanceGpsIntervalMs(
     recordingActive: Boolean,
     recordingSampleIntervalSeconds: Int,
@@ -508,3 +540,7 @@ private fun expectedGuidanceGpsIntervalMs(
         }
     return minOf(userIntervalMs, recordingIntervalMs)
 }
+
+private const val NANOS_PER_MILLISECOND = 1_000_000L
+private const val MIN_OBSERVED_GPS_INTERVAL_MS = 250L
+private const val MAX_OBSERVED_GPS_INTERVAL_MS = 120_000L

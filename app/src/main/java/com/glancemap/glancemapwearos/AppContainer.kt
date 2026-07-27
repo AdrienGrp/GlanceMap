@@ -13,6 +13,7 @@ import com.glancemap.glancemapwearos.presentation.features.download.DownloadView
 import com.glancemap.glancemapwearos.presentation.features.download.OamBundleDownloader
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNetworkMonitor
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNotificationController
+import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadServiceClient
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
@@ -133,6 +134,7 @@ class DefaultAppContainer(
             notificationController = OamDownloadNotificationController(applicationContext),
             networkMonitor = OamDownloadNetworkMonitor(applicationContext),
             settingsRepository = settingsRepository,
+            downloadServiceClient = OamDownloadServiceClient(applicationContext),
         )
     }
 
@@ -149,7 +151,10 @@ class DefaultAppContainer(
     }
 
     override val locationViewModel: LocationViewModel by lazy {
-        LocationViewModel(applicationContext as Application)
+        LocationViewModel(
+            application = applicationContext as Application,
+            settingsRepository = settingsRepository,
+        )
     }
 
     override val traceRecordingViewModel: TraceRecordingViewModel by lazy {
@@ -168,9 +173,12 @@ class DefaultAppContainer(
     private fun startRecordingLocationBridge(traceRecordingViewModel: TraceRecordingViewModel) {
         coroutineScope.launch {
             locationViewModel.currentLocation.collectLatest { location ->
-                if (traceRecordingViewModel.uiState.value.active) {
-                    traceRecordingViewModel.onLocation(location)
-                }
+                traceRecordingViewModel.onLocation(location)
+            }
+        }
+        coroutineScope.launch {
+            locationViewModel.gpsSignalSnapshot.collectLatest { snapshot ->
+                traceRecordingViewModel.onGpsSignalSnapshot(snapshot)
             }
         }
     }

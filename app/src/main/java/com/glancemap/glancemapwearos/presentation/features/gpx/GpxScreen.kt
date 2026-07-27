@@ -67,6 +67,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetricsGrid
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.moveLabelAfter
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetricsForSnapshot
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -89,24 +90,28 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private enum class GpxListMode(
+    val storedPage: String,
     val headerTitle: String,
     val icon: ImageVector,
     val toggleContentDescription: String,
     val emptyStateMessage: String,
 ) {
     TRACKS(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_TRACKS,
         headerTitle = "GPX",
         icon = Icons.Default.Route,
         toggleContentDescription = "Show hike activities",
         emptyStateMessage = "Send GPX files from the companion phone app.",
     ),
     HIKE_ACTIVITIES(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_HIKE_ACTIVITIES,
         headerTitle = "Hike",
         icon = Icons.AutoMirrored.Filled.DirectionsRun,
         toggleContentDescription = "Show bike activities",
         emptyStateMessage = "Hike recordings will appear here.",
     ),
     BIKE_ACTIVITIES(
+        storedPage = SettingsRepository.GPX_LIST_PAGE_BIKE_ACTIVITIES,
         headerTitle = "Bike",
         icon = Icons.AutoMirrored.Filled.DirectionsBike,
         toggleContentDescription = "Show GPX tracks",
@@ -120,6 +125,10 @@ private enum class GpxListMode(
             HIKE_ACTIVITIES -> BIKE_ACTIVITIES
             BIKE_ACTIVITIES -> TRACKS
         }
+
+    companion object {
+        fun fromStoredPage(page: String): GpxListMode = values().firstOrNull { it.storedPage == page } ?: TRACKS
+    }
 }
 
 @Composable
@@ -134,6 +143,7 @@ fun GpxScreen(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val gpxFiles by gpxViewModel.gpxFiles.collectAsState()
+    val lastVisitedGpxListPage by gpxViewModel.lastVisitedGpxListPage.collectAsState()
     val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
     val elevationProfileUiState by gpxViewModel.elevationProfileUiState.collectAsState()
     val exportUiState by gpxViewModel.exportUiState.collectAsState()
@@ -153,7 +163,7 @@ fun GpxScreen(
     var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
     var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
     var guidanceStartingPath by remember { mutableStateOf<String?>(null) }
-    var listMode by remember { mutableStateOf(GpxListMode.TRACKS) }
+    val listMode = GpxListMode.fromStoredPage(lastVisitedGpxListPage)
     val showActivities = listMode != GpxListMode.TRACKS
     val visibleGpxFiles =
         remember(gpxFiles, listMode) {
@@ -557,7 +567,7 @@ fun GpxScreen(
                     CompactIconHitTargetButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            listMode = listMode.next()
+                            gpxViewModel.setLastVisitedGpxListPage(listMode.next().storedPage)
                             isSendMode = false
                             selectedSendPaths = emptySet()
                             isRenameMode = false
@@ -930,52 +940,9 @@ private fun activityDetailsMetrics(
         )
     }
 
-    val metrics = recordingRecapMetricsForSnapshot(summary, isMetric)
-    val isBike = gpxFile.activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
-    return if (isBike) {
-        metrics.inLabelOrder(
-            "Distance",
-            "Speed (Avg)",
-            "Time (Total)",
-            "Time (Active)",
-            "Elev +",
-            "Elev -",
-            "Max speed",
-            "HR (Avg)",
-            "Max HR",
-            "Power (Avg)",
-            "Max Power",
-            "Cal (Total)",
-            "Cal (Active)",
-            "Cal (Rest)",
-        )
-    } else {
-        metrics.moveLabelAfter(
-            label = "Steps",
-            afterLabel = "Distance",
-        )
-    }
-}
-
-private fun List<RecordingRecapMetric>.inLabelOrder(vararg labels: String): List<RecordingRecapMetric> {
-    val byLabel = associateBy { it.label }
-    return labels.mapNotNull(byLabel::get)
-}
-
-private fun List<RecordingRecapMetric>.moveLabelAfter(
-    label: String,
-    afterLabel: String,
-): List<RecordingRecapMetric> {
-    val moved = firstOrNull { it.label == label } ?: return this
-    val withoutMoved = filterNot { it.label == label }
-    val afterIndex = withoutMoved.indexOfFirst { it.label == afterLabel }
-    if (afterIndex < 0) return this
-    return buildList {
-        withoutMoved.forEachIndexed { index, metric ->
-            add(metric)
-            if (index == afterIndex) add(moved)
-        }
-    }
+    return recordingRecapMetricsForSnapshot(summary, isMetric)
+        .moveLabelAfter(label = "HR (Avg)", afterLabel = "Elev -")
+        .moveLabelAfter(label = "Max HR", afterLabel = "HR (Avg)")
 }
 
 private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"

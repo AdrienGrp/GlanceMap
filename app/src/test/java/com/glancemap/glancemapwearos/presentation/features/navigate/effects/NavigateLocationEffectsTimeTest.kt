@@ -13,6 +13,52 @@ import org.mapsforge.core.model.LatLong
 
 class NavigateLocationEffectsTimeTest {
     @Test
+    fun locationVisualUpdatesAreSkippedOnlyWhenScreenIsOff() {
+        assertTrue(shouldRenderLocationVisualUpdate(LocationScreenState.INTERACTIVE))
+        assertTrue(shouldRenderLocationVisualUpdate(LocationScreenState.AMBIENT))
+        assertFalse(shouldRenderLocationVisualUpdate(LocationScreenState.SCREEN_OFF))
+    }
+
+    @Test
+    fun markerPredictionLoopRunsOnlyForVisibleInteractiveTracking() {
+        assertTrue(
+            shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                suppressLocationMarker = false,
+            ),
+        )
+        assertFalse(
+            shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.AMBIENT,
+                suppressLocationMarker = false,
+            ),
+        )
+        assertFalse(
+            shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.SCREEN_OFF,
+                suppressLocationMarker = false,
+            ),
+        )
+        assertFalse(
+            shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = false,
+                screenState = LocationScreenState.INTERACTIVE,
+                suppressLocationMarker = false,
+            ),
+        )
+        assertFalse(
+            shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                suppressLocationMarker = true,
+            ),
+        )
+    }
+
+    @Test
     fun prefersElapsedRealtimeTimestampWhenAvailable() {
         val result =
             resolveLocationFixElapsedRealtimeMs(

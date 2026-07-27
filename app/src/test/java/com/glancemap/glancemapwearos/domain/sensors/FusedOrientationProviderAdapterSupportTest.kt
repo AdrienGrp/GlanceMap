@@ -2,463 +2,101 @@ package com.glancemap.glancemapwearos.domain.sensors
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FusedOrientationProviderAdapterSupportTest {
     @Test
-    fun firstRestartSampleIsHeldBackUntilThereIsConfirmation() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = null,
-                displayHeadingDeg = 4.2f,
-                pendingAtElapsedMs = 0L,
-                nowElapsedMs = 100L,
-                pendingSampleCount = 0,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.IGNORE_FIRST, decision.action)
-        assertEquals(4.2f, decision.nextPendingHeadingDeg)
-        assertEquals(100L, decision.nextPendingAtElapsedMs)
-        assertEquals(1, decision.nextPendingSampleCount)
-        assertEquals(1, decision.sampleCount)
-        assertNull(decision.confirmReason)
+    fun lowConfidenceGoogleHeadingRemainsUsableForDegradedTracking() {
+        assertTrue(isUsableGoogleFusedHeadingError(45f))
+        assertTrue(isUsableGoogleFusedHeadingError(179.9f))
+        assertFalse(isUsableGoogleFusedHeadingError(180f))
+        assertFalse(isUsableGoogleFusedHeadingError(Float.NaN))
     }
 
     @Test
-    fun matchingRestartSamplesStayPendingWithinConfirmationWindow() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 4.8f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 140L,
-                pendingSampleCount = 1,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
-        assertEquals(4.2f, decision.nextPendingHeadingDeg)
-        assertEquals(100L, decision.nextPendingAtElapsedMs)
-        assertEquals(2, decision.nextPendingSampleCount)
-        assertEquals(2, decision.sampleCount)
-        assertNull(decision.confirmReason)
-        assertTrue(decision.deltaDeg < 2f)
-    }
-
-    @Test
-    fun largeRestartJumpReseedsPendingHeadingUntilItStabilizes() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 163.5f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 159L,
-                pendingSampleCount = 1,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
-        assertEquals(163.5f, decision.nextPendingHeadingDeg)
-        assertEquals(159L, decision.nextPendingAtElapsedMs)
-        assertEquals(1, decision.nextPendingSampleCount)
-        assertEquals(2, decision.sampleCount)
-        assertNull(decision.confirmReason)
-        assertTrue(decision.deltaDeg > 100f)
-    }
-
-    @Test
-    fun stableRestartSamplesWaitForSettleTimeWhenConfidenceIsWeak() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 5.0f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 180L,
-                pendingSampleCount = 2,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
-        assertEquals(4.2f, decision.nextPendingHeadingDeg)
-        assertEquals(3, decision.sampleCount)
-        assertNull(decision.confirmReason)
-        assertTrue(decision.deltaDeg < 15f)
-    }
-
-    @Test
-    fun stableRestartSamplesConfirmAfterSettleTimeWhenConfidenceIsWeak() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 5.0f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 280L,
-                pendingSampleCount = 2,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
-        assertEquals(3, decision.sampleCount)
-        assertEquals("timeout", decision.confirmReason)
-        assertTrue(decision.deltaDeg < 15f)
-    }
-
-    @Test
-    fun trustedConservativeErrorCanConfirmChangedHeadingFaster() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 163.5f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 159L,
-                pendingSampleCount = 1,
-                timeoutMs = 160L,
-                headingErrorDeg = 10f,
-                conservativeHeadingErrorDeg = 25f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
-        assertEquals(2, decision.sampleCount)
-        assertEquals("confidence", decision.confirmReason)
-    }
-
-    @Test
-    fun timeoutConfirmsWhenStableSamplesPersistLongEnough() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 5.0f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 280L,
-                pendingSampleCount = 1,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
-        assertEquals(2, decision.sampleCount)
-        assertEquals("timeout", decision.confirmReason)
-    }
-
-    @Test
-    fun timeoutConfirmedStartupIsUnstableWhenReseedHistoryIsChaotic() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 271.9f,
-                displayHeadingDeg = 271.9f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 280L,
-                pendingSampleCount = 9,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
+    fun fusedHeadingPublishingCoalescesOverDeliveredHighPowerCallbacks() {
         assertTrue(
-            isUnstableFusedStartup(
-                decision = decision,
-                overlapMaxDeltaDeg = 155.9f,
-                reseedCount = 5,
-                maxReseedDeltaDeg = 160.8f,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_020L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                force = true,
             ),
         )
-    }
-
-    @Test
-    fun timeoutConfirmedStartupIsNotUnstableForSingleCoherentCluster() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 107.1f,
-                displayHeadingDeg = 119.4f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 280L,
-                pendingSampleCount = 9,
-                timeoutMs = 160L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
         assertFalse(
-            isUnstableFusedStartup(
-                decision = decision,
-                overlapMaxDeltaDeg = 95.5f,
-                reseedCount = 1,
-                maxReseedDeltaDeg = 102.8f,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_020L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                force = false,
             ),
         )
-    }
-
-    @Test
-    fun unusableRestartSamplesStayPendingEvenAfterConfirmationBudget() {
-        val decision =
-            resolveFusedRestartHeadingDecision(
-                pendingHeadingDeg = 4.2f,
-                displayHeadingDeg = 5.0f,
-                pendingAtElapsedMs = 100L,
-                nowElapsedMs = 320L,
-                pendingSampleCount = 3,
-                timeoutMs = 160L,
-                headingErrorDeg = 180f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
-        assertEquals(4.2f, decision.nextPendingHeadingDeg)
-        assertEquals(4, decision.sampleCount)
-        assertNull(decision.confirmReason)
-    }
-
-    @Test
-    fun relockLargeJumpNeedsConfirmationWhenFusedConfidenceIsWeak() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = true,
-                hasPendingLargeJump = false,
-                pendingDeltaDeg = Float.NaN,
-                pendingAgeMs = 0L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(LargeJumpAction.REJECT_PENDING, action)
-    }
-
-    @Test
-    fun relockLargeJumpCanStillPassImmediatelyWhenFusedConfidenceIsGood() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = true,
-                hasPendingLargeJump = false,
-                pendingDeltaDeg = Float.NaN,
-                pendingAgeMs = 0L,
-                headingErrorDeg = 8f,
-                conservativeHeadingErrorDeg = 30f,
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_IMMEDIATE, action)
-    }
-
-    @Test
-    fun relockPendingJumpConfirmsWhenRepeatedConsistently() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = true,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 12f,
-                pendingAgeMs = 150L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
-    }
-
-    @Test
-    fun relockPendingJumpStillWaitsWhenWeakConfidenceSamplesArriveTooQuickly() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = true,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 12f,
-                pendingAgeMs = 20L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(LargeJumpAction.REJECT_PENDING, action)
-    }
-
-    @Test
-    fun pendingLargeJumpIsAcceptedAfterAbsoluteTimeoutDespiteInconsistentSamples() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 80f,
-                pendingAgeMs = 500L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
-        assertEquals(
-            FusedLargeJumpAcceptanceReason.TIMEOUT_500_MS,
-            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 500L),
-        )
-    }
-
-    @Test
-    fun coherentPendingLargeJumpReportsStableAcceptanceReason() {
-        val action =
-            resolveFusedLargeJumpAction(
-                jumpDeg = 148f,
-                inRelock = false,
-                hasPendingLargeJump = true,
-                pendingDeltaDeg = 12f,
-                pendingAgeMs = 150L,
-                headingErrorDeg = 25f,
-                conservativeHeadingErrorDeg = 180f,
-            )
-
-        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
-        assertEquals(
-            FusedLargeJumpAcceptanceReason.STABLE,
-            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 150L),
-        )
-    }
-
-    @Test
-    fun bootstrapSensorHeadingCanBridgeGoogleFusedWarmup() {
-        val fusedState = initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED)
-        val bootstrapState =
-            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
-                headingDeg = 212f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSource = HeadingSource.ROTATION_VECTOR,
-            )
-
         assertTrue(
-            shouldUseFusedBootstrapHeading(
-                fusedRenderState = fusedState,
-                bootstrapRenderState = bootstrapState,
-                nowElapsedMs = 1_000L,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_040L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                force = false,
             ),
         )
-
-        val bridged =
-            bootstrapFusedRenderState(
-                fusedRenderState = fusedState,
-                bootstrapRenderState = bootstrapState,
-            )
-
-        assertEquals(CompassProviderType.GOOGLE_FUSED, bridged.providerType)
-        assertEquals(212f, bridged.headingDeg)
-        assertEquals(HeadingSource.ROTATION_VECTOR, bridged.headingSource)
     }
 
     @Test
-    fun bootstrapSensorHeadingStopsOnceFreshFusedHeadingExists() {
-        val fusedState =
-            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
-                headingSource = HeadingSource.FUSED_ORIENTATION,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSampleElapsedRealtimeMs = 1_000L,
-                headingSampleStale = false,
-            )
-        val bootstrapState =
-            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
-                headingDeg = 212f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSource = HeadingSource.ROTATION_VECTOR,
-            )
-
+    fun activeTurnPublishesAtFiftyHertzWithoutChangingTheSensorRequest() {
         assertFalse(
-            shouldUseFusedBootstrapHeading(
-                fusedRenderState = fusedState,
-                bootstrapRenderState = bootstrapState,
-                nowElapsedMs = 1_200L,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_019L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                activeTurn = true,
+                force = false,
             ),
         )
-    }
-
-    @Test
-    fun bootstrapSensorHeadingContinuesWhenFreshFusedHeadingIsUnreliable() {
-        val fusedState =
-            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
-                headingSource = HeadingSource.FUSED_ORIENTATION,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_UNRELIABLE,
-                headingSampleElapsedRealtimeMs = 1_000L,
-                headingSampleStale = false,
-            )
-        val bootstrapState =
-            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
-                headingDeg = 212f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSource = HeadingSource.ROTATION_VECTOR,
-            )
-
         assertTrue(
-            shouldUseFusedBootstrapHeading(
-                fusedRenderState = fusedState,
-                bootstrapRenderState = bootstrapState,
-                nowElapsedMs = 1_200L,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_020L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = false,
+                activeTurn = true,
+                force = false,
             ),
         )
     }
 
     @Test
-    fun recentCachedFusedHeadingSuppressesBootstrapBridgeDuringWarmRestart() {
-        val fusedState =
-            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
-                headingDeg = 184f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSampleElapsedRealtimeMs = 10_000L,
-                headingSampleStale = true,
-                headingSource = HeadingSource.NONE,
-            )
-        val bootstrapState =
-            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
-                headingDeg = 212f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSource = HeadingSource.ROTATION_VECTOR,
-            )
+    fun activeTurnRequiresRelativeMovementRateInsteadOfAbsoluteHeadingNoise() {
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.3f, elapsedMs = 20L))
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 0.5f, elapsedMs = 40L))
+        assertTrue(isActiveRelativeTurnStep(stepDeg = 1.2f, elapsedMs = 40L))
+        assertFalse(isActiveRelativeTurnStep(stepDeg = 10f, elapsedMs = 500L))
+    }
 
+    @Test
+    fun lowPowerHeadingPublishingKeepsFiveHertzCadence() {
         assertFalse(
-            shouldUseFusedBootstrapHeading(
-                fusedRenderState = fusedState,
-                bootstrapRenderState = bootstrapState,
-                nowElapsedMs = 14_000L,
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_179L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = true,
+                force = false,
+            ),
+        )
+        assertTrue(
+            shouldPublishFusedHeading(
+                nowElapsedMs = 1_180L,
+                lastPublishAtElapsedMs = 1_000L,
+                lowPowerMode = true,
+                force = false,
             ),
         )
     }
 
     @Test
-    fun unusableFusedHeadingTriggersFallbackAfterSamplesAndDuration() {
-        val first =
-            computeFusedUnusableHeadingUpdate(
-                nowElapsedMs = 1_000L,
-                consecutiveUnusableSamples = 0,
-                firstUnusableSampleAtElapsedMs = 0L,
-                minSamples = 3,
-                minDurationMs = 1_000L,
-            )
-        val second =
-            computeFusedUnusableHeadingUpdate(
-                nowElapsedMs = 1_500L,
-                consecutiveUnusableSamples = first.state.consecutiveSamples,
-                firstUnusableSampleAtElapsedMs = first.state.firstSampleAtElapsedMs,
-                minSamples = 3,
-                minDurationMs = 1_000L,
-            )
-        val third =
-            computeFusedUnusableHeadingUpdate(
-                nowElapsedMs = 2_100L,
-                consecutiveUnusableSamples = second.state.consecutiveSamples,
-                firstUnusableSampleAtElapsedMs = second.state.firstSampleAtElapsedMs,
-                minSamples = 3,
-                minDurationMs = 1_000L,
-            )
+    fun unusableFusedHeadingRequiresSamplesAndDurationBeforeFallback() {
+        val first = unusableUpdate(nowMs = 1_000L, previous = null)
+        val second = unusableUpdate(nowMs = 1_500L, previous = first)
+        val third = unusableUpdate(nowMs = 2_100L, previous = second)
 
         assertFalse(first.shouldFallback)
         assertFalse(second.shouldFallback)
@@ -466,4 +104,16 @@ class FusedOrientationProviderAdapterSupportTest {
         assertEquals(3, third.state.consecutiveSamples)
         assertEquals(1_100L, third.durationMs)
     }
+
+    private fun unusableUpdate(
+        nowMs: Long,
+        previous: FusedUnusableHeadingUpdate?,
+    ): FusedUnusableHeadingUpdate =
+        computeFusedUnusableHeadingUpdate(
+            nowElapsedMs = nowMs,
+            consecutiveUnusableSamples = previous?.state?.consecutiveSamples ?: 0,
+            firstUnusableSampleAtElapsedMs = previous?.state?.firstSampleAtElapsedMs ?: 0L,
+            minSamples = 3,
+            minDurationMs = 1_000L,
+        )
 }

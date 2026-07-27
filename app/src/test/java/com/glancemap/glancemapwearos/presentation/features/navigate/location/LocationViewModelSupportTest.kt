@@ -19,4 +19,34 @@ class LocationViewModelSupportTest {
     fun ordinaryUiRequestStillUsesFreshnessSkip() {
         assertFalse(shouldForceUiImmediateLocationRequest("ui_unknown"))
     }
+
+    @Test
+    fun wakeBurstSkipsOnlyForARecentAccurateFixAfterAShortScreenOff() {
+        val decision =
+            evaluateWakeBurstSkipCandidate(
+                fixAgeMs = 1_500L,
+                accuracyM = 12f,
+                screenOffMs = 5_000L,
+            )
+
+        assertTrue(decision.wouldSkip)
+    }
+
+    @Test
+    fun wakeBurstDoesNotSkipForAnOldOrWeakFix() {
+        assertFalse(
+            evaluateWakeBurstSkipCandidate(
+                fixAgeMs = 2_500L,
+                accuracyM = 12f,
+                screenOffMs = 5_000L,
+            ).wouldSkip,
+        )
+        assertFalse(
+            evaluateWakeBurstSkipCandidate(
+                fixAgeMs = 1_500L,
+                accuracyM = 36f,
+                screenOffMs = 5_000L,
+            ).wouldSkip,
+        )
+    }
 }

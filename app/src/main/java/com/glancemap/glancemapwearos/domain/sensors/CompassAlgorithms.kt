@@ -40,9 +40,12 @@ internal const val STARTUP_HEADING_PUBLISH_MASK_SAMPLES_DEFAULT = 1
 internal const val STARTUP_HEADING_PUBLISH_MASK_SAMPLES_ROTATION_VECTOR = 2
 internal const val ROTATION_VECTOR_UNCERTAINTY_INDEX = 4
 internal const val ROTATION_VECTOR_UNCERTAINTY_EPSILON_DEG = 0.5f
-internal const val HEADING_LARGE_JUMP_REJECT_DEG = 120f
-internal const val HEADING_LARGE_JUMP_CONFIRM_WINDOW_MS = 350L
+internal const val SENSOR_HEADING_LARGE_JUMP_REJECT_DEG = 75f
+internal const val HEADING_LARGE_JUMP_CONFIRM_WINDOW_MS = 600L
 internal const val HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG = 36f
+internal const val HEADING_RELOCK_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 200L
+internal const val HEADING_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 300L
+internal const val HEADING_REANCHOR_MAX_STEP_DEG = 18f
 internal const val HEADING_NOISE_GOOD_DEG = 3.0f
 internal const val HEADING_NOISE_IMPROVING_DEG = 5.4f
 internal const val HEADING_NOISE_POOR_DEG = 8.8f
@@ -95,6 +98,7 @@ data class NorthReferenceStatus(
     val declinationAvailable: Boolean,
     val waitingForDeclination: Boolean,
     val pipeline: HeadingPipeline,
+    val automaticByProvider: Boolean = false,
 )
 
 enum class HeadingPipeline {
@@ -169,7 +173,6 @@ internal enum class StartupTransientAction(
     IGNORE_AWAIT_CONFIRMATION("await_confirmation"),
     IGNORE_REPLACE_CANDIDATE("replace_candidate"),
     ACCEPT_CONFIRMED("confirmed"),
-    ACCEPT_FORCED("forced_after_budget"),
 }
 
 internal data class StartupTransientDecision(
@@ -207,21 +210,14 @@ internal fun resolveStartupTransientAction(
             acceptedHeadingDeg = rawDeg,
         )
     }
-    return if (remainingSamplesToIgnore > 1) {
-        StartupTransientDecision(
-            action = StartupTransientAction.IGNORE_REPLACE_CANDIDATE,
-            nextCandidateHeadingDeg = rawDeg,
-            nextRemainingSamplesToIgnore = remainingSamplesToIgnore - 1,
-            acceptedHeadingDeg = null,
-        )
-    } else {
-        StartupTransientDecision(
-            action = StartupTransientAction.ACCEPT_FORCED,
-            nextCandidateHeadingDeg = null,
-            nextRemainingSamplesToIgnore = 0,
-            acceptedHeadingDeg = rawDeg,
-        )
-    }
+    return StartupTransientDecision(
+        action = StartupTransientAction.IGNORE_REPLACE_CANDIDATE,
+        nextCandidateHeadingDeg = rawDeg,
+        // Keep requiring a coherent pair until the bounded startup window expires. A fixed
+        // sample budget could otherwise force an arbitrary third reading into the UI.
+        nextRemainingSamplesToIgnore = (remainingSamplesToIgnore - 1).coerceAtLeast(1),
+        acceptedHeadingDeg = null,
+    )
 }
 
 internal fun shouldMaskStartupHeadingPublish(
@@ -329,21 +325,42 @@ internal enum class LargeJumpAction {
     REJECT_PENDING,
 }
 
-internal fun resolveLargeJumpAction(
-    jumpDeg: Float,
-    inRelock: Boolean,
-    hasPendingLargeJump: Boolean,
-    pendingDeltaDeg: Float,
-): LargeJumpAction {
-    if (jumpDeg <= HEADING_LARGE_JUMP_REJECT_DEG) return LargeJumpAction.NONE
-    if (inRelock) return LargeJumpAction.ACCEPT_IMMEDIATE
-    if (hasPendingLargeJump &&
-        pendingDeltaDeg.isFinite() &&
-        pendingDeltaDeg <= HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG
-    ) {
-        return LargeJumpAction.ACCEPT_CONFIRMED
+internal data class SensorLargeJumpInput(
+    val jumpDeg: Float,
+    val inRelock: Boolean,
+    val hasPendingLargeJump: Boolean,
+    val pendingDeltaDeg: Float,
+    val pendingAgeMs: Long,
+)
+
+internal fun resolveSensorLargeJumpAction(input: SensorLargeJumpInput): LargeJumpAction {
+    val requiredConfirmationAgeMs =
+        if (input.inRelock) {
+            HEADING_RELOCK_LARGE_JUMP_MIN_CONFIRM_AGE_MS
+        } else {
+            HEADING_LARGE_JUMP_MIN_CONFIRM_AGE_MS
+        }
+    val coherentPendingSample =
+        input.hasPendingLargeJump &&
+            input.pendingDeltaDeg.isFinite() &&
+            input.pendingDeltaDeg <= HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG
+    val confirmationReady =
+        coherentPendingSample && input.pendingAgeMs >= requiredConfirmationAgeMs
+    return when {
+        input.jumpDeg <= SENSOR_HEADING_LARGE_JUMP_REJECT_DEG -> LargeJumpAction.NONE
+        confirmationReady -> LargeJumpAction.ACCEPT_CONFIRMED
+        else -> LargeJumpAction.REJECT_PENDING
     }
-    return LargeJumpAction.REJECT_PENDING
+}
+
+internal fun stepHeadingTowardConfirmedReanchor(
+    currentHeadingDeg: Float,
+    targetHeadingDeg: Float,
+    maxStepDeg: Float = HEADING_REANCHOR_MAX_STEP_DEG,
+): Float {
+    val diffDeg = shortestAngleDiffDeg(target = targetHeadingDeg, current = currentHeadingDeg)
+    val boundedStepDeg = diffDeg.coerceIn(-maxStepDeg, maxStepDeg)
+    return normalize360Deg(currentHeadingDeg + boundedStepDeg)
 }
 
 internal data class MagneticInterferenceState(

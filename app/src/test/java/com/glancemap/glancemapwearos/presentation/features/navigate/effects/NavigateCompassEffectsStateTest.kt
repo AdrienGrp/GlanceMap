@@ -147,7 +147,7 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun googleFusedStopsImmediatelyWhenScreenTurnsOffButKeepsAmbientGrace() {
+    fun googleFusedStopsImmediatelyForScreenOffButKeepsAmbientGrace() {
         assertEquals(
             0L,
             resolveNavigateCompassImmediateStopDelayMs(
@@ -158,7 +158,7 @@ class NavigateCompassEffectsStateTest {
             ),
         )
         assertEquals(
-            10_000L,
+            2_500L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.AMBIENT,
@@ -169,9 +169,9 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun googleFusedStopsImmediatelyWhenNavigateLeavesInteractiveScreen() {
+    fun googleFusedKeepsManagerGraceWhenNavigateLeavesInteractiveScreen() {
         assertEquals(
-            0L,
+            2_500L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.INTERACTIVE,
@@ -182,23 +182,36 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun customSensorsAndOfflineModeStillStopImmediately() {
+    fun screenOffDisposalAndOfflineModeStopImmediately() {
         assertEquals(
             0L,
             resolveNavigateCompassImmediateStopDelayMs(
-                compassProviderType = CompassProviderType.SENSOR_MANAGER,
+                compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.SCREEN_OFF,
                 isOfflineMode = false,
-                reason = "screen_off",
+                reason = "effect_dispose",
             ),
         )
         assertEquals(
             0L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
-                screenState = LocationScreenState.SCREEN_OFF,
+                screenState = LocationScreenState.INTERACTIVE,
                 isOfflineMode = true,
-                reason = "screen_off",
+                reason = "effect_dispose",
+            ),
+        )
+    }
+
+    @Test
+    fun customSensorsAndOtherInteractiveStopsRemainImmediate() {
+        assertEquals(
+            0L,
+            resolveNavigateCompassImmediateStopDelayMs(
+                compassProviderType = CompassProviderType.SENSOR_MANAGER,
+                screenState = LocationScreenState.INTERACTIVE,
+                isOfflineMode = false,
+                reason = "effect_dispose",
             ),
         )
         assertEquals(

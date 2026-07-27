@@ -250,7 +250,7 @@ fun GpxElevationProfileDialog(
                             var updatedViewport = viewport
                             var consumed = false
 
-                            while (rotaryScrollAccumulator >= RotaryZoomThresholdPx) {
+                            while (rotaryScrollAccumulator >= ROTARY_ZOOM_THRESHOLD_PX) {
                                 updatedViewport =
                                     zoomViewportAroundDistance(
                                         current = updatedViewport,
@@ -264,9 +264,9 @@ fun GpxElevationProfileDialog(
                                         zoomIn = true,
                                     )
                                 consumed = consumed || updatedViewport != viewport
-                                rotaryScrollAccumulator -= RotaryZoomThresholdPx
+                                rotaryScrollAccumulator -= ROTARY_ZOOM_THRESHOLD_PX
                             }
-                            while (rotaryScrollAccumulator <= -RotaryZoomThresholdPx) {
+                            while (rotaryScrollAccumulator <= -ROTARY_ZOOM_THRESHOLD_PX) {
                                 updatedViewport =
                                     zoomViewportAroundDistance(
                                         current = updatedViewport,
@@ -280,7 +280,7 @@ fun GpxElevationProfileDialog(
                                         zoomIn = false,
                                     )
                                 consumed = consumed || updatedViewport != viewport
-                                rotaryScrollAccumulator += RotaryZoomThresholdPx
+                                rotaryScrollAccumulator += ROTARY_ZOOM_THRESHOLD_PX
                             }
 
                             if (updatedViewport != viewport) {
@@ -297,7 +297,7 @@ fun GpxElevationProfileDialog(
                             ) { _, dragAmount ->
                                 if (dragAmount > 0f) {
                                     downwardDrag += dragAmount
-                                    if (downwardDrag > SwipeDismissThresholdPx) {
+                                    if (downwardDrag > SWIPE_DISMISS_THRESHOLD_PX) {
                                         onDismiss()
                                         downwardDrag = 0f
                                     }
@@ -388,6 +388,10 @@ fun GpxElevationProfileDialog(
                                     formatElevationScaleTick(it, isMetric)
                                 } ?: "--"
                             }
+                        val visualElevationBounds =
+                            remember(samples) {
+                                elevationVisualBounds(samples)
+                            }
 
                         ElevationProfileChart(
                             samples = samples,
@@ -399,8 +403,8 @@ fun GpxElevationProfileDialog(
                             modifier = Modifier.fillMaxSize(),
                         )
                         ElevationLeftScale(
-                            minElevationMeters = profile.minElevation,
-                            maxElevationMeters = profile.maxElevation,
+                            minElevationMeters = visualElevationBounds.minElevation,
+                            maxElevationMeters = visualElevationBounds.maxElevation,
                             isMetric = isMetric,
                             textSize = sizing.yScaleTextSize,
                             modifier =

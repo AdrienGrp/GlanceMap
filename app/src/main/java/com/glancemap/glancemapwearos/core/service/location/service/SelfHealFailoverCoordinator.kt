@@ -249,12 +249,10 @@ internal class SelfHealFailoverCoordinator(
         if (!interactiveTracking) return
         if (expectedIntervalMs <= 0L) return
 
-        val lastFixAt =
-            if (lastCallbackAcceptedFixAtElapsedMs() > 0L) {
-                lastCallbackAcceptedFixAtElapsedMs()
-            } else {
-                lastAnyAcceptedFixAtElapsedMs()
-            }
+        val lastAnyFixAt = lastAnyAcceptedFixAtElapsedMs()
+        val lastCallbackFixAt = lastCallbackAcceptedFixAtElapsedMs()
+        if (lastAnyFixAt > lastCallbackFixAt) pendingNoFixRecoveryProbeUntilElapsedMs = 0L
+        val lastFixAt = resolveLatestAcceptedFixAtElapsedMs(lastAnyFixAt, lastCallbackFixAt)
         val referenceFixAt =
             if (lastFixAt > 0L) {
                 lastFixAt
@@ -658,6 +656,11 @@ internal class SelfHealFailoverCoordinator(
 
     private fun shouldStayOnWatchGpsForDisconnectedPhone(): Boolean = phoneConnected() == false
 }
+
+internal fun resolveLatestAcceptedFixAtElapsedMs(
+    lastAnyAcceptedFixAtElapsedMs: Long,
+    lastCallbackAcceptedFixAtElapsedMs: Long,
+): Long = maxOf(lastAnyAcceptedFixAtElapsedMs, lastCallbackAcceptedFixAtElapsedMs)
 
 internal enum class AutoFusedNoFixRecoveryAction {
     NONE,

@@ -15,6 +15,7 @@ internal data class LocationUpdateRequestParams(
     val minDistanceMeters: Float,
     val waitForAccurateLocation: Boolean,
     val maxUpdateDelayMs: Long,
+    val durationMs: Long? = null,
 )
 
 internal data class LocationUpdateEvent(
@@ -42,6 +43,8 @@ internal interface LocationGateway {
     )
 
     suspend fun removeLocationUpdates()
+
+    suspend fun flushLocations() = Unit
 
     fun removeLocationUpdatesBestEffort()
 }

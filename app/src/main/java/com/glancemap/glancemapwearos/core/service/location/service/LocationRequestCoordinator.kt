@@ -4,6 +4,8 @@ import android.os.SystemClock
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateRequestParams
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateSink
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_MIN_DISTANCE_M
+import com.glancemap.glancemapwearos.core.service.location.config.HIGH_ACCURACY_BURST_DURATION
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
 import com.glancemap.glancemapwearos.core.service.location.engine.RequestSpec
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionSnapshot
@@ -35,6 +37,7 @@ internal data class RequestUpdateState(
     val passiveLocationExperiment: Boolean,
     val userIntervalMs: Long,
     val ambientIntervalMs: Long,
+    val turnByTurnScreenOffBatchingEnabled: Boolean = false,
 )
 
 internal data class ResolvedRequestPlan(
@@ -122,7 +125,7 @@ internal class LocationRequestCoordinator(
 
                 val requestPlan = resolveRequestPlan(state = state, permissions = permissions)
                 var appliedPlan = requestPlan
-                var requestSpec = requestPlan.spec
+                var requestSpec = requestPlan.spec?.forRuntimeReason(state.runtimeReason)
 
                 if (isSuperseded(generation)) return@launch
                 if (requestSpec == null) {
@@ -176,14 +179,7 @@ internal class LocationRequestCoordinator(
                     }
                     if (isSuperseded(generation)) return@launch
                     val locationGateway = locationGatewayFor(requestSpec.sourceMode)
-                    val maxUpdateDelayMs =
-                        when (requestSpec.mode) {
-                            // Keep live UI cadence steady in active navigation modes.
-                            LocationRuntimeMode.BURST,
-                            LocationRuntimeMode.INTERACTIVE,
-                            -> 0L
-                            LocationRuntimeMode.PASSIVE -> requestSpec.intervalMs * 2L
-                        }
+                    val maxUpdateDelayMs = resolveMaxUpdateDelayMs(state, requestSpec)
                     locationGateway.requestLocationUpdates(
                         request =
                             LocationUpdateRequestParams(
@@ -194,6 +190,12 @@ internal class LocationRequestCoordinator(
                                     requestSpec.mode == LocationRuntimeMode.BURST &&
                                         requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED,
                                 maxUpdateDelayMs = maxUpdateDelayMs,
+                                durationMs =
+                                    if (requestSpec.mode == LocationRuntimeMode.BURST) {
+                                        HIGH_ACCURACY_BURST_DURATION
+                                    } else {
+                                        null
+                                    },
                             ),
                         sink = locationUpdateSink(),
                     )
@@ -229,9 +231,11 @@ internal class LocationRequestCoordinator(
                             "keepOpen=${appliedPlan.state.keepOpen} " +
                             "watchOnly=${appliedPlan.state.watchOnlyEffective} burst=${engine.isBurstActive()} " +
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
-                            "interactive=${appliedPlan.interactiveTracking} " +
+                            "requestInteractive=${appliedPlan.interactiveTracking} " +
                             "screenState=${appliedPlan.state.screenState.name} " +
                             "reason=${appliedPlan.state.runtimeReason} " +
+                            "gpsRequestActive=true gpsBackend=${requestSpec.sourceMode.telemetryValue} " +
+                            "gpsRequestIntervalMs=${requestSpec.intervalMs} " +
                             "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {
@@ -296,6 +300,7 @@ internal class LocationRequestCoordinator(
             explicitBackgroundTracking &&
                 (
                     state.runtimeReason == NavigationRuntimeDemandReason.RECORDING ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ||
                         state.runtimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ||
                         state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
                         state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
@@ -371,6 +376,24 @@ internal class LocationRequestCoordinator(
         }
     }
 }
+
+internal fun RequestSpec.forRuntimeReason(runtimeReason: String): RequestSpec =
+    if (runtimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED) {
+        copy(minDistanceMeters = maxOf(minDistanceMeters, AUTO_PAUSE_MIN_DISTANCE_M))
+    } else {
+        this
+    }
+
+internal fun resolveMaxUpdateDelayMs(
+    state: RequestUpdateState,
+    requestSpec: RequestSpec,
+): Long =
+    resolveMaxUpdateDelayMs(
+        screenState = state.screenState,
+        runtimeReason = state.runtimeReason,
+        turnByTurnScreenOffBatchingEnabled = state.turnByTurnScreenOffBatchingEnabled,
+        requestSpec = requestSpec,
+    )
 
 private fun resolveRequestFailureRetryDelayMs(failureCount: Long): Long =
     when {

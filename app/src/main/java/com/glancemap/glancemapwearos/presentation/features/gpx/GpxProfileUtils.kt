@@ -41,12 +41,14 @@ internal data class ParsedGpxData(
 internal data class GpxActivitySummary(
     val activityProfile: String?,
     val durationSeconds: Double?,
+    val totalDurationSeconds: Double?,
     val distanceMeters: Double?,
     val elevationGainMeters: Double?,
     val elevationLossMeters: Double?,
     val currentElevationMeters: Double?,
     val currentSpeedMps: Float?,
     val averageSpeedMps: Double?,
+    val fastestSpeedMps: Double?,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int?,
     val gpsActiveDurationSeconds: Double?,
@@ -60,9 +62,15 @@ internal data class GpxActivitySummary(
     val cyclingPowerSampleSegments: Int?,
     val cyclingPhysicsSegments: Int?,
     val heartRateBpm: Int?,
+    val averageHeartRateBpm: Int?,
+    val maxHeartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
+    val averageCadenceSpm: Int?,
+    val maxCadenceSpm: Int?,
     val powerWatts: Int?,
+    val averagePowerWatts: Int?,
+    val maxPowerWatts: Int?,
     val barometricPressureHpa: Double?,
 )
 
@@ -107,12 +115,16 @@ internal fun buildProfile(
         val b = pts[i + 1]
 
         val d =
-            haversine(
-                a.latLong.latitude,
-                a.latLong.longitude,
-                b.latLong.latitude,
-                b.latLong.longitude,
-            )
+            if (b.startsNewSegment) {
+                0.0
+            } else {
+                haversine(
+                    a.latLong.latitude,
+                    a.latLong.longitude,
+                    b.latLong.latitude,
+                    b.latLong.longitude,
+                )
+            }
 
         segLen[i] = d
         dist += d
@@ -157,12 +169,14 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var firstTimestampMillis: Long? = null
     var lastTimestampMillis: Long? = null
     var summaryDurationSeconds: Double? = null
+    var summaryTotalDurationSeconds: Double? = null
     var summaryDistanceMeters: Double? = null
     var summaryElevationGainMeters: Double? = null
     var summaryElevationLossMeters: Double? = null
     var summaryCurrentElevationMeters: Double? = null
     var summaryCurrentSpeedMps: Float? = null
     var summaryAverageSpeedMps: Double? = null
+    var summaryFastestSpeedMps: Double? = null
     var summaryGpsAccuracyMeters: Float? = null
     var summaryPointCount: Int? = null
     var summaryGpsActiveDurationSeconds: Double? = null
@@ -176,9 +190,15 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var summaryCyclingPowerSampleSegments: Int? = null
     var summaryCyclingPhysicsSegments: Int? = null
     var summaryHeartRateBpm: Int? = null
+    var summaryAverageHeartRateBpm: Int? = null
+    var summaryMaxHeartRateBpm: Int? = null
     var summaryStepCount: Int? = null
     var summaryCadenceSpm: Int? = null
+    var summaryAverageCadenceSpm: Int? = null
+    var summaryMaxCadenceSpm: Int? = null
     var summaryPowerWatts: Int? = null
+    var summaryAveragePowerWatts: Int? = null
+    var summaryMaxPowerWatts: Int? = null
     var summaryPressureHpa: Double? = null
 
     var inTrackPoint = false
@@ -197,6 +217,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var currentDesc: String? = null
     var currentSym: String? = null
     var currentBrouterVoiceHint: String? = null
+    var currentStartsNewSegment = false
+    var nextTrackPointStartsNewSegment = false
 
     return try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -210,8 +232,12 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                         val tagName = parser.name
                         when (tagName.localXmlName()) {
                             "trk" -> {
+                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
                                 inTrk = true
                                 trkDepth = parser.depth
+                            }
+                            "trkseg" -> {
+                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
                             }
                             "metadata" -> {
                                 inMetadata = true
@@ -240,6 +266,9 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "durationSeconds" -> {
                                 if (inMetadataExtensions) summaryDurationSeconds = parser.nextTextDouble()
                             }
+                            "totalDurationSeconds" -> {
+                                if (inMetadataExtensions) summaryTotalDurationSeconds = parser.nextTextDouble()
+                            }
                             "distanceMeters" -> {
                                 if (inMetadataExtensions) summaryDistanceMeters = parser.nextTextDouble()
                             }
@@ -257,6 +286,9 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             }
                             "averageSpeedMps" -> {
                                 if (inMetadataExtensions) summaryAverageSpeedMps = parser.nextTextDouble()
+                            }
+                            "fastestSpeedMps" -> {
+                                if (inMetadataExtensions) summaryFastestSpeedMps = parser.nextTextDouble()
                             }
                             "gpsAccuracyMeters" -> {
                                 if (inMetadataExtensions) summaryGpsAccuracyMeters = parser.nextTextFloat()
@@ -310,6 +342,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             }
                             "trkpt" -> {
                                 inTrackPoint = true
+                                currentStartsNewSegment = nextTrackPointStartsNewSegment
+                                nextTrackPointStartsNewSegment = false
                                 currentLat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                                 currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                                 currentElevation = null
@@ -380,6 +414,12 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                     currentHeartRateBpm = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
+                            "averageHeartRateBpm" -> {
+                                if (inMetadataExtensions) summaryAverageHeartRateBpm = parser.nextTextInt()
+                            }
+                            "maxHeartRateBpm" -> {
+                                if (inMetadataExtensions) summaryMaxHeartRateBpm = parser.nextTextInt()
+                            }
                             "stepCount" -> {
                                 if (inMetadataExtensions) {
                                     summaryStepCount = parser.nextTextInt()
@@ -394,12 +434,24 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                     currentCadenceSpm = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
+                            "averageCadenceSpm" -> {
+                                if (inMetadataExtensions) summaryAverageCadenceSpm = parser.nextTextInt()
+                            }
+                            "maxCadenceSpm" -> {
+                                if (inMetadataExtensions) summaryMaxCadenceSpm = parser.nextTextInt()
+                            }
                             "powerWatts" -> {
                                 if (inMetadataExtensions) {
                                     summaryPowerWatts = parser.nextTextInt()
                                 } else if (inTrackPoint) {
                                     currentPowerWatts = parser.nextText()?.trim()?.toIntOrNull()
                                 }
+                            }
+                            "averagePowerWatts" -> {
+                                if (inMetadataExtensions) summaryAveragePowerWatts = parser.nextTextInt()
+                            }
+                            "maxPowerWatts" -> {
+                                if (inMetadataExtensions) summaryMaxPowerWatts = parser.nextTextInt()
                             }
                             "pressureHpa" -> {
                                 if (inMetadataExtensions) {
@@ -430,6 +482,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                             TrackPoint(
                                                 latLong = latLong,
                                                 elevation = currentElevation,
+                                                startsNewSegment = currentStartsNewSegment,
                                                 hasTimestamp = currentHasTimestamp,
                                                 timeMillis = currentTimestampMillis,
                                                 accuracyMeters = currentAccuracyMeters,
@@ -447,7 +500,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                     ),
                                             )
 
-                                        lastPoint?.let { previous ->
+                                        lastPoint?.takeUnless { currentStartsNewSegment }?.let { previous ->
                                             totalDistance +=
                                                 haversine(
                                                     previous.latitude,
@@ -482,6 +535,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentDesc = null
                                 currentSym = null
                                 currentBrouterVoiceHint = null
+                                currentStartsNewSegment = false
                             }
                         }
                     }
@@ -505,12 +559,14 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                 buildGpxActivitySummary(
                     activityProfile = summaryActivityProfile,
                     durationSeconds = summaryDurationSeconds,
+                    totalDurationSeconds = summaryTotalDurationSeconds,
                     distanceMeters = summaryDistanceMeters,
                     elevationGainMeters = summaryElevationGainMeters,
                     elevationLossMeters = summaryElevationLossMeters,
                     currentElevationMeters = summaryCurrentElevationMeters,
                     currentSpeedMps = summaryCurrentSpeedMps,
                     averageSpeedMps = summaryAverageSpeedMps,
+                    fastestSpeedMps = summaryFastestSpeedMps,
                     gpsAccuracyMeters = summaryGpsAccuracyMeters,
                     pointCount = summaryPointCount,
                     gpsActiveDurationSeconds = summaryGpsActiveDurationSeconds,
@@ -524,9 +580,15 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                     cyclingPowerSampleSegments = summaryCyclingPowerSampleSegments,
                     cyclingPhysicsSegments = summaryCyclingPhysicsSegments,
                     heartRateBpm = summaryHeartRateBpm,
+                    averageHeartRateBpm = summaryAverageHeartRateBpm,
+                    maxHeartRateBpm = summaryMaxHeartRateBpm,
                     stepCount = summaryStepCount,
                     cadenceSpm = summaryCadenceSpm,
+                    averageCadenceSpm = summaryAverageCadenceSpm,
+                    maxCadenceSpm = summaryMaxCadenceSpm,
                     powerWatts = summaryPowerWatts,
+                    averagePowerWatts = summaryAveragePowerWatts,
+                    maxPowerWatts = summaryMaxPowerWatts,
                     barometricPressureHpa = summaryPressureHpa,
                 ),
         )
@@ -542,15 +604,18 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     }
 }
 
+@Suppress("LongParameterList") // Parameters map one-to-one to optional GPX extension fields parsed above.
 private fun buildGpxActivitySummary(
     activityProfile: String?,
     durationSeconds: Double?,
+    totalDurationSeconds: Double?,
     distanceMeters: Double?,
     elevationGainMeters: Double?,
     elevationLossMeters: Double?,
     currentElevationMeters: Double?,
     currentSpeedMps: Float?,
     averageSpeedMps: Double?,
+    fastestSpeedMps: Double?,
     gpsAccuracyMeters: Float?,
     pointCount: Int?,
     gpsActiveDurationSeconds: Double?,
@@ -564,9 +629,15 @@ private fun buildGpxActivitySummary(
     cyclingPowerSampleSegments: Int?,
     cyclingPhysicsSegments: Int?,
     heartRateBpm: Int?,
+    averageHeartRateBpm: Int?,
+    maxHeartRateBpm: Int?,
     stepCount: Int?,
     cadenceSpm: Int?,
+    averageCadenceSpm: Int?,
+    maxCadenceSpm: Int?,
     powerWatts: Int?,
+    averagePowerWatts: Int?,
+    maxPowerWatts: Int?,
     barometricPressureHpa: Double?,
 ): GpxActivitySummary? {
     if (
@@ -581,12 +652,14 @@ private fun buildGpxActivitySummary(
     return GpxActivitySummary(
         activityProfile = activityProfile,
         durationSeconds = durationSeconds,
+        totalDurationSeconds = totalDurationSeconds,
         distanceMeters = distanceMeters,
         elevationGainMeters = elevationGainMeters,
         elevationLossMeters = elevationLossMeters,
         currentElevationMeters = currentElevationMeters,
         currentSpeedMps = currentSpeedMps,
         averageSpeedMps = averageSpeedMps,
+        fastestSpeedMps = fastestSpeedMps,
         gpsAccuracyMeters = gpsAccuracyMeters,
         pointCount = pointCount,
         gpsActiveDurationSeconds = gpsActiveDurationSeconds,
@@ -600,9 +673,15 @@ private fun buildGpxActivitySummary(
         cyclingPowerSampleSegments = cyclingPowerSampleSegments,
         cyclingPhysicsSegments = cyclingPhysicsSegments,
         heartRateBpm = heartRateBpm,
+        averageHeartRateBpm = averageHeartRateBpm,
+        maxHeartRateBpm = maxHeartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,
+        averageCadenceSpm = averageCadenceSpm,
+        maxCadenceSpm = maxCadenceSpm,
         powerWatts = powerWatts,
+        averagePowerWatts = averagePowerWatts,
+        maxPowerWatts = maxPowerWatts,
         barometricPressureHpa = barometricPressureHpa,
     )
 }
@@ -708,6 +787,8 @@ private fun buildCanonicalElevationCumulative(
 
     val neutralThresholdMeters = effectiveFilter.neutralDiffThresholdMeters
     val trendActivationThresholdMeters = effectiveFilter.trendActivationThresholdMeters
+    val directionActivationThresholdMeters =
+        maxOf(neutralThresholdMeters, trendActivationThresholdMeters)
 
     var ascent = 0.0
     var descent = 0.0
@@ -725,33 +806,57 @@ private fun buildCanonicalElevationCumulative(
                 minimumGradePercent = effectiveFilter.minimumGradePercent,
             )
         when {
-            diff > neutralThresholdMeters -> {
-                pendingDescent = 0.0
-                descentActive = false
-                if (ascentActive) {
-                    ascent += diff
-                } else {
+            diff > 0.0 -> {
+                if (descentActive) {
                     pendingAscent += diff
-                    if (pendingAscent >= trendActivationThresholdMeters) {
+                    if (pendingAscent >= directionActivationThresholdMeters) {
                         ascent += pendingAscent
                         pendingAscent = 0.0
+                        pendingDescent = 0.0
+                        descentActive = false
                         ascentActive = true
+                    }
+                } else {
+                    val recoveredDescent = minOf(diff, pendingDescent)
+                    pendingDescent -= recoveredDescent
+                    val netRise = diff - recoveredDescent
+                    if (ascentActive) {
+                        ascent += netRise
+                    } else {
+                        pendingAscent += netRise
+                        if (pendingAscent >= directionActivationThresholdMeters) {
+                            ascent += pendingAscent
+                            pendingAscent = 0.0
+                            ascentActive = true
+                        }
                     }
                 }
             }
 
-            diff < -neutralThresholdMeters -> {
+            diff < 0.0 -> {
                 val loss = -diff
-                pendingAscent = 0.0
-                ascentActive = false
-                if (descentActive) {
-                    descent += loss
-                } else {
+                if (ascentActive) {
                     pendingDescent += loss
-                    if (pendingDescent >= trendActivationThresholdMeters) {
+                    if (pendingDescent >= directionActivationThresholdMeters) {
                         descent += pendingDescent
+                        pendingAscent = 0.0
                         pendingDescent = 0.0
+                        ascentActive = false
                         descentActive = true
+                    }
+                } else {
+                    val recoveredAscent = minOf(loss, pendingAscent)
+                    pendingAscent -= recoveredAscent
+                    val netLoss = loss - recoveredAscent
+                    if (descentActive) {
+                        descent += netLoss
+                    } else {
+                        pendingDescent += netLoss
+                        if (pendingDescent >= directionActivationThresholdMeters) {
+                            descent += pendingDescent
+                            pendingDescent = 0.0
+                            descentActive = true
+                        }
                     }
                 }
             }

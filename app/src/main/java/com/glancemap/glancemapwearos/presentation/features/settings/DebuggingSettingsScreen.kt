@@ -33,6 +33,8 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.BuildConfig
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassHeadingDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
@@ -43,6 +45,9 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
@@ -74,6 +79,19 @@ private enum class DiagnosticsExportDialogMode {
     FAILED,
 }
 
+@Composable
+@Suppress("FunctionNaming")
+private fun DiagnosticsSettingsSectionTitle() {
+    Text(
+        text = "Settings",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+    )
+}
+
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun DebuggingSettingsScreen(
@@ -85,12 +103,14 @@ fun DebuggingSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val compassDeepTraceState by CompassDeepTraceDiagnostics.state.collectAsState()
 
     val gpsIntervalMs by viewModel.gpsInterval.collectAsState()
     val isWatchGpsOnly by viewModel.watchGpsOnly.collectAsState()
-    val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
+    val keepAppOpen by viewModel.keepAppOpen.collectAsState()
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val diagnosticsCaptureMode by viewModel.diagnosticsCaptureMode.collectAsState()
     val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
@@ -103,6 +123,7 @@ fun DebuggingSettingsScreen(
     val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
     val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val turnByTurnScreenOffBatchingEnabled by viewModel.turnByTurnScreenOffBatchingEnabled.collectAsState()
     val turnByTurnGpsIntervalSeconds by viewModel.turnByTurnGpsIntervalSeconds.collectAsState()
     val turnByTurnScreenOffGpsIntervalSeconds by viewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
     val turnByTurnBrouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
@@ -111,6 +132,7 @@ fun DebuggingSettingsScreen(
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingScreenOffSampleIntervalSeconds by viewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
     val recordingAutoPauseMode by viewModel.recordingAutoPauseMode.collectAsState()
+    val recordingTrackSmoothingMode by viewModel.recordingTrackSmoothingMode.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
     val recordingHeartRateSource by viewModel.recordingHeartRateSource.collectAsState()
     val recordingCadenceSource by viewModel.recordingCadenceSource.collectAsState()
@@ -140,11 +162,17 @@ fun DebuggingSettingsScreen(
     var exportedDiagnosticsCount by remember { mutableStateOf(0) }
     var exportDialogMode by remember { mutableStateOf<DiagnosticsExportDialogMode?>(null) }
     var exportDialogMessage by remember { mutableStateOf("") }
+    var energySummaryRevision by remember { mutableStateOf(0L) }
     val helpPrefs =
         remember(context) {
             context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
         }
     val hasExportedDiagnostics = exportedDiagnosticsCount > 0
+    val lastBatteryUse =
+        remember(energySummaryRevision, gpsDebugTelemetry) {
+            EnergyDiagnostics.summary().batteryUse
+        }
+    val batteryBenchmarkValidity = EnergyDiagnostics.batteryBenchmarkValidity()
 
     val infoButtonSize =
         when (screenSize) {
@@ -159,20 +187,44 @@ fun DebuggingSettingsScreen(
             WearScreenSize.SMALL -> 12.dp
         }
 
-    LaunchedEffect(gpsDebugTelemetry) {
-        DebugTelemetry.setEnabled(gpsDebugTelemetry)
+    LaunchedEffect(gpsDebugTelemetry, diagnosticsCaptureMode) {
         if (gpsDebugTelemetry) {
-            DebugTelemetry.log("DiagnosticsFlow", "capture enabled")
+            val fullDiagnostics =
+                diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
+            EnergyDiagnostics.configure(
+                captureActive = true,
+                fullDiagnostics = fullDiagnostics,
+            )
+            CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
+                captureActive = true,
+                fullDiagnostics = fullDiagnostics,
+            )
+            ScreenStateDiagnostics.configure(captureActive = true)
+            CompassHeadingDiagnostics.reset()
+            DebugTelemetry.setEnabled(fullDiagnostics)
+            DebugTelemetry.log(
+                "DiagnosticsFlow",
+                "capture enabled mode=$diagnosticsCaptureMode",
+            )
             EnergyDiagnostics.recordSample(
                 context = context,
                 reason = "capture_toggle_on",
-                detail = "source=debug_screen",
+                detail = "source=debug_screen captureMode=$diagnosticsCaptureMode",
             )
         } else {
+            CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
+                captureActive = false,
+                fullDiagnostics = false,
+            )
             EnergyDiagnostics.recordEvent(
                 reason = "capture_toggle_off",
                 detail = "source=debug_screen",
             )
+            CompassHeadingDiagnostics.flush(reason = "capture_toggle_off")
+            DebugTelemetry.setEnabled(false)
+            CompassHeadingDiagnostics.reset()
+            EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+            ScreenStateDiagnostics.configure(captureActive = false)
         }
     }
 
@@ -263,8 +315,12 @@ fun DebuggingSettingsScreen(
                 onClick = {
                     if (exportInProgress) return@Chip
                     DebugTelemetry.clear()
+                    CompassHeadingDiagnostics.reset()
+                    CompassDeepTraceDiagnostics.clear()
                     MarkerMotionTelemetry.clear()
                     EnergyDiagnostics.clear()
+                    ScreenStateDiagnostics.clear()
+                    energySummaryRevision += 1L
                     DemDownloadDiagnostics.clear()
                     FieldMarkerDiagnostics.clear()
                     GnssDiagnostics.clear()
@@ -284,6 +340,15 @@ fun DebuggingSettingsScreen(
                 checked = gpsDebugTelemetry,
                 onCheckedChanged = {
                     if (exportInProgress) return@ToggleChip
+                    if (!it) {
+                        CompassDeepTraceDiagnostics.stop(reason = "capture_toggle_off")
+                        EnergyDiagnostics.recordSample(
+                            context = context,
+                            reason = "capture_toggle_off",
+                            detail = "source=capture_toggle",
+                        )
+                        energySummaryRevision += 1L
+                    }
                     viewModel.setGpsDebugTelemetry(it)
                     FieldMarkerDiagnostics.recordMarker(
                         type = if (it) "capture_start" else "capture_stop",
@@ -294,7 +359,7 @@ fun DebuggingSettingsScreen(
                             "Capturing..."
                         } else if (hasExportedDiagnostics) {
                             buildRetryReadyLabel(exportedDiagnosticsCount)
-                        } else if (DebugTelemetry.size() > 0) {
+                        } else if (DebugTelemetry.size() > 0 || EnergyDiagnostics.snapshotLines().isNotEmpty()) {
                             "Send to phone"
                         } else {
                             "Capture off."
@@ -303,34 +368,32 @@ fun DebuggingSettingsScreen(
                 label = "2. Start Capturing",
                 secondaryLabel =
                     if (gpsDebugTelemetry) {
-                        "Capturing..."
+                        if (diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY) {
+                            if (!batteryBenchmarkValidity.valid) {
+                                "Battery benchmark invalid · deep trace used"
+                            } else {
+                                "Battery benchmark running"
+                            }
+                        } else {
+                            "Full diagnostics running"
+                        }
                     } else if (exportInProgress) {
                         "Export in progress..."
+                    } else if (
+                        diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY &&
+                        !batteryBenchmarkValidity.valid
+                    ) {
+                        "Last run invalid · deep trace used"
+                    } else if (
+                        diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY &&
+                        lastBatteryUse != null
+                    ) {
+                        "Last run · ${TelemetryFormatters.decimal(lastBatteryUse.consumedMah, 2)} mAh"
                     } else {
                         "Off - tap to start"
                     },
                 toggleControl = ToggleChipToggleControl.Switch,
             )
-        }
-
-        if (gpsDebugTelemetry) {
-            item {
-                ToggleChip(
-                    checked = gpsDebugTelemetryPopupEnabled,
-                    onCheckedChanged = {
-                        if (exportInProgress) return@ToggleChip
-                        viewModel.setGpsDebugTelemetryPopupEnabled(it)
-                    },
-                    label = "Debug popup",
-                    secondaryLabel =
-                        if (gpsDebugTelemetryPopupEnabled) {
-                            "On while capturing"
-                        } else {
-                            "Off while capturing"
-                        },
-                    toggleControl = ToggleChipToggleControl.Switch,
-                )
-            }
         }
 
         if (BuildConfig.DEBUG) {
@@ -386,9 +449,13 @@ fun DebuggingSettingsScreen(
                         exportInProgress = true
                         exportDialogMode = DiagnosticsExportDialogMode.GENERATING
                         exportDialogMessage = "Generating diagnostics file..."
-                        val captureWasEnabled = DebugTelemetry.isEnabled()
+                        val captureWasEnabled = gpsDebugTelemetry
                         try {
-                            val hasBufferedLogs = DebugTelemetry.size() > 0
+                            CompassDeepTraceDiagnostics.stop(reason = "export")
+                            val hasBufferedLogs =
+                                DebugTelemetry.size() > 0 ||
+                                    EnergyDiagnostics.snapshotLines().isNotEmpty() ||
+                                    CompassDeepTraceDiagnostics.snapshot().lines.isNotEmpty()
                             val hasExistingExport =
                                 withContext(Dispatchers.IO) {
                                     DiagnosticsExporter.latestExportFile(context) != null
@@ -404,8 +471,17 @@ fun DebuggingSettingsScreen(
 
                             // Freeze capture state immediately to avoid session churn while exporting.
                             if (captureWasEnabled) {
+                                EnergyDiagnostics.recordSample(
+                                    context = context,
+                                    reason = "capture_toggle_off",
+                                    detail = "source=export",
+                                )
+                                CompassHeadingDiagnostics.flush(reason = "capture_export")
                                 viewModel.setGpsDebugTelemetry(false)
                                 DebugTelemetry.setEnabled(false)
+                                CompassHeadingDiagnostics.reset()
+                                EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+                                ScreenStateDiagnostics.configure(captureActive = false)
                             }
 
                             val diagnosticsFile =
@@ -419,12 +495,14 @@ fun DebuggingSettingsScreen(
                                                 keepAppOpen = keepAppOpen,
                                                 gpsInAmbientMode = gpsInAmbientMode,
                                                 gpsDebugTelemetry = captureWasEnabled,
+                                                diagnosticsCaptureMode = diagnosticsCaptureMode,
                                                 gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
                                                 recordingScreenOffSampleIntervalSeconds =
                                                 recordingScreenOffSampleIntervalSeconds,
                                                 recordingAutoPauseMode = recordingAutoPauseMode,
+                                                recordingTrackSmoothingMode = recordingTrackSmoothingMode,
                                                 recordingElevationSource = recordingElevationSource,
                                                 recordingHeartRateSource = recordingHeartRateSource,
                                                 recordingCadenceSource = recordingCadenceSource,
@@ -460,6 +538,8 @@ fun DebuggingSettingsScreen(
                                                 turnByTurnOffRouteThresholdMeters,
                                                 turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
                                                 turnByTurnGpsInAmbientMode = turnByTurnGpsInAmbientMode,
+                                                turnByTurnScreenOffBatchingEnabled =
+                                                turnByTurnScreenOffBatchingEnabled,
                                                 turnByTurnBrouterGuideBackEnabled =
                                                 turnByTurnBrouterGuideBackEnabled,
                                                 turnByTurnRouteStartBehavior = turnByTurnRouteStartBehavior,
@@ -557,6 +637,8 @@ fun DebuggingSettingsScreen(
                         } finally {
                             viewModel.setGpsDebugTelemetry(false)
                             DebugTelemetry.setEnabled(false)
+                            EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+                            ScreenStateDiagnostics.configure(captureActive = false)
                             if (exportDialogMode == DiagnosticsExportDialogMode.GENERATING) {
                                 exportDialogMode = null
                             }
@@ -564,6 +646,94 @@ fun DebuggingSettingsScreen(
                         }
                     }
                 },
+            )
+        }
+
+        item {
+            DiagnosticsSettingsSectionTitle()
+        }
+        item {
+            SettingsOptionPickerRow(
+                label = "Capture mode",
+                selectedValue = diagnosticsCaptureMode,
+                options =
+                    listOf(
+                        SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL to "Full diagnostics",
+                        SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY to "Battery benchmark",
+                    ),
+                secondaryLabel =
+                    if (diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY) {
+                        "Energy only · low overhead"
+                    } else {
+                        "Complete troubleshooting logs"
+                    },
+                onSelect = { mode ->
+                    if (gpsDebugTelemetry) {
+                        CompassDeepTraceDiagnostics.stop(reason = "capture_mode_change")
+                        EnergyDiagnostics.recordSample(
+                            context = context,
+                            reason = "capture_toggle_off",
+                            detail = "source=capture_mode_change",
+                        )
+                        energySummaryRevision += 1L
+                        viewModel.setGpsDebugTelemetry(false)
+                        diagnosticsExportStatus = "Capture stopped. Start a new run."
+                    }
+                    viewModel.setDiagnosticsCaptureMode(mode)
+                },
+            )
+        }
+        item {
+            val fullDiagnostics =
+                diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
+            ToggleChip(
+                checked = fullDiagnostics && gpsDebugTelemetryPopupEnabled,
+                enabled = fullDiagnostics,
+                onCheckedChanged = {
+                    if (exportInProgress || !fullDiagnostics) return@ToggleChip
+                    viewModel.setGpsDebugTelemetryPopupEnabled(it)
+                },
+                label = "Debug popup",
+                secondaryLabel =
+                    when {
+                        !fullDiagnostics -> "Disabled in battery benchmark"
+                        gpsDebugTelemetryPopupEnabled -> "On during full diagnostics"
+                        else -> "Off during full diagnostics"
+                    },
+                toggleControl = ToggleChipToggleControl.Switch,
+            )
+        }
+        item {
+            val batteryBenchmark =
+                diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+            ToggleChip(
+                checked = compassDeepTraceState.active,
+                enabled = gpsDebugTelemetry && !exportInProgress,
+                onCheckedChanged = { enabled ->
+                    if (enabled) {
+                        CompassDeepTraceDiagnostics.start(
+                            context = context,
+                            batteryBenchmarkSelected = batteryBenchmark,
+                        )
+                    } else {
+                        CompassDeepTraceDiagnostics.stop(reason = "manual")
+                    }
+                },
+                label = "Compass deep trace",
+                secondaryLabel =
+                    when {
+                        compassDeepTraceState.active && batteryBenchmark ->
+                            "Active · battery benchmark invalid"
+                        compassDeepTraceState.active ->
+                            "Active · stop manually when finished"
+                        batteryBenchmark && !batteryBenchmarkValidity.valid ->
+                            "Off · current benchmark remains invalid"
+                        !gpsDebugTelemetry -> "Start diagnostics capture first"
+                        batteryBenchmark ->
+                            "Manual stop · invalidates benchmark"
+                        else -> "Manual stop · higher battery use"
+                    },
+                toggleControl = ToggleChipToggleControl.Switch,
             )
         }
 

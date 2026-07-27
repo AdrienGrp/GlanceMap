@@ -1,6 +1,6 @@
 # Voluntary Theme
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-07-11
 
 This note tracks the bundled Voluntary Mapsforge render theme used by GlanceMap.
 
@@ -37,13 +37,12 @@ This note tracks the bundled Voluntary Mapsforge render theme used by GlanceMap.
 
 ## Snapshot information
 
-- Website revision observed on 2026-04-29:
-  - Last revised 2026-03-20
+- Download package refreshed on 2026-07-11.
 - XML header version observed:
-  - `v.260323`
-- Current ZIP SHA-256 observed on 2026-04-29:
-  - `311cd24726a3f90ac4d99e905fe6286c32d63b1a1da7324453fba3ba0bbb5791`
-- Observed archive contents on 2026-04-29:
+  - `v.260516`
+- Current ZIP SHA-256 observed on 2026-07-11:
+  - `f3a1d263913913f061fb448e271a22c9f6a1bf025dfa65da575efa6a17e3a3ef`
+- Observed archive contents on 2026-07-11:
   - `Voluntary V5.xml`
   - `Velocity V5.xml`
   - `vol_res/svg/`

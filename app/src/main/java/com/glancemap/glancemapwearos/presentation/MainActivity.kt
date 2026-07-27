@@ -27,14 +27,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeInputs
 import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
@@ -43,6 +43,7 @@ import com.glancemap.glancemapwearos.presentation.features.download.DownloadSett
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
+import com.glancemap.glancemapwearos.presentation.features.navigate.AmbientScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
@@ -65,6 +66,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSou
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAdvancedSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAlertsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnBackgroundSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnDashboardSettingsScreen
@@ -80,14 +82,17 @@ import com.google.android.horologist.compose.layout.AppScaffold
 import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
+@Suppress("LargeClass")
 class MainActivity : ComponentActivity() {
-    private var _isAmbient by mutableStateOf(false)
-    private var _ambientTickMs by mutableStateOf(0L)
-    private var _isDeviceInteractive by mutableStateOf(true)
+    private val ambientState = WearAmbientState(this, ::logScreenTelemetry)
 
     @Volatile
     private var activeRoute: String? = null
-    private var thermalStatusListener: PowerManager.OnThermalStatusChangedListener? = null
+    private val thermalTelemetry =
+        ThermalTelemetryController(this) {
+            "route=${activeRoute ?: "unknown"} ambient=${ambientState.isAmbient} " +
+                "interactive=${ambientState.isDeviceInteractive}"
+        }
 
     private val screenStateReceiver =
         object : BroadcastReceiver() {
@@ -95,7 +100,7 @@ class MainActivity : ComponentActivity() {
                 context: Context?,
                 intent: Intent?,
             ) {
-                _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+                ambientState.onScreenStateChanged(intent?.action)
             }
         }
 
@@ -103,7 +108,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidGraphicFactory.createInstance(this.application)
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+        ambientState.refreshDeviceInteractive(fallback = true)
 
         val screenStateFilter =
             IntentFilter().apply {
@@ -116,32 +121,9 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
-        registerThermalTelemetry()
+        thermalTelemetry.register()
 
-        val ambientObserver =
-            AmbientLifecycleObserver(
-                this,
-                object : AmbientLifecycleObserver.AmbientLifecycleCallback {
-                    override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
-                        _isAmbient = true
-                        _ambientTickMs = System.currentTimeMillis()
-                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
-                        logScreenTelemetry(event = "ambient_enter")
-                    }
-
-                    override fun onExitAmbient() {
-                        _isAmbient = false
-                        _ambientTickMs = System.currentTimeMillis()
-                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-                        logScreenTelemetry(event = "ambient_exit")
-                    }
-
-                    override fun onUpdateAmbient() {
-                        _ambientTickMs = System.currentTimeMillis()
-                    }
-                },
-            )
-        lifecycle.addObserver(ambientObserver)
+        lifecycle.addObserver(ambientState.observer)
 
         setContent {
             val appContainer = (application as GlanceMapWearApp).container
@@ -151,6 +133,8 @@ class MainActivity : ComponentActivity() {
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
             val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
             val recordingStartWarning by appContainer.traceRecordingViewModel.startWarning.collectAsState()
+            val recordingLocationStartWarning by
+                appContainer.traceRecordingViewModel.locationStartWarning.collectAsState()
             val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
             val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
             val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
@@ -169,10 +153,21 @@ class MainActivity : ComponentActivity() {
             val recordingExternalHeartRateAddress by appContainer.settingsViewModel.recordingExternalHeartRateAddress.collectAsState()
             val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
             val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
+            val activityProfile by appContainer.settingsViewModel.activityProfile.collectAsState()
 
-            val isAmbient = _isAmbient
-            val ambientTickMs = _ambientTickMs
-            val isDeviceInteractive = _isDeviceInteractive
+            LaunchedEffect(recordingLocationStartWarning) {
+                if (recordingLocationStartWarning != null) {
+                    appContainer.locationViewModel.requestImmediateLocation(
+                        source = "ui_recording_start_missing_location",
+                    )
+                }
+            }
+
+            val isAmbient = ambientState.isAmbient
+            val ambientTickMs = ambientState.ambientTickMs
+            val isDeviceInteractive = ambientState.isDeviceInteractive
+            val burnInProtectionRequired = ambientState.burnInProtectionRequired
+            val deviceHasLowBitAmbient = ambientState.deviceHasLowBitAmbient
             val activityLocationScreenState =
                 remember(isAmbient, isDeviceInteractive) {
                     resolveLocationScreenState(
@@ -200,6 +195,8 @@ class MainActivity : ComponentActivity() {
                     externalHeartRateAddress = recordingExternalHeartRateAddress,
                     externalRunPodAddress = recordingExternalRunPodAddress,
                     cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
+                    activityProfile = traceRecordingState.activityProfile,
+                    initialStepCount = traceRecordingState.stepCount,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =
@@ -248,15 +245,21 @@ class MainActivity : ComponentActivity() {
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
                 }
                 val isNavigateScreen = routeLabel == WatchRoutes.NAVIGATE
+                val activityOwnsRuntime =
+                    activityOwnsNavigationRuntime(
+                        isNavigateScreen = isNavigateScreen,
+                        isAmbient = isAmbient,
+                    )
                 LaunchedEffect(isNavigateScreen) {
                     if (!isNavigateScreen) {
                         suppressNavigateTime = false
                     }
                 }
                 LaunchedEffect(
-                    isNavigateScreen,
+                    activityOwnsRuntime,
                     traceRecordingState.active,
                     recordingRuntimePaused,
+                    traceRecordingState.autoPaused,
                     recordingGpsEnabled,
                     turnByTurnGuidanceSession,
                     turnByTurnGuidancePaused,
@@ -267,22 +270,25 @@ class MainActivity : ComponentActivity() {
                     activityLocationScreenState,
                     locationPermissionGranted,
                 ) {
-                    if (isNavigateScreen) return@LaunchedEffect
+                    if (!activityOwnsRuntime) return@LaunchedEffect
                     val runtimeDemand =
                         navigationRuntimeDemand(
-                            isNavigateScreen = false,
-                            screenState = activityLocationScreenState,
-                            isScreenResumed = true,
-                            hasLocationPermission = locationPermissionGranted,
-                            offlineMode = offlineMode,
-                            generalGpsInAmbient = gpsInAmbientMode,
-                            recordingActive = traceRecordingState.active,
-                            recordingPaused = recordingRuntimePaused,
-                            recordingGpsEnabled = recordingGpsEnabled,
-                            turnByTurnActive = turnByTurnGuidanceSession != null,
-                            turnByTurnPaused = turnByTurnGuidancePaused,
-                            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
-                            turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                            NavigationRuntimeInputs(
+                                isNavigateScreen = isNavigateScreen,
+                                screenState = activityLocationScreenState,
+                                isScreenResumed = true,
+                                hasLocationPermission = locationPermissionGranted,
+                                offlineMode = offlineMode,
+                                generalGpsInAmbient = gpsInAmbientMode,
+                                recordingActive = traceRecordingState.active,
+                                recordingPaused = recordingRuntimePaused,
+                                recordingAutoPaused = traceRecordingState.autoPaused,
+                                recordingGpsEnabled = recordingGpsEnabled,
+                                turnByTurnActive = turnByTurnGuidanceSession != null,
+                                turnByTurnPaused = turnByTurnGuidancePaused,
+                                turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                                turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                            ),
                         )
                     appContainer.locationViewModel.syncRuntimeState(
                         screenState = activityLocationScreenState,
@@ -327,6 +333,16 @@ class MainActivity : ComponentActivity() {
                         "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
                     )
                     recordingActionPromptRequestToken += 1L
+                }
+
+                if (isAmbient) {
+                    AmbientScreen(
+                        ambientTick = ambientTickMs,
+                        timeFormat = navigateTimeFormat,
+                        burnInProtectionRequired = burnInProtectionRequired,
+                        deviceHasLowBitAmbient = deviceHasLowBitAmbient,
+                    )
+                    return@GlanceMapTheme
                 }
 
                 AppScaffold(
@@ -472,7 +488,7 @@ class MainActivity : ComponentActivity() {
                                     areaSearchQuery = downloadAreaSearchQuery,
                                     onAreaSearchQueryChange = { downloadAreaSearchQuery = it },
                                     onLibraryChanged = {
-                                        appContainer.mapViewModel.loadMapFiles()
+                                        appContainer.mapViewModel.loadMapFiles(preserveExistingCoverage = false)
                                         appContainer.mapViewModel.loadRoutingPackFiles()
                                         appContainer.poiViewModel.loadPoiFiles(forceRefresh = true)
                                     },
@@ -581,6 +597,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 UserProfileSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    profileChangeEnabled = !traceRecordingState.active,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {
                                             popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
@@ -713,11 +730,8 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
-                                    onOpenGuidanceSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS)
-                                    },
-                                    onOpenAlertsSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
+                                    onOpenAdvancedSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ADVANCED_SETTINGS)
                                     },
                                     onOpenDashboardSettings = {
                                         navController.navigate(WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS)
@@ -735,6 +749,12 @@ class MainActivity : ComponentActivity() {
                         }
                         val turnByTurnCategoryScreens: List<Pair<String, @Composable () -> Unit>> =
                             listOf(
+                                WatchRoutes.TURN_BY_TURN_ADVANCED_SETTINGS to {
+                                    TurnByTurnAdvancedSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
                                 WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS to {
                                     TurnByTurnGuidanceSettingsScreen(
                                         viewModel = appContainer.settingsViewModel,
@@ -1019,25 +1039,35 @@ class MainActivity : ComponentActivity() {
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+                WearActionDialog(
+                    visible = recordingLocationStartWarning != null,
+                    title = "GPS needed",
+                    message = "Wait for a fresh GPS position, then start REC again.",
+                    confirmText = "OK",
+                    onConfirm = appContainer.traceRecordingViewModel::cancelStartRecordingWithoutLocation,
+                    onDismissRequest = appContainer.traceRecordingViewModel::cancelStartRecordingWithoutLocation,
+                )
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+        ambientState.refreshDeviceInteractive(fallback = true)
+        ScreenStateDiagnostics.updateAppForeground(isForeground = true)
         logScreenTelemetry(event = "activity_resume")
     }
 
     override fun onPause() {
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
+        ambientState.refreshDeviceInteractive(fallback = false)
+        ScreenStateDiagnostics.updateAppForeground(isForeground = false)
         logScreenTelemetry(event = "activity_pause")
         super.onPause()
     }
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenStateReceiver) }
-        unregisterThermalTelemetry()
+        thermalTelemetry.unregister()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
         val locationPermissionGranted =
@@ -1052,8 +1082,8 @@ class MainActivity : ComponentActivity() {
         val traceRecordingState = appContainer.traceRecordingViewModel.uiState.value
         val destroyScreenState =
             resolveLocationScreenState(
-                isAmbient = _isAmbient,
-                isDeviceInteractive = _isDeviceInteractive,
+                isAmbient = ambientState.isAmbient,
+                isDeviceInteractive = ambientState.isDeviceInteractive,
             )
         val destroyRecordingScreenOnGpsEnabled =
             appContainer.settingsViewModel.recordingSampleIntervalSeconds.value !=
@@ -1087,19 +1117,22 @@ class MainActivity : ComponentActivity() {
             }
         val runtimeDemand =
             navigationRuntimeDemand(
-                isNavigateScreen = false,
-                screenState = destroyScreenState,
-                isScreenResumed = false,
-                hasLocationPermission = locationPermissionGranted,
-                offlineMode = appContainer.settingsViewModel.offlineMode.value,
-                generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
-                recordingActive = traceRecordingState.active,
-                recordingPaused = traceRecordingState.paused && !traceRecordingState.autoPaused,
-                recordingGpsEnabled = destroyRecordingGpsEnabled,
-                turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
-                turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
-                turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
-                turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
+                NavigationRuntimeInputs(
+                    isNavigateScreen = false,
+                    screenState = destroyScreenState,
+                    isScreenResumed = false,
+                    hasLocationPermission = locationPermissionGranted,
+                    offlineMode = appContainer.settingsViewModel.offlineMode.value,
+                    generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
+                    recordingActive = traceRecordingState.active,
+                    recordingPaused = traceRecordingState.paused && !traceRecordingState.autoPaused,
+                    recordingAutoPaused = traceRecordingState.autoPaused,
+                    recordingGpsEnabled = destroyRecordingGpsEnabled,
+                    turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
+                    turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
+                    turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
+                    turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
+                ),
             )
         if (runtimeDemand.trackingEnabled) {
             DebugTelemetry.log(
@@ -1113,74 +1146,21 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun registerThermalTelemetry() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val powerManager = getSystemService(PowerManager::class.java) ?: return
-        val listener =
-            PowerManager.OnThermalStatusChangedListener { status ->
-                logThermalTelemetry(event = "status", status = status)
-            }
-        thermalStatusListener = listener
-        powerManager.addThermalStatusListener(mainExecutor, listener)
-        logThermalTelemetry(event = "initial", status = powerManager.currentThermalStatus)
-    }
-
-    private fun unregisterThermalTelemetry() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val listener = thermalStatusListener ?: return
-        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(listener)
-        thermalStatusListener = null
-    }
-
-    private fun logThermalTelemetry(
-        event: String,
-        status: Int,
-    ) {
-        DebugTelemetry.log(
-            "ThermalTelemetry",
-            "event=$event status=$status label=${thermalStatusLabel(status)} " +
-                "route=${activeRoute ?: "unknown"} ambient=$_isAmbient interactive=$_isDeviceInteractive",
-        )
-    }
-
-    private fun thermalStatusLabel(status: Int): String =
-        when (status) {
-            PowerManager.THERMAL_STATUS_NONE -> "none"
-            PowerManager.THERMAL_STATUS_LIGHT -> "light"
-            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
-            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
-            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
-            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
-            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
-            else -> "unknown"
-        }
-
     private fun logScreenTelemetry(event: String) {
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive
-        val message =
-            buildString {
-                append("event=").append(event)
-                append(" route=").append(activeRoute ?: "unknown")
-                append(" ambient=").append(_isAmbient)
-                append(" interactive=").append(interactive?.toString() ?: "na")
-            }
-        DebugTelemetry.log("ScreenTelemetry", message)
-        FieldMarkerDiagnostics.recordMarker(type = event, note = activeRoute ?: "unknown")
+        ActivityLifecycleTelemetry.logScreen(event, activityTelemetryState(activeRoute))
     }
 
     private fun logNavigationTelemetry(
         event: String,
         route: String?,
     ) {
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive
-        val message =
-            buildString {
-                append("event=").append(event)
-                append(" route=").append(route ?: "unknown")
-                append(" ambient=").append(_isAmbient)
-                append(" interactive=").append(interactive?.toString() ?: "na")
-            }
-        DebugTelemetry.log("NavigationTelemetry", message)
-        FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
+        ActivityLifecycleTelemetry.logNavigation(event, activityTelemetryState(route))
     }
+
+    private fun activityTelemetryState(route: String?): ActivityTelemetryState =
+        ActivityTelemetryState(
+            route = route ?: "unknown",
+            ambient = ambientState.isAmbient,
+            interactive = getSystemService(PowerManager::class.java)?.isInteractive,
+        )
 }

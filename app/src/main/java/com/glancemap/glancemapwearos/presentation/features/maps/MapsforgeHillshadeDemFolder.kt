@@ -22,6 +22,7 @@ internal class MapsforgeHillshadeDemFolder(
             .filter { it.exists() && it.isDirectory }
             .flatMap { root -> root.walkTopDown().filter { it.isFile } }
             .mapNotNull(::toHillshadeDemFile)
+            .distinctBy { demFile -> demFile.name.uppercase(Locale.ROOT) }
             .toList()
 
     override fun subs(): Iterable<DemFolder> = emptyList()
@@ -34,6 +35,78 @@ internal class MapsforgeHillshadeDemFolder(
             lowerName.endsWith(".hgt.gz") -> GzipHgtDemFile(file)
             else -> null
         }
+    }
+}
+
+/**
+ * Keeps Mapsforge's hillshade index focused on roots that contain real elevation data.
+ *
+ * A DEM root can exist with only partial downloads or `.missing` markers. Passing that root to
+ * Mapsforge makes it look like the preferred source is available even though there is nothing it
+ * can render. In particular, Detailed selected with only Standard installed must use the exact
+ * same single-root path as Standard selected.
+ */
+internal fun resolveHillshadeDemRootDirs(
+    demRootDirs: List<File>,
+    requiredTileIds: Set<String>? = null,
+): List<File> {
+    if (requiredTileIds.isNullOrEmpty()) {
+        return demRootDirs.filter(::containsHillshadeDemFile)
+    }
+
+    val coverageByRoot =
+        demRootDirs.map { root ->
+            root to requiredTileIds.count { tileId -> root.containsHillshadeDemTile(tileId) }
+        }
+
+    // Prefer one complete source. Detailed selected with incomplete or unrelated coverage must
+    // resolve to complete Standard terrain instead of building a mixed hillshade index.
+    val completeRoot =
+        coverageByRoot
+            .firstOrNull { (_, availableTiles) -> availableTiles == requiredTileIds.size }
+
+    // Neither source covers the whole map. Retain only roots that can contribute relevant tiles,
+    // preserving the selected-to-fallback preference order.
+    return if (completeRoot != null) {
+        listOf(completeRoot.first)
+    } else {
+        coverageByRoot
+            .filter { (_, availableTiles) -> availableTiles > 0 }
+            .map { (root, _) -> root }
+    }
+}
+
+private fun containsHillshadeDemFile(root: File): Boolean {
+    if (!root.exists() || !root.isDirectory) return false
+    return root
+        .walkTopDown()
+        .maxDepth(HILLSHADE_DEM_SCAN_MAX_DEPTH)
+        .any { file ->
+            file.isFile && file.name.isHillshadeDemFileName()
+        }
+}
+
+private fun String.isHillshadeDemFileName(): Boolean {
+    val lowerName = lowercase(Locale.ROOT)
+    return lowerName.endsWith(".hgt") ||
+        lowerName.endsWith(".hgt.zip") ||
+        lowerName.endsWith(".hgt.gz")
+}
+
+private fun File.containsHillshadeDemTile(tileId: String): Boolean {
+    val normalizedTileId = tileId.uppercase(Locale.ROOT)
+    return if (!exists() || !isDirectory || normalizedTileId.length < 3) {
+        false
+    } else {
+        val folder = normalizedTileId.substring(0, 3)
+        listOf(
+            File(File(this, folder), "$normalizedTileId.hgt"),
+            File(File(this, folder), "$normalizedTileId.hgt.zip"),
+            File(File(this, folder), "$normalizedTileId.hgt.gz"),
+            File(this, "$normalizedTileId.hgt"),
+            File(this, "$normalizedTileId.hgt.zip"),
+            File(this, "$normalizedTileId.hgt.gz"),
+        ).any { candidate -> candidate.isFile }
     }
 }
 
@@ -122,3 +195,4 @@ private fun readGzipUncompressedSize(file: File): Long {
 }
 
 private const val GZIP_FOOTER_SIZE_BYTES = 4
+private const val HILLSHADE_DEM_SCAN_MAX_DEPTH = 6

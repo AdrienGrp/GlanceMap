@@ -23,6 +23,7 @@ internal data class MapHotPathSummary(
     val stageSummaries: List<MapHotPathStageSummary>,
 )
 
+@Suppress("TooManyFunctions")
 internal object MapHotPathDiagnostics {
     private const val TAG = "MapHotPath"
     private const val MAX_LINES = 400
@@ -168,37 +169,36 @@ internal object MapHotPathDiagnostics {
         try {
             val nowElapsedMs = SystemClock.elapsedRealtime()
             val eventLine =
-                synchronized(lock) {
-                    if (sessionStartElapsedMs == 0L) {
-                        sessionStartElapsedMs = marker.startedAtElapsedMs
-                    }
-                    val event =
-                        TimingEvent(
-                            relativeMs = (nowElapsedMs - sessionStartElapsedMs).coerceAtLeast(0L),
-                            stage = marker.stage,
-                            durationMs = (nowElapsedMs - marker.startedAtElapsedMs).coerceAtLeast(0L),
-                            status = status,
-                            detail = detail,
-                        )
-                    events.addLast(event)
-                    while (events.size > MAX_LINES) {
-                        events.removeFirst()
-                        droppedLines += 1
-                    }
-                    buildString {
-                        append("+").append(event.relativeMs).append("ms")
-                        append(" stage=").append(event.stage)
-                        append(" durationMs=").append(event.durationMs)
-                        append(" status=").append(event.status)
-                        if (event.detail.isNotBlank()) {
-                            append(" ").append(event.detail)
-                        }
-                    }
-                }
+                recordTimingEvent(
+                    stage = marker.stage,
+                    startedAtElapsedMs = marker.startedAtElapsedMs,
+                    completedAtElapsedMs = nowElapsedMs,
+                    status = status,
+                    detail = detail,
+                )
             DebugTelemetry.log(TAG, eventLine)
         } finally {
             BenchmarkTrace.end()
         }
+    }
+
+    fun recordInterval(
+        stage: String,
+        startedAtElapsedMs: Long,
+        completedAtElapsedMs: Long,
+        status: String = "ok",
+        detail: String = "",
+    ) {
+        if (!DebugTelemetry.isEnabled()) return
+        val eventLine =
+            recordTimingEvent(
+                stage = stage,
+                startedAtElapsedMs = startedAtElapsedMs,
+                completedAtElapsedMs = completedAtElapsedMs,
+                status = status,
+                detail = detail,
+            )
+        DebugTelemetry.log(TAG, eventLine)
     }
 
     inline fun <T> measure(
@@ -225,4 +225,37 @@ internal object MapHotPathDiagnostics {
         if (sessionStartElapsedMs != 0L) return
         sessionStartElapsedMs = nowElapsedMs
     }
+
+    private fun recordTimingEvent(
+        stage: String,
+        startedAtElapsedMs: Long,
+        completedAtElapsedMs: Long,
+        status: String,
+        detail: String,
+    ): String =
+        synchronized(lock) {
+            ensureSession(startedAtElapsedMs)
+            val event =
+                TimingEvent(
+                    relativeMs = (completedAtElapsedMs - sessionStartElapsedMs).coerceAtLeast(0L),
+                    stage = stage,
+                    durationMs = (completedAtElapsedMs - startedAtElapsedMs).coerceAtLeast(0L),
+                    status = status,
+                    detail = detail,
+                )
+            events.addLast(event)
+            while (events.size > MAX_LINES) {
+                events.removeFirst()
+                droppedLines += 1
+            }
+            buildString {
+                append("+").append(event.relativeMs).append("ms")
+                append(" stage=").append(event.stage)
+                append(" durationMs=").append(event.durationMs)
+                append(" status=").append(event.status)
+                if (event.detail.isNotBlank()) {
+                    append(" ").append(event.detail)
+                }
+            }
+        }
 }

@@ -23,15 +23,6 @@ internal data class OverlayTileEntry(
     val quality: OverlayBuildQuality = OverlayBuildQuality.FINE,
 )
 
-internal data class ReliefSample(
-    val slopeDegrees: Double,
-    val primaryIllumination: Double,
-    val fillIllumination: Double,
-    val ridgeMeters: Double,
-    val gullyMeters: Double,
-    val ruggednessMeters: Double,
-)
-
 internal enum class OverlayTileStatus {
     READY,
     NO_DATA,

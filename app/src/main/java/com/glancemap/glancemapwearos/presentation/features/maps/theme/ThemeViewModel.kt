@@ -48,6 +48,8 @@ data class DemDownloadUiState(
     val activeMapPath: String? = null,
     val totalTiles: Int = 0,
     val processedTiles: Int = 0,
+    val currentTileBytes: Long = 0L,
+    val currentTileTotalBytes: Long? = null,
     val downloadedTiles: Int = 0,
     val skippedTiles: Int = 0,
     val missingTiles: Int = 0,
@@ -55,7 +57,41 @@ data class DemDownloadUiState(
     val networkUnavailable: Boolean = false,
     val statusMessage: String = "",
     val lastCompletedAtMillis: Long = 0L,
+) {
+    val progressPercent: Int?
+        get() =
+            demDownloadProgressPercent(
+                totalTiles = totalTiles,
+                completedTiles = processedTiles,
+                currentTileBytes = currentTileBytes,
+                currentTileTotalBytes = currentTileTotalBytes,
+            )
+}
+
+data class DemMapReadiness(
+    val isReady: Boolean,
+    val selectedSource: DemSource,
+    val usesFallbackTerrain: Boolean,
 )
+
+internal fun demDownloadProgressPercent(
+    totalTiles: Int,
+    completedTiles: Int,
+    currentTileBytes: Long,
+    currentTileTotalBytes: Long?,
+): Int? {
+    if (totalTiles <= 0) return null
+    val completed = completedTiles.coerceIn(0, totalTiles)
+    val currentTileFraction =
+        currentTileTotalBytes
+            ?.takeIf { it > 0L && completed < totalTiles }
+            ?.let { totalBytes ->
+                currentTileBytes.coerceIn(0L, totalBytes).toDouble() / totalBytes.toDouble()
+            } ?: 0.0
+    return (((completed + currentTileFraction) / totalTiles) * 100.0)
+        .toInt()
+        .coerceIn(0, 100)
+}
 
 private data class DemDownloadResult(
     val totalTiles: Int,
@@ -74,6 +110,8 @@ private data class DemTileDownloadOutcome(
     val networkUnavailable: Boolean,
 )
 
+// Theme and DEM state deliberately share one lifecycle owner so downloads survive screen recomposition.
+@Suppress("LargeClass")
 class ThemeViewModel(
     private val themeRepository: ThemeRepository,
     private val context: Context,
@@ -407,12 +445,37 @@ class ThemeViewModel(
         job.cancel(CancellationException("DEM download cancelled"))
     }
 
-    suspend fun isDemReadyForMap(mapPath: String?): Boolean =
+    suspend fun demReadinessForMap(mapPath: String?): DemMapReadiness =
         withContext(Dispatchers.IO) {
-            Dem3CoverageUtils.isReadyForMap(
-                context = appContext,
-                mapPath = mapPath,
-                sources = listOf(demSource.value),
+            // Do not rely on demSource.value here. This ViewModel intentionally keeps that flow
+            // WhileSubscribed, so a newly opened Map settings screen can otherwise momentarily
+            // use the default Standard terrain instead of the saved user selection.
+            val selectedSource = settingsRepository.demSource.first()
+            val mapFile =
+                mapPath
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::File)
+                    ?: return@withContext DemMapReadiness(
+                        isReady = false,
+                        selectedSource = selectedSource,
+                        usesFallbackTerrain = false,
+                    )
+            val selectedCoverage =
+                Dem3CoverageUtils.coverageForMap(
+                    context = appContext,
+                    mapFile = mapFile,
+                    sources = listOf(selectedSource),
+                )
+            val runtimeCoverage =
+                Dem3CoverageUtils.coverageForMap(
+                    context = appContext,
+                    mapFile = mapFile,
+                    sources = selectedSource.readFallbackOrder(),
+                )
+            DemMapReadiness(
+                isReady = runtimeCoverage.isReady,
+                selectedSource = selectedSource,
+                usesFallbackTerrain = runtimeCoverage.isReady && !selectedCoverage.isReady,
             )
         }
 
@@ -481,7 +544,9 @@ class ThemeViewModel(
                     isDownloading = true,
                     activeMapPath = selectedMapFile.absolutePath,
                     totalTiles = tileIds.size,
-                    processedTiles = processed,
+                    processedTiles = index,
+                    currentTileBytes = 0L,
+                    currentTileTotalBytes = null,
                     downloadedTiles = downloaded,
                     skippedTiles = skipped,
                     missingTiles = missing,
@@ -506,6 +571,13 @@ class ThemeViewModel(
                 if (existingValid) {
                     skipped += 1
                     processedTiles = processed
+                    publishCompletedDemTile(
+                        processedTiles = processedTiles,
+                        downloaded = downloaded,
+                        skipped = skipped,
+                        missing = missing,
+                        failed = failed,
+                    )
                     DemDownloadDiagnostics.record(
                         event = "tile_skipped",
                         detail = "tile=$tileId index=$processed total=${tileIds.size} reason=already_valid",
@@ -545,11 +617,16 @@ class ThemeViewModel(
                         "tile=$tileId index=$processed total=${tileIds.size} " +
                             "networkUnavailable=${outcome.networkUnavailable}",
                 )
-                if (outcome.networkUnavailable) {
-                    networkUnavailable = true
-                    break
-                }
+                networkUnavailable = outcome.networkUnavailable
             }
+            publishCompletedDemTile(
+                processedTiles = processedTiles,
+                downloaded = downloaded,
+                skipped = skipped,
+                missing = missing,
+                failed = failed,
+            )
+            if (networkUnavailable) break
         }
 
         if (downloaded > 0 || missing > 0) {
@@ -620,6 +697,43 @@ class ThemeViewModel(
 
     private fun getDemOutputRoot(source: DemSource): File = Dem3CoverageUtils.demRootDir(appContext, source)
 
+    private fun publishCompletedDemTile(
+        processedTiles: Int,
+        downloaded: Int,
+        skipped: Int,
+        missing: Int,
+        failed: Int,
+    ) {
+        _demDownloadUiState.value =
+            _demDownloadUiState.value.copy(
+                processedTiles = processedTiles,
+                currentTileBytes = 0L,
+                currentTileTotalBytes = null,
+                downloadedTiles = downloaded,
+                skippedTiles = skipped,
+                missingTiles = missing,
+                failedTiles = failed,
+            )
+    }
+
+    private fun publishCurrentDemTileProgress(
+        bytesDone: Long,
+        totalBytes: Long?,
+    ) {
+        val current = _demDownloadUiState.value
+        if (!current.isDownloading) return
+        val updated =
+            current.copy(
+                currentTileBytes = bytesDone.coerceAtLeast(0L),
+                currentTileTotalBytes = totalBytes?.takeIf { it > 0L },
+            )
+        if (updated.progressPercent != current.progressPercent ||
+            updated.currentTileTotalBytes != current.currentTileTotalBytes
+        ) {
+            _demDownloadUiState.value = updated
+        }
+    }
+
     private suspend fun downloadTileWithRetries(
         url: String,
         target: File,
@@ -650,13 +764,17 @@ class ThemeViewModel(
             val success =
                 runCatching {
                     downloadDemFile(
-                        url = url,
-                        target = target,
-                        demRoot = getDemOutputRoot(source),
-                        userAgent = DEM_USER_AGENT,
+                        request =
+                            DemDownloadRequest(
+                                url = url,
+                                target = target,
+                                demRoot = getDemOutputRoot(source),
+                                userAgent = DEM_USER_AGENT,
+                            ),
                         onConnectionOpened = { connection ->
                             activeDemConnection = connection
                         },
+                        onProgress = ::publishCurrentDemTileProgress,
                     )
                     true
                 }.getOrElse { error ->

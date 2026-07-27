@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.recording
 
 import android.content.Context
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -55,6 +56,11 @@ class TraceRecordingDraftStore(
                     active = json.optBoolean("active", true),
                     paused = json.optBoolean("paused", false),
                     autoPaused = json.optBoolean("autoPaused", false),
+                    activityProfile = json.optionalString("activityProfile"),
+                    trackSmoothingMode =
+                        json
+                            .optionalString("trackSmoothingMode")
+                            .toRecordingTrackSmoothingMode(),
                     startedAtMillis = json.optLong("startedAtMillis", 0L).takeIf { it > 0L },
                     pausedAtMillis = json.optLong("pausedAtMillis", 0L).takeIf { it > 0L },
                     accumulatedPausedMillis = json.optLong("accumulatedPausedMillis", 0L).coerceAtLeast(0L),
@@ -62,6 +68,10 @@ class TraceRecordingDraftStore(
                     gpsActiveDurationMillis = json.optLong("gpsActiveDurationMillis", 0L).coerceAtLeast(0L),
                     recordingGapCount = json.optInt("recordingGapCount", 0).coerceAtLeast(0),
                     recordingMaxGapMillis = json.optLong("recordingMaxGapMillis", 0L).coerceAtLeast(0L),
+                    externalRawDistanceUnits = json.optionalLong("externalRawDistanceUnits"),
+                    externalDistanceMeters = json.optionalDouble("externalDistanceMeters"),
+                    externalIntegratedDistanceMeters = json.optionalDouble("externalIntegratedDistanceMeters"),
+                    stepCount = json.optionalInt("stepCount"),
                     lastUiAction = json.optionalString("lastUiAction"),
                     points = points,
                 )
@@ -80,6 +90,8 @@ class TraceRecordingDraftStore(
                 .put("active", state.active)
                 .put("paused", state.paused)
                 .put("autoPaused", state.autoPaused)
+                .put("activityProfile", state.activityProfile)
+                .put("trackSmoothingMode", state.trackSmoothingMode)
                 .put("startedAtMillis", state.startedAtMillis ?: 0L)
                 .put("pausedAtMillis", state.pausedAtMillis ?: 0L)
                 .put("accumulatedPausedMillis", state.accumulatedPausedMillis)
@@ -87,6 +99,10 @@ class TraceRecordingDraftStore(
                 .put("gpsActiveDurationMillis", state.gpsActiveDurationMillis)
                 .put("recordingGapCount", state.recordingGapCount)
                 .put("recordingMaxGapMillis", state.recordingMaxGapMillis)
+                .put("externalRawDistanceUnits", state.externalRawDistanceUnits ?: JSONObject.NULL)
+                .put("externalDistanceMeters", state.externalDistanceMeters ?: JSONObject.NULL)
+                .put("externalIntegratedDistanceMeters", state.externalIntegratedDistanceMeters ?: JSONObject.NULL)
+                .put("stepCount", state.stepCount ?: JSONObject.NULL)
                 .put("lastUiAction", lastUiAction ?: JSONObject.NULL)
                 .put(
                     "points",
@@ -99,7 +115,12 @@ class TraceRecordingDraftStore(
         metadataTempFile.writeText(json.toString())
         metadataTempFile.renameAtomicallyTo(metadataFile)
 
-        val title = buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
+        val nowMillis = System.currentTimeMillis()
+        val title =
+            buildRecordingTitle(
+                startedAtMillis = state.startedAtMillis ?: nowMillis,
+                endedAtMillis = state.points.lastOrNull()?.timeMillis ?: nowMillis,
+            )
         gpxTempFile.writeBytes(encodeRecordedTraceAsGpx(title = title, points = state.points))
         gpxTempFile.renameAtomicallyTo(gpxFile)
     }
@@ -119,6 +140,8 @@ data class TraceRecordingDraft(
     val active: Boolean,
     val paused: Boolean,
     val autoPaused: Boolean,
+    val activityProfile: String?,
+    val trackSmoothingMode: String,
     val startedAtMillis: Long?,
     val pausedAtMillis: Long?,
     val accumulatedPausedMillis: Long,
@@ -126,6 +149,10 @@ data class TraceRecordingDraft(
     val gpsActiveDurationMillis: Long,
     val recordingGapCount: Int,
     val recordingMaxGapMillis: Long,
+    val externalRawDistanceUnits: Long?,
+    val externalDistanceMeters: Double?,
+    val externalIntegratedDistanceMeters: Double?,
+    val stepCount: Int?,
     val lastUiAction: String?,
     val points: List<RecordedTracePoint>,
 )
@@ -160,6 +187,20 @@ private fun JSONObject.optionalInt(key: String): Int? =
         null
     } else {
         optInt(key).takeIf { it >= 0 }
+    }
+
+private fun JSONObject.optionalLong(key: String): Long? =
+    if (isNull(key)) {
+        null
+    } else {
+        optLong(key).takeIf { it >= 0L }
+    }
+
+internal fun String?.toRecordingTrackSmoothingMode(): String =
+    when (this) {
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_OFF -> this
+        SettingsRepository.RECORDING_TRACK_SMOOTHING_STRONG -> this
+        else -> SettingsRepository.DEFAULT_RECORDING_TRACK_SMOOTHING_MODE
     }
 
 private fun JSONObject.optionalString(key: String): String? =
