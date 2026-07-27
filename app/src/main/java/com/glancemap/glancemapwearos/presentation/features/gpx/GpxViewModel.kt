@@ -58,14 +58,18 @@ private data class GpxGuidanceBuildResult(
     val guidanceMode: String = "exact_gpx",
 )
 
+data class GpxRouteServices(
+    val planner: RoutePlanner,
+    val elevationProvider: RecordingElevationProvider,
+)
+
 class GpxViewModel(
     private val gpxRepository: GpxRepository,
     private val gpxExportRepository: GpxExportRepository,
     private val syncManager: SyncManager,
     private val settingsRepository: SettingsRepository,
     private val poiRepository: PoiRepository,
-    private val routePlanner: RoutePlanner,
-    private val elevationProvider: RecordingElevationProvider,
+    private val routeServices: GpxRouteServices,
 ) : ViewModel() {
     private val _gpxFiles = MutableStateFlow<List<GpxFileState>>(emptyList())
     val gpxFiles: StateFlow<List<GpxFileState>> = _gpxFiles.asStateFlow()
@@ -173,7 +177,7 @@ class GpxViewModel(
     private val routeToolOperations =
         GpxRouteToolOperations(
             gpxRepository = gpxRepository,
-            routePlanner = routePlanner,
+            routePlanner = routeServices.planner,
             activeGpxFiles = { _gpxFiles.value },
             elevationFilterConfig = { elevationFilterConfig },
             etaModelConfig = { etaModelConfig },
@@ -644,7 +648,7 @@ class GpxViewModel(
         val recoveredPoints =
             profile.points.map { point ->
                 val demElevation =
-                    elevationProvider
+                    routeServices.elevationProvider
                         .resolveElevation(
                             latitude = point.latLong.latitude,
                             longitude = point.latLong.longitude,
@@ -905,21 +909,39 @@ class GpxViewModel(
         path: String,
         enabled: Boolean,
     ) {
-        if (!settingsRepository.linkGpxWaypointPoiFolders.first()) return
+        if (settingsRepository.linkGpxWaypointPoiFolders.first()) {
+            val gpxFileName = File(path).name
+            val linkedPoiFiles = findLinkedGpxWaypointPoiFiles(gpxFileName)
+            if (linkedPoiFiles.isNotEmpty()) {
+                val changed = syncLinkedGpxWaypointPoiFiles(linkedPoiFiles, gpxFileName, enabled)
+                if (changed) {
+                    syncManager.requestPoiSync()
+                    DebugTelemetry.log(
+                        "GpxViewModel",
+                        "event=linked_waypoints_sync file=${gpxFileName.telemetryToken()} " +
+                            "active=$enabled folders=${linkedPoiFiles.size}",
+                    )
+                }
+            }
+        }
+    }
 
-        val gpxFileName = File(path).name
-        val linkedPoiFiles =
-            runCatching {
-                poiRepository.findGpxWaypointPoiFiles(gpxFileName)
-            }.getOrElse { error ->
+    private suspend fun findLinkedGpxWaypointPoiFiles(gpxFileName: String): List<File> =
+        runCatching { poiRepository.findGpxWaypointPoiFiles(gpxFileName) }
+            .getOrElse { error ->
                 DebugTelemetry.log(
                     "GpxViewModel",
-                    "event=linked_waypoints_sync_failed file=${gpxFileName.telemetryToken()} reason=${error.javaClass.simpleName}",
+                    "event=linked_waypoints_sync_failed file=${gpxFileName.telemetryToken()} " +
+                        "reason=${error.javaClass.simpleName}",
                 )
-                return
+                emptyList()
             }
-        if (linkedPoiFiles.isEmpty()) return
 
+    private suspend fun syncLinkedGpxWaypointPoiFiles(
+        linkedPoiFiles: List<File>,
+        gpxFileName: String,
+        enabled: Boolean,
+    ): Boolean {
         var changed = false
         linkedPoiFiles.forEach { poiFile ->
             runCatching {
@@ -933,17 +955,12 @@ class GpxViewModel(
             }.onFailure { error ->
                 DebugTelemetry.log(
                     "GpxViewModel",
-                    "event=linked_waypoints_sync_failed file=${gpxFileName.telemetryToken()} poi=${poiFile.name.telemetryToken()} reason=${error.javaClass.simpleName}",
+                    "event=linked_waypoints_sync_failed file=${gpxFileName.telemetryToken()} " +
+                        "poi=${poiFile.name.telemetryToken()} reason=${error.javaClass.simpleName}",
                 )
             }
         }
-        if (changed) {
-            syncManager.requestPoiSync()
-            DebugTelemetry.log(
-                "GpxViewModel",
-                "event=linked_waypoints_sync file=${gpxFileName.telemetryToken()} active=$enabled folders=${linkedPoiFiles.size}",
-            )
-        }
+        return changed
     }
 
     fun startTurnByTurnGuidance(
@@ -1028,7 +1045,7 @@ class GpxViewModel(
             val result =
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        routePlanner
+                        routeServices.planner
                             .createRoute(
                                 RoutePlannerRequest(
                                     origin = origin,

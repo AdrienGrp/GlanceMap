@@ -1516,9 +1516,18 @@ object DiagnosticsExporter {
                     if (telemetryInsights.recordingGapEndpointDistanceSampleCount <= 0) {
                         "samples:0"
                     } else {
+                        val averageMeters =
+                            TelemetryFormatters.decimalOrNa(
+                                telemetryInsights.recordingGapEndpointDistanceAvgMeters,
+                                1,
+                            )
+                        val maximumMeters =
+                            TelemetryFormatters.decimalOrNa(
+                                telemetryInsights.recordingGapEndpointDistanceMaxMeters,
+                                1,
+                            )
                         "samples:${telemetryInsights.recordingGapEndpointDistanceSampleCount}," +
-                            "avg:${TelemetryFormatters.decimalOrNa(telemetryInsights.recordingGapEndpointDistanceAvgMeters, 1)}," +
-                            "max:${TelemetryFormatters.decimalOrNa(telemetryInsights.recordingGapEndpointDistanceMaxMeters, 1)}"
+                            "avg:$averageMeters,max:$maximumMeters"
                     },
             )
             writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")

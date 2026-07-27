@@ -76,7 +76,7 @@ interface PoiRepository {
     /** The GPX file that supplied this imported waypoint folder, if any. */
     suspend fun readLinkedGpxWaypointFileName(path: String): String?
 
-    suspend fun findGpxWaypointPoiFiles(linkedGpxFileName: String): List<File>
+    suspend fun findGpxWaypointPoiFiles(gpxFileName: String): List<File>
 
     suspend fun updateLinkedGpxWaypointFileName(
         previousGpxFileName: String,

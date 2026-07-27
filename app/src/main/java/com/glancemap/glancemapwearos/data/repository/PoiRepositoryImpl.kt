@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
-import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -15,6 +14,8 @@ class PoiRepositoryImpl(
     private val context: Context,
 ) : PoiRepository {
     private val poiDir by lazy { context.getDir("poi", Context.MODE_PRIVATE) }
+    private val poiFiles by lazy { PoiFileStorage(poiDir) }
+    private val links by lazy { PoiGpxWaypointLinks(poiDir) }
 
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences("poi_metadata", Context.MODE_PRIVATE)
@@ -26,14 +27,7 @@ class PoiRepositoryImpl(
         private const val KEY_ENABLED_CATEGORY_PREFIX = "enabled_categories_"
     }
 
-    override suspend fun listPoiFiles(): List<File> =
-        withContext(Dispatchers.IO) {
-            if (!poiDir.exists()) return@withContext emptyList()
-            poiDir
-                .listFiles { _, name -> name.endsWith(".poi", ignoreCase = true) }
-                ?.sortedBy { it.name.lowercase(Locale.ROOT) }
-                ?: emptyList()
-        }
+    override suspend fun listPoiFiles(): List<File> = withContext(Dispatchers.IO) { poiFiles.list() }
 
     override suspend fun savePoiFileAtomic(
         fileName: String,
@@ -43,29 +37,7 @@ class PoiRepositoryImpl(
         resumeOffset: Long,
     ): String? =
         withContext(Dispatchers.IO) {
-            val exp = expectedSize?.takeIf { it > 0L }
-            val options =
-                AtomicStreamWriter.Options(
-                    bufferSize = 1024 * 1024,
-                    progressStepBytes = 2L * 1024 * 1024,
-                    fsync = true,
-                    failIfExists = false,
-                    expectedSize = exp,
-                    requireExactSize = (exp != null),
-                    resumeOffset = resumeOffset.coerceAtLeast(0L),
-                    keepPartialOnCancel = true,
-                    keepPartialOnFailure = true,
-                    computeSha256 = true,
-                )
-            val result =
-                AtomicStreamWriter.writeAtomic(
-                    dir = poiDir,
-                    fileName = fileName,
-                    inputStream = inputStream,
-                    onProgress = onProgress,
-                    options = options,
-                )
-            result.sha256
+            poiFiles.saveAtomic(fileName, inputStream, onProgress, expectedSize, resumeOffset)
         }
 
     override suspend fun deletePoiFile(path: String): Boolean =
@@ -174,66 +146,16 @@ class PoiRepositoryImpl(
 
     override suspend fun readCoverageBounds(path: String) = withContext(Dispatchers.IO) { readPoiCoverageBounds(path) }
 
-    override suspend fun readLinkedGpxWaypointFileName(path: String): String? =
-        withContext(Dispatchers.IO) {
-            val poiFile = File(path)
-            if (!poiFile.exists() || !poiFile.isFile) return@withContext null
-            readLinkedGpxWaypointFileName(poiFile) ?: legacyLinkedGpxWaypointFileName(poiFile)
-        }
+    override suspend fun readLinkedGpxWaypointFileName(path: String): String? = poiIo { links.read(path) }
 
-    override suspend fun findGpxWaypointPoiFiles(linkedGpxFileName: String): List<File> =
-        withContext(Dispatchers.IO) {
-            val normalizedGpxFileName = File(linkedGpxFileName).name
-            if (normalizedGpxFileName.isBlank() || !poiDir.exists()) return@withContext emptyList()
-            poiDir
-                .listFiles { _, name -> name.endsWith(".poi", ignoreCase = true) }
-                .orEmpty()
-                .filter { poiFile ->
-                    val linkedFileName = readLinkedGpxWaypointFileName(poiFile)
-                    val matchesMetadata =
-                        linkedFileName.equals(
-                            normalizedGpxFileName,
-                            ignoreCase = true,
-                        )
-                    val matchesLegacyName =
-                        poiFile.name.equals(
-                            legacyWaypointPoiFileName(normalizedGpxFileName),
-                            ignoreCase = true,
-                        )
-                    matchesMetadata || matchesLegacyName
-                }.sortedBy { it.name.lowercase(Locale.ROOT) }
-        }
+    override suspend fun findGpxWaypointPoiFiles(gpxFileName: String): List<File> = poiIo { links.find(gpxFileName) }
 
     override suspend fun updateLinkedGpxWaypointFileName(
         previousGpxFileName: String,
         newGpxFileName: String,
     ): Int =
         withContext(Dispatchers.IO) {
-            val previousName = normalizeGpxFileName(previousGpxFileName)
-            val newName = normalizeGpxFileName(newGpxFileName)
-            if (previousName.isBlank() || newName.isBlank() || !poiDir.exists()) {
-                return@withContext 0
-            }
-            poiDir
-                .listFiles { _, name -> name.endsWith(".poi", ignoreCase = true) }
-                .orEmpty()
-                .filter { poiFile ->
-                    readLinkedGpxWaypointFileName(poiFile)?.equals(previousName, ignoreCase = true) == true
-                }.count { poiFile ->
-                    runCatching {
-                        SQLiteDatabase
-                            .openDatabase(
-                                poiFile.absolutePath,
-                                null,
-                                SQLiteDatabase.OPEN_READWRITE,
-                            ).use { db ->
-                                db.execSQL(
-                                    "UPDATE metadata SET value = ? WHERE name = ?",
-                                    arrayOf(newName, "linked_gpx_file_name"),
-                                )
-                            }
-                    }.isSuccess
-                }
+            links.update(previousGpxFileName, newGpxFileName)
         }
 
     override suspend fun isFileEnabled(path: String): Boolean =
@@ -695,43 +617,6 @@ class PoiRepositoryImpl(
         }
 
     private fun openPoiDatabase(path: String): SQLiteDatabase = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
-
-    private fun readLinkedGpxWaypointFileName(poiFile: File): String? =
-        runCatching {
-            openPoiDatabase(poiFile.absolutePath).use { db ->
-                db
-                    .rawQuery(
-                        "SELECT value FROM metadata WHERE name = ? LIMIT 1",
-                        arrayOf("linked_gpx_file_name"),
-                    ).use { cursor ->
-                        if (!cursor.moveToFirst()) return@use null
-                        val rawValue = cursor.getString(0)?.trim()
-                        rawValue?.takeIf { it.isNotBlank() }?.let(::normalizeGpxFileName)
-                    }
-            }
-        }.getOrNull()
-
-    private fun legacyLinkedGpxWaypointFileName(poiFile: File): String? {
-        val suffix = "__waypoints.poi"
-        val name = poiFile.name
-        if (!name.endsWith(suffix, ignoreCase = true)) return null
-        return name
-            .substring(0, name.length - suffix.length)
-            .takeIf { it.isNotBlank() }
-            ?.plus(".gpx")
-    }
-
-    private fun legacyWaypointPoiFileName(gpxFileName: String): String {
-        val base =
-            normalizeGpxFileName(gpxFileName)
-                .removeSuffix(".gpx")
-                .replace(Regex("[^A-Za-z0-9._-]"), "_")
-                .trim('_')
-                .ifBlank { "gpx-waypoints" }
-        return "${base}__waypoints.poi"
-    }
-
-    private fun normalizeGpxFileName(value: String): String = File(value).name.trim()
 
     private fun fileEnabledKey(path: String): String = KEY_FILE_ENABLED_PREFIX + File(path).name.lowercase(Locale.ROOT)
 
