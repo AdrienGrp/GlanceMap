@@ -101,7 +101,7 @@ internal class GpxRouteToolOperations(
                 buildRouteToolReshapeOutput(
                     sourcePath = source.file.absolutePath,
                     sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    sourceTitle = source.fileState.displayTitle,
                     profile = source.profile,
                     session = session,
                     firstLegPoints = reshapePlan.firstLegPoints,
@@ -122,7 +122,7 @@ internal class GpxRouteToolOperations(
                 val (origin, destination) =
                     resolveReplaceSectionEndpoints(
                         sourcePath = source.file.absolutePath,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         pointA = sectionStart,
                         pointB = sectionEnd,
@@ -139,7 +139,7 @@ internal class GpxRouteToolOperations(
                 buildRouteToolReplaceSectionOutput(
                     sourcePath = source.file.absolutePath,
                     sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    sourceTitle = source.fileState.displayTitle,
                     profile = source.profile,
                     session = session,
                     routedPoints = route.points,
@@ -154,7 +154,7 @@ internal class GpxRouteToolOperations(
                 val match =
                     resolveRouteToolTrackMatch(
                         sourcePath = source.file.absolutePath,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         target = startTarget,
                     )
@@ -164,7 +164,7 @@ internal class GpxRouteToolOperations(
                     buildRouteToolEditOutput(
                         sourcePath = source.file.absolutePath,
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session.copy(pointATrackPosition = match.position),
                     )
@@ -182,7 +182,7 @@ internal class GpxRouteToolOperations(
                         )
                     buildRouteToolEndpointChangeOutput(
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session,
                         snappedPosition = endpointPosition,
@@ -201,7 +201,7 @@ internal class GpxRouteToolOperations(
                         )
                     buildRouteToolEndpointChangeOutput(
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session,
                         snappedPosition = match.position,
@@ -218,7 +218,7 @@ internal class GpxRouteToolOperations(
                 val match =
                     resolveRouteToolTrackMatch(
                         sourcePath = source.file.absolutePath,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         target = endTarget,
                     )
@@ -228,7 +228,7 @@ internal class GpxRouteToolOperations(
                     buildRouteToolEditOutput(
                         sourcePath = source.file.absolutePath,
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session.copy(pointBTrackPosition = match.position),
                     )
@@ -246,7 +246,7 @@ internal class GpxRouteToolOperations(
                         )
                     buildRouteToolEndpointChangeOutput(
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session,
                         snappedPosition = endpointPosition,
@@ -265,7 +265,7 @@ internal class GpxRouteToolOperations(
                         )
                     buildRouteToolEndpointChangeOutput(
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         session = session,
                         snappedPosition = match.position,
@@ -278,7 +278,7 @@ internal class GpxRouteToolOperations(
                 buildRouteToolEditOutput(
                     sourcePath = source.file.absolutePath,
                     sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    sourceTitle = source.fileState.displayTitle,
                     profile = source.profile,
                     session = session,
                 )
@@ -297,7 +297,7 @@ internal class GpxRouteToolOperations(
             val reshapePlan = buildReshapePlan(source = source, session = session)
             return buildRouteToolReshapePreview(
                 sourcePath = source.file.absolutePath,
-                sourceTitle = source.fileState.title ?: source.parsed.title,
+                sourceTitle = source.fileState.displayTitle,
                 profile = source.profile,
                 session = session,
                 firstLegPoints = reshapePlan.firstLegPoints,
@@ -391,7 +391,7 @@ internal class GpxRouteToolOperations(
                 val extensionOutput =
                     buildRouteToolExtensionOutput(
                         sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        sourceTitle = source.fileState.displayTitle,
                         profile = source.profile,
                         routedPoints = route.points,
                     )
@@ -571,7 +571,7 @@ internal class GpxRouteToolOperations(
             requireNotNull(session.destination) {
                 "Pick the shaping point first."
             }
-        val sourceTitle = source.fileState.title ?: source.parsed.title
+        val sourceTitle = source.fileState.displayTitle
         val segmentStart =
             resolveRouteReshapeWaypoint(
                 sourcePath = source.file.absolutePath,
@@ -657,8 +657,7 @@ internal class GpxRouteToolOperations(
             fileName = savedFile.name,
             filePath = savedFile.absolutePath,
             displayTitle =
-                parsed.title?.takeIf { it.isNotBlank() }
-                    ?: normalizeUserFacingGpxText(savedFile.nameWithoutExtension)
+                normalizeUserFacingGpxText(savedFile.nameWithoutExtension)
                     ?: savedFile.nameWithoutExtension,
             distanceMeters = profile.totalDistance,
             elevationGainMeters = profile.totalAscent,

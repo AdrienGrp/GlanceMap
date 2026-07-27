@@ -62,36 +62,50 @@ internal suspend fun prepareSelectedUrisForTransfer(
             prepared += result.poiUri
             convertedGeoJsonCount += 1
         } else if (isGpxUri(context, uri)) {
-            var gpxTextForName: String? = null
-            val gpxOutcome =
+            val gpxTextForName =
                 runCatching {
                     val gpxSize = queryUriSize(context, uri)
                     if (gpxSize != null && gpxSize > maxGpxWaypointImportBytes) {
                         return@runCatching null
                     }
-                    val gpxText = readGpxTextWithLimit(context, uri, maxGpxWaypointImportBytes)
-                    gpxTextForName = gpxText
-                    gpxWaypointPoiImporter.importWaypointsFromGpxText(
-                        gpxText = gpxText,
-                        fileNameInput = suggestPoiFileNameForGpxWaypoints(context, uri),
-                        categoryNameInput = suggestPoiCategoryNameForGpx(context, uri),
-                    )
+                    readGpxTextWithLimit(context, uri, maxGpxWaypointImportBytes)
                 }.getOrElse {
-                    Log.w("FileTransferVM", "Failed GPX waypoint extraction for $uri", it)
+                    Log.w("FileTransferVM", "Failed to read GPX waypoints for $uri", it)
                     null
+                }
+            val gpxTransferFileName =
+                chooseGpxTransferFileName(
+                    displayName = resolveUriDisplayName(context, uri),
+                    uriCandidates = uriNameCandidates(uri),
+                    gpxText = gpxTextForName,
+                    preferFallbackName = uri.authority.orEmpty().contains("whatsapp", ignoreCase = true),
+                )
+            val gpxOutcome =
+                gpxTextForName?.let { gpxText ->
+                    runCatching {
+                        gpxWaypointPoiImporter.importWaypointsFromGpxText(
+                            gpxText = gpxText,
+                            fileNameInput = suggestPoiFileNameForGpxWaypoints(gpxTransferFileName),
+                            categoryNameInput = suggestPoiCategoryNameForGpx(gpxTransferFileName),
+                            linkedGpxFileName = gpxTransferFileName,
+                        )
+                    }.getOrElse {
+                        Log.w("FileTransferVM", "Failed GPX waypoint extraction for $uri", it)
+                        null
+                    }
                 }
             val gpxTransferUri =
                 prepareGpxUriForTransferName(
                     context = context,
                     uri = uri,
-                    gpxText = gpxTextForName,
+                    preferredName = gpxTransferFileName,
                 )
             val poiResult = gpxOutcome?.poiResult
             if (poiResult == null) {
                 prepared += gpxTransferUri
             } else {
+                prepared += gpxTransferUri
                 if (gpxOutcome.hasTrackOrRoutePoints) {
-                    prepared += gpxTransferUri
                     extractedPoiFromMixedGpxCount += 1
                 }
                 prepared += poiResult.poiUri
@@ -213,11 +227,10 @@ internal fun isLikelyGpxTextPrefix(text: String): Boolean {
 }
 
 internal fun suggestPoiFileNameForGpxWaypoints(
-    context: Context,
-    uri: Uri,
+    gpxFileName: String,
 ): String {
     val base =
-        resolveUriDisplayName(context, uri)
+        gpxFileName
             .trim()
             .replace("\\", "_")
             .replace("/", "_")
@@ -229,10 +242,9 @@ internal fun suggestPoiFileNameForGpxWaypoints(
 }
 
 internal fun suggestPoiCategoryNameForGpx(
-    context: Context,
-    uri: Uri,
+    gpxFileName: String,
 ): String =
-    resolveUriDisplayName(context, uri)
+    gpxFileName
         .trim()
         .replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
         .replace('_', ' ')
@@ -291,16 +303,9 @@ internal fun chooseGpxTransferFileName(
 private fun prepareGpxUriForTransferName(
     context: Context,
     uri: Uri,
-    gpxText: String?,
+    preferredName: String,
 ): Uri {
     val displayName = resolveUriDisplayName(context, uri)
-    val preferredName =
-        chooseGpxTransferFileName(
-            displayName = displayName,
-            uriCandidates = uriNameCandidates(uri),
-            gpxText = gpxText,
-            preferFallbackName = uri.authority.orEmpty().contains("whatsapp", ignoreCase = true),
-        )
     val currentName = displayName.toSafeFileName().ensureGpxExtension()
     if (preferredName.equals(currentName, ignoreCase = false)) return uri
 

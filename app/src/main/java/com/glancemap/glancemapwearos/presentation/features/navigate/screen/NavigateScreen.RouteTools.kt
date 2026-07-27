@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.core.routing.LoopRouteSuggestionException
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
@@ -51,16 +52,14 @@ internal data class NavigateRouteToolActions(
 private data class PendingDirectPoiRouteTriggers(
     val session: RouteToolSession?,
     val currentLocation: LatLong?,
-    val locationAvailable: Boolean,
-    val lastFixFresh: Boolean,
+    val gpsSignalSnapshot: GpsSignalSnapshot,
     val offlineMode: Boolean,
     val selectedMapPath: String?,
 )
 
 private data class PendingDirectPoiRouteActions(
-    val evaluatePreflight: (RouteToolSession) -> RouteToolPreflightResult,
-    val requestFreshLocation: () -> Unit,
-    val onReady: (RouteToolSession) -> Unit,
+    val evaluatePreflight: (RouteToolSession, LatLong?, GpsSignalSnapshot) -> RouteToolPreflightResult,
+    val onReady: (RouteToolSession, LatLong, GpsSignalSnapshot) -> Unit,
     val onBlocked: (String?) -> Unit,
     val onTimeout: (RouteToolSession) -> Unit,
 )
@@ -75,20 +74,52 @@ private fun PendingDirectPoiRouteEffect(
     LaunchedEffect(
         triggers.session,
         triggers.currentLocation,
-        triggers.locationAvailable,
-        triggers.lastFixFresh,
+        triggers.gpsSignalSnapshot.isLocationAvailable,
+        triggers.gpsSignalSnapshot.lastFixElapsedRealtimeMs,
+        triggers.gpsSignalSnapshot.lastFixAgeMs,
         triggers.offlineMode,
         triggers.selectedMapPath,
     ) {
         val pendingSession = triggers.session ?: return@LaunchedEffect
         val currentActions = latestActions.value
-        val preflight = currentActions.evaluatePreflight(pendingSession)
+        val preflight =
+            currentActions.evaluatePreflight(
+                pendingSession,
+                triggers.currentLocation,
+                triggers.gpsSignalSnapshot,
+            )
         when {
-            preflight.canStart -> currentActions.onReady(pendingSession)
-            !preflight.shouldRequestFreshLocation -> currentActions.onBlocked(preflight.message)
+            preflight.canStart && triggers.currentLocation != null -> {
+                logPoiRoutePreflight(
+                    event = "pending_ready",
+                    triggers = triggers,
+                )
+                currentActions.onReady(
+                    pendingSession,
+                    triggers.currentLocation,
+                    triggers.gpsSignalSnapshot,
+                )
+            }
+
+            !preflight.shouldRequestFreshLocation -> {
+                logPoiRoutePreflight(
+                    event = "pending_blocked",
+                    triggers = triggers,
+                    message = preflight.message,
+                )
+                currentActions.onBlocked(preflight.message)
+            }
+
             else -> {
-                currentActions.requestFreshLocation()
+                logPoiRoutePreflight(
+                    event = "pending_waiting",
+                    triggers = triggers,
+                )
                 delay(DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS)
+                logPoiRoutePreflight(
+                    event = "pending_timeout",
+                    triggers = triggers,
+                )
                 latestActions.value.onTimeout(pendingSession)
             }
         }
@@ -143,6 +174,15 @@ internal fun rememberNavigateRouteToolActions(
     setShowCreatedPoiRenameDialog: (Boolean) -> Unit,
 ): NavigateRouteToolActions {
     val pendingDirectPoiRoute = remember { mutableStateOf<RouteToolSession?>(null) }
+    // POI popups can outlive the composition that opened them. Route actions therefore read
+    // these values when invoked rather than using the GPS state captured when the popup opened.
+    val latestRecenterTarget = rememberUpdatedState(recenterTarget)
+    val latestGpsSignalSnapshot = rememberUpdatedState(gpsSignalSnapshot)
+    val latestOfflineMode = rememberUpdatedState(offlineMode)
+    val latestActiveGpxDetailsCount = rememberUpdatedState(activeGpxDetailsCount)
+    val latestSelectedMapPath = rememberUpdatedState(selectedMapPath)
+    val latestRouteToolOptions = rememberUpdatedState(routeToolOptions)
+    val latestRouteToolDefaultOptions = rememberUpdatedState(routeToolDefaultOptions)
 
     fun clearRouteToolPreviewState() {
         setRouteToolPreview(null)
@@ -216,7 +256,7 @@ internal fun rememberNavigateRouteToolActions(
         setRouteToolLoopRetryOptions(emptyList())
         gpxViewModel.previewRouteToolCreation(
             session = draft,
-            currentLocation = recenterTarget,
+            currentLocation = latestRecenterTarget.value,
         ) { result ->
             setRouteToolCreatePreviewInProgress(false)
             result
@@ -281,11 +321,11 @@ internal fun rememberNavigateRouteToolActions(
         setShortcutTrayExpanded(false)
         setPoiCreationSelectionActive(false)
         setRouteToolOptions(
-            routeToolOptions
+            latestRouteToolOptions.value
                 .copy(
-                    routeStyle = routeToolDefaultOptions.routeStyle,
-                    useElevation = routeToolDefaultOptions.useElevation,
-                    allowFerries = routeToolDefaultOptions.allowFerries,
+                    routeStyle = latestRouteToolDefaultOptions.value.routeStyle,
+                    useElevation = latestRouteToolDefaultOptions.value.useElevation,
+                    allowFerries = latestRouteToolDefaultOptions.value.allowFerries,
                 ).withVisibleLoopDefaults()
                 .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
         )
@@ -343,25 +383,137 @@ internal fun rememberNavigateRouteToolActions(
         savePoiAt(mapView.model.mapViewPosition.center)
     }
 
-    fun startRouteToolSelection(session: RouteToolSession) {
-        pendingDirectPoiRoute.value = null
-        val preflight =
-            session.preflightStart(
-                context = context,
-                currentLocation = recenterTarget,
-                gpsSignalSnapshot = gpsSignalSnapshot,
-                isOfflineMode = offlineMode,
-                hasSingleActiveGpx = activeGpxDetailsCount == 1,
-                selectedMapPath = selectedMapPath,
-            )
-        if (!preflight.canStart) {
-            preflight.message?.let(setRouteToolPreflightMessage)
-            if (preflight.shouldRequestFreshLocation) {
-                locationViewModel.requestImmediateLocation(source = "ui_route_tool_preflight")
-            }
-            return
-        }
+    fun preflightRouteToolStart(
+        session: RouteToolSession,
+        currentLocation: LatLong? = latestRecenterTarget.value,
+        gpsSignal: GpsSignalSnapshot = latestGpsSignalSnapshot.value,
+    ): RouteToolPreflightResult =
+        session.preflightStart(
+            context = context,
+            currentLocation = currentLocation,
+            gpsSignalSnapshot = gpsSignal,
+            isOfflineMode = latestOfflineMode.value,
+            hasSingleActiveGpx = latestActiveGpxDetailsCount.value == 1,
+            selectedMapPath = latestSelectedMapPath.value,
+        )
 
+    fun showRouteToolSaveSuccess(saveResult: RouteToolSaveResult) {
+        setRouteToolExecutionMessage(null)
+        setCompletedRouteToolDraft(null)
+        setShortcutTrayExpanded(false)
+        setRouteToolRenameInProgress(false)
+        setRouteToolRenameError(null)
+        setRouteToolPreview(null)
+        setRouteToolResult(saveResult)
+    }
+
+    fun handleRouteToolCreationResult(
+        session: RouteToolSession,
+        result: Result<RouteToolSaveResult>,
+    ) {
+        finishRouteToolExecution()
+        result
+            .onSuccess(::showRouteToolSaveSuccess)
+            .onFailure { error ->
+                val message = error.localizedMessage?.takeIf { it.isNotBlank() } ?: "Failed to create the GPX."
+                setRouteToolExecutionMessage(message)
+                setRouteToolLoopRetryOptions(
+                    if (
+                        session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE &&
+                        error is LoopRouteSuggestionException
+                    ) {
+                        buildLoopRetryOptions(session.options, error)
+                    } else {
+                        emptyList()
+                    },
+                )
+                setRouteToolResult(null)
+                setCompletedRouteToolDraft(session)
+            }
+    }
+
+    fun handleRouteToolModificationResult(
+        session: RouteToolSession,
+        result: Result<RouteToolSaveResult>,
+    ) {
+        finishRouteToolExecution()
+        result
+            .onSuccess(::showRouteToolSaveSuccess)
+            .onFailure { error ->
+                val message =
+                    error.localizedMessage?.takeIf { it.isNotBlank() }
+                        ?: "Failed to save the edited GPX."
+                setRouteToolExecutionMessage(message)
+                setRouteToolResult(null)
+                setCompletedRouteToolDraft(session)
+            }
+    }
+
+    fun startCompletedCreateRouteTool(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+    ) {
+        if (session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
+            if (!routeToolCreatePreviewInProgress && !routeToolExecutionInProgress) {
+                setRouteToolSession(session)
+                previewCreateDraft(
+                    draft = session,
+                    fallbackSession = null,
+                    showProgressToast = true,
+                )
+            }
+        } else if (!routeToolExecutionInProgress) {
+            setRouteToolSession(null)
+            beginRouteToolExecution("Finding route...")
+            gpxViewModel.applyRouteToolCreation(
+                session = session,
+                currentLocation = currentLocation,
+                onProgress = setRouteToolExecutionStatus,
+            ) { result ->
+                handleRouteToolCreationResult(session, result)
+            }
+        }
+    }
+
+    fun startCompletedModifyRouteTool(session: RouteToolSession) {
+        setRouteToolSession(null)
+        if (session.options.modifyMode.previewBeforeSaving) {
+            previewModifyDraft(session, true)
+        } else if (!routeToolExecutionInProgress) {
+            beginRouteToolExecution("Saving GPX...")
+            gpxViewModel.applyRouteToolModification(
+                session = session,
+                onProgress = setRouteToolExecutionStatus,
+            ) { result ->
+                handleRouteToolModificationResult(session, result)
+            }
+        }
+    }
+
+    fun startCompletedRouteToolSelection(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+    ) {
+        when {
+            session.options.toolKind == RouteToolKind.CREATE ->
+                startCompletedCreateRouteTool(session, currentLocation)
+            session.options.saveBehavior == RouteSaveBehavior.SAVE_AS_NEW ->
+                startCompletedModifyRouteTool(session)
+            else -> {
+                setRouteToolSession(null)
+                setCompletedRouteToolDraft(session)
+            }
+        }
+    }
+
+    fun handleRouteToolPreflightBlock(preflight: RouteToolPreflightResult) {
+        preflight.message?.let(setRouteToolPreflightMessage)
+        if (preflight.shouldRequestFreshLocation) {
+            locationViewModel.requestImmediateLocation(source = "ui_route_tool_preflight")
+        }
+    }
+
+    fun resetRouteToolSelectionUi() {
         setRouteToolPreflightMessage(null)
         setShowRouteToolsPanel(false)
         setPoiCreationSelectionActive(false)
@@ -371,114 +523,57 @@ internal fun rememberNavigateRouteToolActions(
         clearRouteToolResultState()
         clearRouteToolPreviewState()
         gpxViewModel.dismissInspection()
-        if (session.isComplete) {
-            when {
-                session.options.toolKind == RouteToolKind.CREATE -> {
-                    if (session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
-                        if (routeToolCreatePreviewInProgress || routeToolExecutionInProgress) return
-                        setRouteToolSession(session)
-                        previewCreateDraft(
-                            draft = session,
-                            fallbackSession = null,
-                            showProgressToast = true,
-                        )
-                        return
-                    }
-                    setRouteToolSession(null)
-                    if (routeToolExecutionInProgress) return
-                    beginRouteToolExecution("Finding route...")
-                    gpxViewModel.applyRouteToolCreation(
-                        session = session,
-                        currentLocation = recenterTarget,
-                        onProgress = setRouteToolExecutionStatus,
-                    ) { result ->
-                        finishRouteToolExecution()
-                        result
-                            .onSuccess { saveResult ->
-                                setRouteToolExecutionMessage(null)
-                                setCompletedRouteToolDraft(null)
-                                setShortcutTrayExpanded(false)
-                                setRouteToolRenameInProgress(false)
-                                setRouteToolRenameError(null)
-                                setRouteToolPreview(null)
-                                setRouteToolResult(saveResult)
-                            }.onFailure { error ->
-                                val message =
-                                    error.localizedMessage?.takeIf { it.isNotBlank() }
-                                        ?: "Failed to create the GPX."
-                                setRouteToolExecutionMessage(message)
-                                setRouteToolLoopRetryOptions(
-                                    if (
-                                        session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE &&
-                                        error is LoopRouteSuggestionException
-                                    ) {
-                                        buildLoopRetryOptions(session.options, error)
-                                    } else {
-                                        emptyList()
-                                    },
-                                )
-                                setRouteToolResult(null)
-                                setCompletedRouteToolDraft(session)
-                            }
-                    }
-                }
-
-                session.options.saveBehavior == RouteSaveBehavior.SAVE_AS_NEW -> {
-                    setRouteToolSession(null)
-                    if (session.options.modifyMode.previewBeforeSaving) {
-                        previewModifyDraft(session, true)
-                        return
-                    }
-                    if (routeToolExecutionInProgress) return
-                    beginRouteToolExecution("Saving GPX...")
-                    gpxViewModel.applyRouteToolModification(
-                        session = session,
-                        onProgress = setRouteToolExecutionStatus,
-                    ) { result ->
-                        finishRouteToolExecution()
-                        result
-                            .onSuccess { saveResult ->
-                                setRouteToolExecutionMessage(null)
-                                setCompletedRouteToolDraft(null)
-                                setShortcutTrayExpanded(false)
-                                setRouteToolRenameInProgress(false)
-                                setRouteToolRenameError(null)
-                                setRouteToolPreview(null)
-                                setRouteToolResult(saveResult)
-                            }.onFailure { error ->
-                                val message =
-                                    error.localizedMessage?.takeIf { it.isNotBlank() }
-                                        ?: "Failed to save the edited GPX."
-                                setRouteToolExecutionMessage(message)
-                                setRouteToolResult(null)
-                                setCompletedRouteToolDraft(session)
-                            }
-                    }
-                }
-
-                else -> {
-                    setRouteToolSession(null)
-                    setCompletedRouteToolDraft(session)
-                }
-            }
-            return
-        }
-        setRouteToolSession(session)
     }
 
-    fun evaluatePendingPoiRoutePreflight(session: RouteToolSession): RouteToolPreflightResult =
-        session.preflightStart(
-            context = context,
-            currentLocation = recenterTarget,
-            gpsSignalSnapshot = gpsSignalSnapshot,
-            isOfflineMode = offlineMode,
-            hasSingleActiveGpx = activeGpxDetailsCount == 1,
-            selectedMapPath = selectedMapPath,
+    fun startRouteToolSelection(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+        gpsSignal: GpsSignalSnapshot,
+    ) {
+        pendingDirectPoiRoute.value = null
+        val preflight = preflightRouteToolStart(session, currentLocation, gpsSignal)
+        if (!preflight.canStart) {
+            handleRouteToolPreflightBlock(preflight)
+        } else {
+            resetRouteToolSelectionUi()
+            if (session.isComplete) {
+                startCompletedRouteToolSelection(session, currentLocation)
+            } else {
+                setRouteToolSession(session)
+            }
+        }
+    }
+
+    fun startRouteToolSelection(session: RouteToolSession) {
+        startRouteToolSelection(
+            session = session,
+            currentLocation = latestRecenterTarget.value,
+            gpsSignal = latestGpsSignalSnapshot.value,
+        )
+    }
+
+    fun evaluatePendingPoiRoutePreflight(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+        gpsSignal: GpsSignalSnapshot,
+    ): RouteToolPreflightResult =
+        preflightRouteToolStart(
+            session = session,
+            currentLocation = currentLocation,
+            gpsSignal = gpsSignal,
         )
 
-    fun startPendingPoiRoute(session: RouteToolSession) {
+    fun startPendingPoiRoute(
+        session: RouteToolSession,
+        currentLocation: LatLong,
+        gpsSignal: GpsSignalSnapshot,
+    ) {
         pendingDirectPoiRoute.value = null
-        startRouteToolSelection(session)
+        startRouteToolSelection(
+            session = session,
+            currentLocation = currentLocation,
+            gpsSignal = gpsSignal,
+        )
     }
 
     fun showPendingPoiRouteBlocker(message: String?) {
@@ -503,17 +598,13 @@ internal fun rememberNavigateRouteToolActions(
             PendingDirectPoiRouteTriggers(
                 session = pendingDirectPoiRoute.value,
                 currentLocation = recenterTarget,
-                locationAvailable = gpsSignalSnapshot.isLocationAvailable,
-                lastFixFresh = gpsSignalSnapshot.lastFixFresh,
+                gpsSignalSnapshot = gpsSignalSnapshot,
                 offlineMode = offlineMode,
                 selectedMapPath = selectedMapPath,
             ),
         actions =
             PendingDirectPoiRouteActions(
                 evaluatePreflight = ::evaluatePendingPoiRoutePreflight,
-                requestFreshLocation = {
-                    locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
-                },
                 onReady = ::startPendingPoiRoute,
                 onBlocked = ::showPendingPoiRouteBlocker,
                 onTimeout = ::showPendingPoiRouteTimeout,
@@ -537,6 +628,20 @@ internal fun rememberNavigateRouteToolActions(
         previewCreateDraft(updated, current)
     }
 
+    fun createDirectPoiRouteSession(marker: PoiOverlayMarker): RouteToolSession {
+        val createOptions =
+            latestRouteToolOptions.value
+                .copy(
+                    toolKind = RouteToolKind.CREATE,
+                    createMode = RouteCreateMode.CURRENT_TO_HERE,
+                ).withVisibleLoopDefaults()
+        setRouteToolOptions(createOptions)
+        return RouteToolSession(
+            options = createOptions,
+            destination = LatLong(marker.lat, marker.lon),
+        )
+    }
+
     fun createRouteToPoi(marker: PoiOverlayMarker) {
         pendingDirectPoiRoute.value = null
         triggerHaptic()
@@ -548,29 +653,34 @@ internal fun rememberNavigateRouteToolActions(
         clearRouteToolExecutionFeedback()
         clearRouteToolResultState()
         clearRouteToolPreviewState()
-        val createOptions =
-            routeToolOptions
-                .copy(
-                    toolKind = RouteToolKind.CREATE,
-                    createMode = RouteCreateMode.CURRENT_TO_HERE,
-                ).withVisibleLoopDefaults()
-        setRouteToolOptions(createOptions)
-        val session =
-            RouteToolSession(
-                options = createOptions,
-                destination = LatLong(marker.lat, marker.lon),
-            )
+        val currentLocation = latestRecenterTarget.value
+        val gpsSignal = latestGpsSignalSnapshot.value
+        val session = createDirectPoiRouteSession(marker)
         val preflight =
-            session.preflightStart(
-                context = context,
-                currentLocation = recenterTarget,
-                gpsSignalSnapshot = gpsSignalSnapshot,
-                isOfflineMode = offlineMode,
-                hasSingleActiveGpx = activeGpxDetailsCount == 1,
-                selectedMapPath = selectedMapPath,
+            preflightRouteToolStart(
+                session = session,
+                currentLocation = currentLocation,
+                gpsSignal = gpsSignal,
             )
+        logPoiRoutePreflight(
+            event = "click_preflight",
+            currentLocation = currentLocation,
+            gpsSignal = gpsSignal,
+            result =
+                when {
+                    preflight.canStart -> "ready"
+                    preflight.shouldRequestFreshLocation -> "waiting"
+                    else -> "blocked"
+                },
+            message = preflight.message,
+        )
         when {
-            preflight.canStart -> startRouteToolSelection(session)
+            preflight.canStart ->
+                startRouteToolSelection(
+                    session = session,
+                    currentLocation = currentLocation,
+                    gpsSignal = gpsSignal,
+                )
             preflight.shouldRequestFreshLocation -> {
                 pendingDirectPoiRoute.value = session
                 locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
@@ -592,7 +702,7 @@ internal fun rememberNavigateRouteToolActions(
         beginRouteToolExecution(if (preview != null) "Saving GPX..." else "Finding route...")
         gpxViewModel.applyRouteToolCreation(
             session = draft,
-            currentLocation = recenterTarget,
+            currentLocation = latestRecenterTarget.value,
             preview = preview,
             onProgress = setRouteToolExecutionStatus,
         ) { result ->
@@ -759,7 +869,7 @@ internal fun rememberNavigateRouteToolActions(
         startPoiCreationSelection = ::startPoiCreationSelection,
         savePoiAtCurrentMapCenter = ::savePoiAtCurrentMapCenter,
         savePoiAt = ::savePoiAt,
-        startRouteToolSelection = ::startRouteToolSelection,
+        startRouteToolSelection = { session -> startRouteToolSelection(session) },
         undoRouteToolPoint = ::undoRouteToolPoint,
         createRouteToPoi = ::createRouteToPoi,
         executeCreateDraft = ::executeCreateDraft,
@@ -770,4 +880,51 @@ internal fun rememberNavigateRouteToolActions(
     )
 }
 
+private fun logPoiRoutePreflight(
+    event: String,
+    triggers: PendingDirectPoiRouteTriggers,
+    message: String? = null,
+) {
+    logPoiRoutePreflight(
+        event = event,
+        currentLocation = triggers.currentLocation,
+        gpsSignal = triggers.gpsSignalSnapshot,
+        message = message,
+    )
+}
+
+private fun logPoiRoutePreflight(
+    event: String,
+    currentLocation: LatLong?,
+    gpsSignal: GpsSignalSnapshot,
+    result: String? = null,
+    message: String? = null,
+) {
+    if (!DebugTelemetry.isEnabled()) return
+    DebugTelemetry.log(
+        POI_ROUTE_TELEMETRY_TAG,
+        buildString {
+            append("event=")
+            append(event)
+            result?.let {
+                append(" result=")
+                append(it)
+            }
+            append(" currentLocation=")
+            append(currentLocation != null)
+            append(" locationAvailable=")
+            append(gpsSignal.isLocationAvailable)
+            append(" fixElapsedMs=")
+            append(gpsSignal.lastFixElapsedRealtimeMs)
+            append(" fixAgeMs=")
+            append(gpsSignal.lastFixAgeMs)
+            message?.let {
+                append(" message=")
+                append(it.replace(' ', '_'))
+            }
+        },
+    )
+}
+
 private const val DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS = 12_000L
+private const val POI_ROUTE_TELEMETRY_TAG = "PoiRoute"

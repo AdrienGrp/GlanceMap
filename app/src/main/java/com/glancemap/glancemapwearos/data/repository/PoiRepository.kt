@@ -73,6 +73,16 @@ interface PoiRepository {
 
     suspend fun readCoverageBounds(path: String): GeoBounds?
 
+    /** The GPX file that supplied this imported waypoint folder, if any. */
+    suspend fun readLinkedGpxWaypointFileName(path: String): String?
+
+    suspend fun findGpxWaypointPoiFiles(gpxFileName: String): List<File>
+
+    suspend fun updateLinkedGpxWaypointFileName(
+        previousGpxFileName: String,
+        newGpxFileName: String,
+    ): Int
+
     suspend fun isFileEnabled(path: String): Boolean
 
     suspend fun setFileEnabled(

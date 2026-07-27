@@ -206,6 +206,7 @@ internal fun rememberNavigateLocationUiState(
             reason = "interactive_start",
             nowElapsedMs = nowElapsedMs,
         )
+        var resumePredictionFromWakeAnchor = false
         val cachedLocation = locationViewModel.currentLocation.value
         val cachedAnchor =
             resolveWakeAnchorSeedOrNull(
@@ -246,9 +247,16 @@ internal fun rememberNavigateLocationUiState(
         listOfNotNull(cachedAnchor, retainedAnchor)
             .maxByOrNull { it.reading.fixElapsedMs }
             ?.let { anchor ->
+                resumePredictionFromWakeAnchor =
+                    shouldResumePredictionFromWakeAnchor(
+                        anchor = anchor,
+                        receivedAtElapsedMs = nowElapsedMs,
+                        expectedGpsIntervalMs = expectedGpsIntervalMs,
+                    )
                 markerMotionController.seedAnchor(
                     seed = anchor,
                     nowElapsedMs = nowElapsedMs,
+                    allowPredictionUntilFreshFix = resumePredictionFromWakeAnchor,
                 )
                 lastRenderedMarkerLatLong = anchor.latLong
                 wakeAnchorSeeded = true
@@ -290,7 +298,8 @@ internal fun rememberNavigateLocationUiState(
                     NAV_MARKER_TELEMETRY_TAG,
                     "warmReturn restored=true source=${anchor.origin.telemetryLabel} " +
                         "ageMs=${(nowElapsedMs - anchor.reading.fixElapsedMs).coerceAtLeast(0L)} " +
-                        "accuracyM=${anchor.reading.accuracyM} speedMps=${anchor.reading.speedMps}",
+                        "accuracyM=${anchor.reading.accuracyM} speedMps=${anchor.reading.speedMps} " +
+                        "predictionContinues=$resumePredictionFromWakeAnchor",
                 )
             }
         val wakeReacquireInCooldown =
@@ -308,13 +317,18 @@ internal fun rememberNavigateLocationUiState(
         nextWakeSessionId += 1L
         activeWakeSessionId = nextWakeSessionId
         lastWakeReacquireStartedAtElapsedMs = nowElapsedMs
-        holdMarkerUntilFreshFix = true
-        holdMarkerStartedAtElapsedMs = nowElapsedMs
+        holdMarkerUntilFreshFix = !resumePredictionFromWakeAnchor
+        holdMarkerStartedAtElapsedMs = nowElapsedMs.takeIf { holdMarkerUntilFreshFix } ?: 0L
         logWakeSessionEvent(
             stage = "start",
             sessionId = activeWakeSessionId,
             nowElapsedMs = nowElapsedMs,
-            reason = if (wakeAnchorSeeded) "seeded" else "no_anchor",
+            reason =
+                when {
+                    resumePredictionFromWakeAnchor -> "seeded_predicting"
+                    wakeAnchorSeeded -> "seeded_held"
+                    else -> "no_anchor"
+                },
         )
         val immediateRequestResult =
             locationViewModel.requestImmediateLocation(source = "ui_startup_fresh_fix")
@@ -331,7 +345,9 @@ internal fun rememberNavigateLocationUiState(
             )
             return@LaunchedEffect
         }
-        markerMotionController.requireFreshFixForPrediction()
+        if (!resumePredictionFromWakeAnchor) {
+            markerMotionController.requireFreshFixForPrediction()
+        }
     }
 
     LaunchedEffect(activeWakeSessionId, shouldTrackLocation, screenState, locationViewModel) {
@@ -637,6 +653,7 @@ internal fun rememberNavigateLocationUiState(
                         } else {
                             LocationSourceMode.AUTO_FUSED
                         }
+                val markerVisible = shouldRenderLocationVisualUpdate(latestScreenState.value)
 
                 val motionUpdate =
                     markerMotionController.onGpsFix(
@@ -660,6 +677,7 @@ internal fun rememberNavigateLocationUiState(
                                         expectedGpsIntervalMs = expectedGpsIntervalMs,
                                     ),
                                 sourceMode = markerSourceMode,
+                                isMarkerVisible = markerVisible,
                             ),
                     )
                 val displayLatLong = motionUpdate.displayedLatLong
@@ -674,7 +692,7 @@ internal fun rememberNavigateLocationUiState(
                 // Continue feeding the motion controller while the display is off, but avoid
                 // mutating Mapsforge state or requesting an invisible redraw. The interactive
                 // wake path restores the latest cached anchor before requesting a fresh fix.
-                if (!shouldRenderLocationVisualUpdate(latestScreenState.value)) return@collect
+                if (!markerVisible) return@collect
                 if (motionUpdate.fixAccepted) {
                     MarkerMotionTelemetry.recordFixAwaitingFirstRender(receivedAtElapsedMs)
                 }
@@ -995,6 +1013,7 @@ private const val INTERACTIVE_STALE_REFRESH_MIN_MOTION_IDLE_MS = 1_250L
 private const val INTERACTIVE_STALE_REFRESH_COOLDOWN_MS = 12_000L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
 private const val WARM_RETURN_ANCHOR_MAX_ACCURACY_M = 50f
+private const val WARM_RETURN_PREDICTION_MAX_ACCURACY_M = 25f
 private const val WARM_RETURN_MOVING_SPEED_THRESHOLD_MPS = 0.8f
 private const val WARM_RETURN_MOVING_MAX_AGE_MS = 12_000L
 private const val WARM_RETURN_STATIONARY_MAX_AGE_MS = 30_000L
@@ -1116,6 +1135,34 @@ internal fun computeWarmReturnAnchorMaxAgeMs(
             WARM_RETURN_STATIONARY_MAX_AGE_MS
         }
     return maxOf(baseline, warmReturnLimit)
+}
+
+internal fun shouldResumePredictionFromWakeAnchor(
+    anchor: MarkerMotionSeed,
+    receivedAtElapsedMs: Long,
+    expectedGpsIntervalMs: Long,
+): Boolean {
+    val reading = anchor.reading
+    val speedMps = reading.speedMps
+    val bearingDeg = reading.bearingDeg
+    val validElapsedTime =
+        reading.fixElapsedMs > 0L &&
+            receivedAtElapsedMs >= reading.fixElapsedMs
+    val fixAgeMs =
+        if (validElapsedTime) {
+            receivedAtElapsedMs - reading.fixElapsedMs
+        } else {
+            Long.MAX_VALUE
+        }
+    return validElapsedTime &&
+        reading.accuracyM.isFinite() &&
+        reading.accuracyM <= WARM_RETURN_PREDICTION_MAX_ACCURACY_M &&
+        speedMps != null &&
+        speedMps.isFinite() &&
+        speedMps >= WARM_RETURN_MOVING_SPEED_THRESHOLD_MPS &&
+        bearingDeg != null &&
+        bearingDeg.isFinite() &&
+        fixAgeMs <= resolveLocationTimingProfile(expectedGpsIntervalMs).markerPredictionFreshnessMaxAgeMs
 }
 
 internal fun resolveStartupFreshFixMaxAgeMs(

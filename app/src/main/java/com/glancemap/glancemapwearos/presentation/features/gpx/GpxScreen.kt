@@ -442,7 +442,7 @@ fun GpxScreen(
         DeleteConfirmationDialog(
             visible = showDeleteDialog,
             title = "Delete Track?",
-            message = "Delete '${fileToDelete?.title ?: fileToDelete?.name}'?",
+            message = "Delete '${fileToDelete?.displayTitle.orEmpty()}'?",
             messageTopPadding = dialogTextTopPadding,
             messageBottomPadding = dialogTextBottomPadding,
             onConfirm = {

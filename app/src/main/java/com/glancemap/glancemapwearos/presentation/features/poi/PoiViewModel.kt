@@ -50,6 +50,7 @@ data class PoiCategoryUiState(
 data class PoiFileUiState(
     val name: String,
     val path: String,
+    val isGpxWaypointFolder: Boolean = false,
     val isEnabled: Boolean,
     val isExpanded: Boolean,
     val categories: List<PoiCategoryUiState>,
@@ -856,12 +857,18 @@ class PoiViewModel(
         withContext(Dispatchers.IO) {
             val coverage = mutableListOf<PoiCoverageAreaUiState>()
             files.map { file ->
+                val linkedGpxFileName = poiRepository.readLinkedGpxWaypointFileName(file.absolutePath)
+                val displayName =
+                    linkedGpxFileName
+                        ?.removeSuffix(".gpx")
+                        ?.takeIf { it.isNotBlank() }
+                        ?: file.nameWithoutExtension
                 val categories = poiRepository.readCategories(file.absolutePath)
                 poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
                     coverage +=
                         PoiCoverageAreaUiState(
                             filePath = file.absolutePath,
-                            fileName = file.nameWithoutExtension,
+                            fileName = displayName,
                             bounds = bounds,
                         )
                 }
@@ -875,8 +882,9 @@ class PoiViewModel(
                     )
 
                 PoiFileUiState(
-                    name = file.nameWithoutExtension,
+                    name = displayName,
                     path = file.absolutePath,
+                    isGpxWaypointFolder = linkedGpxFileName != null,
                     isEnabled = poiRepository.isFileEnabled(file.absolutePath),
                     isExpanded = previousExpanded[file.absolutePath] ?: false,
                     categories = categories.map { it.toUiState(enabled = it.id in enabledIds) },

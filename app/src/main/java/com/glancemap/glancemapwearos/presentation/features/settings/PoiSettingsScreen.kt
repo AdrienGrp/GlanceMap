@@ -33,6 +33,7 @@ fun PoiSettingsScreen(
     val poiIconSizePx by viewModel.poiIconSizePx.collectAsState()
     val poiMarkerStyle by viewModel.poiMarkerStyle.collectAsState()
     val poiTapToCenterEnabled by viewModel.poiTapToCenterEnabled.collectAsState()
+    val linkGpxWaypointPoiFolders by viewModel.linkGpxWaypointPoiFolders.collectAsState()
     val poiPopupTimeoutSeconds by viewModel.poiPopupTimeoutSeconds.collectAsState()
     val poiPopupManualCloseOnly by viewModel.poiPopupManualCloseOnly.collectAsState()
     val iconSizeOptions =
@@ -92,6 +93,13 @@ fun PoiSettingsScreen(
                         "Disabled"
                     },
                 onSelect = viewModel::setPoiTapToCenterEnabled,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = linkGpxWaypointPoiFolders,
+                onCheckedChanged = viewModel::setLinkGpxWaypointPoiFolders,
+                label = "Link GPX waypoint folders",
             )
         }
         item {

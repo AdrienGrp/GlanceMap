@@ -14,6 +14,7 @@ import com.glancemap.glancemapwearos.presentation.features.download.OamBundleDow
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNetworkMonitor
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNotificationController
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadServiceClient
+import com.glancemap.glancemapwearos.presentation.features.gpx.GpxRouteServices
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
@@ -98,8 +99,12 @@ class DefaultAppContainer(
             gpxExportRepository = gpxExportRepository,
             syncManager = syncManager,
             settingsRepository = settingsRepository,
-            routePlanner = routePlanner,
-            elevationProvider = RecordingElevationProvider(applicationContext),
+            poiRepository = poiRepository,
+            routeServices =
+                GpxRouteServices(
+                    planner = routePlanner,
+                    elevationProvider = RecordingElevationProvider(applicationContext),
+                ),
         )
     }
 

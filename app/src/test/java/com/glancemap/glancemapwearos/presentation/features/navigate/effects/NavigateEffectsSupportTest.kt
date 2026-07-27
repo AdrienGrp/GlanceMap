@@ -313,48 +313,43 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
-    fun rapidHeadingChangesEnableFastTurnRendering() {
-        assertTrue(
-            isFastHeadingTurn(
-                previousHeadingDeg = 350f,
-                nextHeadingDeg = 10f,
-                elapsedMs = 100L,
-            ),
-        )
-        assertFalse(
-            isFastHeadingTurn(
-                previousHeadingDeg = 350f,
-                nextHeadingDeg = 352f,
-                elapsedMs = 100L,
-            ),
-        )
+    fun activeTurnAnimationClosesHeadingErrorMoreAggressively() {
+        val normalAlpha =
+            resolveHeadingAnimationAlpha(
+                diffDeg = 40f,
+                activeTurn = false,
+                frameDeltaMs = 16.667f,
+            )
+        val activeTurnAlpha =
+            resolveHeadingAnimationAlpha(
+                diffDeg = 40f,
+                activeTurn = true,
+                frameDeltaMs = 16.667f,
+            )
+
+        assertTrue(activeTurnAlpha > normalAlpha)
     }
 
     @Test
-    fun slowContinuousRotationEnablesHighFrequencyMapRendering() {
-        assertTrue(
-            isActiveMapHeadingTurn(
-                previousHeadingDeg = 350f,
-                nextHeadingDeg = 353f,
-                elapsedMs = 100L,
-            ),
-        )
-        assertFalse(
-            isActiveMapHeadingTurn(
-                previousHeadingDeg = 350f,
-                nextHeadingDeg = 351f,
-                elapsedMs = 100L,
-            ),
-        )
-    }
+    fun headingAnimationResponseIsIndependentOfFrameRate() {
+        fun renderOverOneHundredMilliseconds(frameDeltaMs: Float): Float {
+            var renderedHeading = 0f
+            repeat((100f / frameDeltaMs).toInt()) {
+                renderedHeading +=
+                    resolveHeadingAnimationDelta(
+                        diffDeg = 10f - renderedHeading,
+                        activeTurn = false,
+                        frameDeltaMs = frameDeltaMs,
+                    )
+            }
+            return renderedHeading
+        }
 
-    @Test
-    fun fastTurnAnimationClosesHeadingErrorMoreAggressively() {
-        val normalAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = false)
-        val fastAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = true)
-
-        assertTrue(fastAlpha > normalAlpha)
-        assertTrue(fastAlpha >= 0.85f)
+        assertEquals(
+            renderOverOneHundredMilliseconds(frameDeltaMs = 20f),
+            renderOverOneHundredMilliseconds(frameDeltaMs = 10f),
+            0.01f,
+        )
     }
 
     @Test
@@ -396,9 +391,10 @@ class NavigateEffectsSupportTest {
             12f,
             resolveHeadingAnimationDelta(
                 diffDeg = 40f,
-                fastTurn = true,
+                activeTurn = true,
+                frameDeltaMs = 16.667f,
             ),
-            0f,
+            0.01f,
         )
     }
 }

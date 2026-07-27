@@ -153,15 +153,21 @@ internal fun normalizeUserFacingGpxText(value: String?): String? =
 
 internal fun parseGpxData(file: File): ParsedGpxData {
     var trkName: String? = null
+    var routeName: String? = null
     var metaName: String? = null
-    val points = mutableListOf<TrackPoint>()
-    var totalDistance = 0.0
-    var lastPoint: LatLong? = null
+    val trackPoints = mutableListOf<TrackPoint>()
+    val routePoints = mutableListOf<TrackPoint>()
+    var trackDistance = 0.0
+    var routeDistance = 0.0
+    var lastTrackPoint: LatLong? = null
+    var lastRoutePoint: LatLong? = null
 
     var inTrk = false
+    var inRoute = false
     var inMetadata = false
     var inMetadataExtensions = false
     var trkDepth = -1
+    var routeDepth = -1
     var metadataDepth = -1
     var metadataExtensionsDepth = -1
     var isActivity = false
@@ -201,7 +207,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var summaryMaxPowerWatts: Int? = null
     var summaryPressureHpa: Double? = null
 
-    var inTrackPoint = false
+    var inGeometryPoint = false
+    var currentPointIsTrack = false
     var currentLat: Double? = null
     var currentLon: Double? = null
     var currentElevation: Double? = null
@@ -219,6 +226,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var currentBrouterVoiceHint: String? = null
     var currentStartsNewSegment = false
     var nextTrackPointStartsNewSegment = false
+    var nextRoutePointStartsNewSegment = false
 
     return try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -232,12 +240,17 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                         val tagName = parser.name
                         when (tagName.localXmlName()) {
                             "trk" -> {
-                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
+                                if (trackPoints.isNotEmpty()) nextTrackPointStartsNewSegment = true
                                 inTrk = true
                                 trkDepth = parser.depth
                             }
                             "trkseg" -> {
-                                if (points.isNotEmpty()) nextTrackPointStartsNewSegment = true
+                                if (inTrk && trackPoints.isNotEmpty()) nextTrackPointStartsNewSegment = true
+                            }
+                            "rte" -> {
+                                if (routePoints.isNotEmpty()) nextRoutePointStartsNewSegment = true
+                                inRoute = true
+                                routeDepth = parser.depth
                             }
                             "metadata" -> {
                                 inMetadata = true
@@ -335,15 +348,27 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                     if (inTrk && trkName == null && depth == trkDepth + 1) {
                                         trkName = text
                                     }
+                                    if (inRoute && routeName == null && depth == routeDepth + 1) {
+                                        routeName = text
+                                    }
                                     if (inMetadata && metaName == null && depth == metadataDepth + 1) {
                                         metaName = text
                                     }
                                 }
                             }
-                            "trkpt" -> {
-                                inTrackPoint = true
-                                currentStartsNewSegment = nextTrackPointStartsNewSegment
-                                nextTrackPointStartsNewSegment = false
+                            "trkpt", "rtept" -> {
+                                currentPointIsTrack = tagName.localXmlName() == "trkpt"
+                                inGeometryPoint = true
+                                currentStartsNewSegment =
+                                    if (currentPointIsTrack) {
+                                        nextTrackPointStartsNewSegment.also {
+                                            nextTrackPointStartsNewSegment = false
+                                        }
+                                    } else {
+                                        nextRoutePointStartsNewSegment.also {
+                                            nextRoutePointStartsNewSegment = false
+                                        }
+                                    }
                                 currentLat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                                 currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                                 currentElevation = null
@@ -361,17 +386,17 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentBrouterVoiceHint = null
                             }
                             "ele" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     currentElevation = parser.nextText()?.trim()?.toDoubleOrNull()
                                 }
                             }
                             "desc" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     currentDesc = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
                                 }
                             }
                             "sym" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     currentSym = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
                                 }
                             }
@@ -380,13 +405,13 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                     parser.namespace?.contains("brouter", ignoreCase = true) == true ||
                                         parser.prefix?.equals("brouter", ignoreCase = true) == true ||
                                         tagName?.startsWith("brouter:", ignoreCase = true) == true
-                                if (inTrackPoint && isBrouterVoiceHint) {
+                                if (inGeometryPoint && isBrouterVoiceHint) {
                                     currentBrouterVoiceHint =
                                         parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
                                 }
                             }
                             "time" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     val timeText = parser.nextText()?.trim()
                                     currentHasTimestamp = !timeText.isNullOrBlank()
                                     currentTimestampMillis =
@@ -398,19 +423,19 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 }
                             }
                             "accuracyMeters" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     currentAccuracyMeters = parser.nextText()?.trim()?.toFloatOrNull()
                                 }
                             }
                             "speedMps" -> {
-                                if (inTrackPoint) {
+                                if (inGeometryPoint) {
                                     currentSpeedMps = parser.nextText()?.trim()?.toFloatOrNull()
                                 }
                             }
                             "heartRateBpm" -> {
                                 if (inMetadataExtensions) {
                                     summaryHeartRateBpm = parser.nextTextInt()
-                                } else if (inTrackPoint) {
+                                } else if (inGeometryPoint) {
                                     currentHeartRateBpm = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
@@ -423,14 +448,14 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "stepCount" -> {
                                 if (inMetadataExtensions) {
                                     summaryStepCount = parser.nextTextInt()
-                                } else if (inTrackPoint) {
+                                } else if (inGeometryPoint) {
                                     currentStepCount = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
                             "cadenceSpm" -> {
                                 if (inMetadataExtensions) {
                                     summaryCadenceSpm = parser.nextTextInt()
-                                } else if (inTrackPoint) {
+                                } else if (inGeometryPoint) {
                                     currentCadenceSpm = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
@@ -443,7 +468,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "powerWatts" -> {
                                 if (inMetadataExtensions) {
                                     summaryPowerWatts = parser.nextTextInt()
-                                } else if (inTrackPoint) {
+                                } else if (inGeometryPoint) {
                                     currentPowerWatts = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
@@ -456,7 +481,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "pressureHpa" -> {
                                 if (inMetadataExtensions) {
                                     summaryPressureHpa = parser.nextTextDouble()
-                                } else if (inTrackPoint) {
+                                } else if (inGeometryPoint) {
                                     currentPressureHpa = parser.nextText()?.trim()?.toDoubleOrNull()
                                 }
                             }
@@ -466,19 +491,21 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                     XmlPullParser.END_TAG -> {
                         when (parser.name.localXmlName()) {
                             "trk" -> inTrk = false
+                            "rte" -> inRoute = false
                             "metadata" -> inMetadata = false
                             "extensions" -> {
                                 if (inMetadataExtensions && parser.depth == metadataExtensionsDepth) {
                                     inMetadataExtensions = false
                                 }
                             }
-                            "trkpt" -> {
-                                if (inTrackPoint) {
+                            "trkpt", "rtept" -> {
+                                val closingTrackPoint = parser.name.localXmlName() == "trkpt"
+                                if (inGeometryPoint && currentPointIsTrack == closingTrackPoint) {
                                     val lat = currentLat
                                     val lon = currentLon
                                     if (lat != null && lon != null) {
                                         val latLong = LatLong(lat, lon)
-                                        points +=
+                                        val point =
                                             TrackPoint(
                                                 latLong = latLong,
                                                 elevation = currentElevation,
@@ -500,26 +527,42 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                     ),
                                             )
 
-                                        lastPoint?.takeUnless { currentStartsNewSegment }?.let { previous ->
-                                            totalDistance +=
-                                                haversine(
-                                                    previous.latitude,
-                                                    previous.longitude,
-                                                    latLong.latitude,
-                                                    latLong.longitude,
-                                                )
-                                        }
-                                        lastPoint = latLong
-                                        currentTimestampMillis?.let { timestampMillis ->
-                                            if (firstTimestampMillis == null) {
-                                                firstTimestampMillis = timestampMillis
+                                        if (currentPointIsTrack) {
+                                            trackPoints += point
+                                            lastTrackPoint?.takeUnless { currentStartsNewSegment }?.let { previous ->
+                                                trackDistance +=
+                                                    haversine(
+                                                        previous.latitude,
+                                                        previous.longitude,
+                                                        latLong.latitude,
+                                                        latLong.longitude,
+                                                    )
                                             }
-                                            lastTimestampMillis = timestampMillis
+                                            lastTrackPoint = latLong
+                                            currentTimestampMillis?.let { timestampMillis ->
+                                                if (firstTimestampMillis == null) {
+                                                    firstTimestampMillis = timestampMillis
+                                                }
+                                                lastTimestampMillis = timestampMillis
+                                            }
+                                        } else {
+                                            routePoints += point
+                                            lastRoutePoint?.takeUnless { currentStartsNewSegment }?.let { previous ->
+                                                routeDistance +=
+                                                    haversine(
+                                                        previous.latitude,
+                                                        previous.longitude,
+                                                        latLong.latitude,
+                                                        latLong.longitude,
+                                                    )
+                                            }
+                                            lastRoutePoint = latLong
                                         }
                                     }
                                 }
 
-                                inTrackPoint = false
+                                inGeometryPoint = false
+                                currentPointIsTrack = false
                                 currentLat = null
                                 currentLon = null
                                 currentElevation = null
@@ -544,10 +587,13 @@ internal fun parseGpxData(file: File): ParsedGpxData {
             }
         }
 
+        val selectedPoints = if (trackPoints.isNotEmpty()) trackPoints else routePoints
+        val selectedDistance = if (trackPoints.isNotEmpty()) trackDistance else routeDistance
+
         ParsedGpxData(
-            title = normalizeUserFacingGpxText(trkName ?: metaName),
-            points = points,
-            totalDistance = totalDistance,
+            title = normalizeUserFacingGpxText(trkName ?: routeName ?: metaName),
+            points = selectedPoints,
+            totalDistance = selectedDistance,
             isActivity = isActivity || file.name.startsWith("Recording-", ignoreCase = true),
             activityDurationSec =
                 firstTimestampMillis?.let { first ->

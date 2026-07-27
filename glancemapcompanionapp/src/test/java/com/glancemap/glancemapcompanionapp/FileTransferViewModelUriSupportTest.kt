@@ -66,6 +66,12 @@ class FileTransferViewModelUriSupportTest {
     }
 
     @Test
+    fun `waypoint folder name follows resolved gpx filename`() {
+        assertEquals("Tour_du_lac__waypoints.poi", suggestPoiFileNameForGpxWaypoints("Tour du lac.gpx"))
+        assertEquals("Tour du lac", suggestPoiCategoryNameForGpx("Tour du lac.gpx"))
+    }
+
+    @Test
     fun `recognizes gpx document prefix with xml declaration`() {
         assertTrue(
             isLikelyGpxTextPrefix(

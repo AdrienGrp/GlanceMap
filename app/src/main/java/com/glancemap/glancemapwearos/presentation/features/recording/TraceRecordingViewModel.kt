@@ -687,8 +687,8 @@ class TraceRecordingViewModel(
                     }
                 val pointCount = currentState.points.size + 1
                 updateGapTelemetry(
-                    pointTimeMillis = point.timeMillis,
-                    accuracyMeters = point.accuracyMeters,
+                    previousPoint = previous,
+                    point = point,
                     provider = location.provider,
                     nextPointCount = pointCount,
                 )
@@ -1456,21 +1456,25 @@ class TraceRecordingViewModel(
     }
 
     private fun updateGapTelemetry(
-        pointTimeMillis: Long,
-        accuracyMeters: Float?,
+        previousPoint: RecordedTracePoint?,
+        point: RecordedTracePoint,
         provider: String?,
         nextPointCount: Int,
     ) {
         val previousPointTimeMillis = lastAcceptedPointTimeMillis
         if (previousPointTimeMillis != null) {
-            val gapMillis = (pointTimeMillis - previousPointTimeMillis).coerceAtLeast(0L)
+            val gapMillis = (point.timeMillis - previousPointTimeMillis).coerceAtLeast(0L)
             val expectedActiveGapMillis = expectedActivePointGapMillis()
             gpsActiveDurationMillis += minOf(gapMillis, expectedActiveGapMillis)
             val thresholdMillis = recordingGapThresholdMillis()
             if (gapMillis > thresholdMillis) {
                 recordingGapCount += 1
                 recordingMaxGapMillis = maxOf(recordingMaxGapMillis, gapMillis)
-                val expectedPointCount = expectedPointCountForElapsed(elapsedSinceFirstPointMillis(pointTimeMillis))
+                val expectedPointCount = expectedPointCountForElapsed(elapsedSinceFirstPointMillis(point.timeMillis))
+                val endpointDistanceMeters =
+                    previousPoint?.let { previous ->
+                        haversineMeters(previous.latLong, point.latLong)
+                    }
                 DebugTelemetry.log(
                     "TraceRecording",
                     "event=gap gapMs=$gapMillis thresholdMs=$thresholdMillis " +
@@ -1478,7 +1482,12 @@ class TraceRecordingViewModel(
                         "acceptThresholdMs=${recordingSampleAcceptThresholdMillis()} " +
                         "expectedPointCount=$expectedPointCount " +
                         "acceptedPointCount=$nextPointCount " +
-                        "accuracyMeters=${accuracyMeters?.toInt() ?: -1} " +
+                        "accuracyMeters=${point.accuracyMeters?.toInt() ?: -1} " +
+                        "gapEndpointDistanceM=${endpointDistanceMeters?.formatTelemetry(1) ?: "na"} " +
+                        "gapPreviousSpeedMps=${previousPoint?.speedMps?.formatTelemetry(2) ?: "na"} " +
+                        "gapCurrentSpeedMps=${point.speedMps?.formatTelemetry(2) ?: "na"} " +
+                        "gapPreviousAccuracyM=${previousPoint?.accuracyMeters?.formatTelemetry(1) ?: "na"} " +
+                        "gapCurrentAccuracyM=${point.accuracyMeters?.formatTelemetry(1) ?: "na"} " +
                         "provider=${sanitizeTelemetryValue(provider ?: "na")} " +
                         "lastLiveFixAgeMs=${lastLiveFixAgeMillis()} " +
                         "lastLiveProvider=${sanitizeTelemetryValue(lastLiveFixProvider ?: "na")} " +
@@ -1491,7 +1500,7 @@ class TraceRecordingViewModel(
                 )
             }
         }
-        lastAcceptedPointTimeMillis = pointTimeMillis
+        lastAcceptedPointTimeMillis = point.timeMillis
     }
 
     private fun updateSensorEventTelemetry(

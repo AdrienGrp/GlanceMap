@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
-import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -15,6 +14,8 @@ class PoiRepositoryImpl(
     private val context: Context,
 ) : PoiRepository {
     private val poiDir by lazy { context.getDir("poi", Context.MODE_PRIVATE) }
+    private val poiFiles by lazy { PoiFileStorage(poiDir) }
+    private val links by lazy { PoiGpxWaypointLinks(poiDir) }
 
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences("poi_metadata", Context.MODE_PRIVATE)
@@ -26,14 +27,7 @@ class PoiRepositoryImpl(
         private const val KEY_ENABLED_CATEGORY_PREFIX = "enabled_categories_"
     }
 
-    override suspend fun listPoiFiles(): List<File> =
-        withContext(Dispatchers.IO) {
-            if (!poiDir.exists()) return@withContext emptyList()
-            poiDir
-                .listFiles { _, name -> name.endsWith(".poi", ignoreCase = true) }
-                ?.sortedBy { it.name.lowercase(Locale.ROOT) }
-                ?: emptyList()
-        }
+    override suspend fun listPoiFiles(): List<File> = withContext(Dispatchers.IO) { poiFiles.list() }
 
     override suspend fun savePoiFileAtomic(
         fileName: String,
@@ -43,29 +37,7 @@ class PoiRepositoryImpl(
         resumeOffset: Long,
     ): String? =
         withContext(Dispatchers.IO) {
-            val exp = expectedSize?.takeIf { it > 0L }
-            val options =
-                AtomicStreamWriter.Options(
-                    bufferSize = 1024 * 1024,
-                    progressStepBytes = 2L * 1024 * 1024,
-                    fsync = true,
-                    failIfExists = false,
-                    expectedSize = exp,
-                    requireExactSize = (exp != null),
-                    resumeOffset = resumeOffset.coerceAtLeast(0L),
-                    keepPartialOnCancel = true,
-                    keepPartialOnFailure = true,
-                    computeSha256 = true,
-                )
-            val result =
-                AtomicStreamWriter.writeAtomic(
-                    dir = poiDir,
-                    fileName = fileName,
-                    inputStream = inputStream,
-                    onProgress = onProgress,
-                    options = options,
-                )
-            result.sha256
+            poiFiles.saveAtomic(fileName, inputStream, onProgress, expectedSize, resumeOffset)
         }
 
     override suspend fun deletePoiFile(path: String): Boolean =
@@ -173,6 +145,18 @@ class PoiRepositoryImpl(
         }
 
     override suspend fun readCoverageBounds(path: String) = withContext(Dispatchers.IO) { readPoiCoverageBounds(path) }
+
+    override suspend fun readLinkedGpxWaypointFileName(path: String): String? = poiIo { links.read(path) }
+
+    override suspend fun findGpxWaypointPoiFiles(gpxFileName: String): List<File> = poiIo { links.find(gpxFileName) }
+
+    override suspend fun updateLinkedGpxWaypointFileName(
+        previousGpxFileName: String,
+        newGpxFileName: String,
+    ): Int =
+        withContext(Dispatchers.IO) {
+            links.update(previousGpxFileName, newGpxFileName)
+        }
 
     override suspend fun isFileEnabled(path: String): Boolean =
         withContext(Dispatchers.IO) {
