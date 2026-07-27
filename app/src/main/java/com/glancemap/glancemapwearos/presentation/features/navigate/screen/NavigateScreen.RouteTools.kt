@@ -52,16 +52,14 @@ internal data class NavigateRouteToolActions(
 private data class PendingDirectPoiRouteTriggers(
     val session: RouteToolSession?,
     val currentLocation: LatLong?,
-    val locationAvailable: Boolean,
-    val lastFixElapsedRealtimeMs: Long,
-    val lastFixAgeMs: Long,
+    val gpsSignalSnapshot: GpsSignalSnapshot,
     val offlineMode: Boolean,
     val selectedMapPath: String?,
 )
 
 private data class PendingDirectPoiRouteActions(
-    val evaluatePreflight: (RouteToolSession) -> RouteToolPreflightResult,
-    val onReady: (RouteToolSession) -> Unit,
+    val evaluatePreflight: (RouteToolSession, LatLong?, GpsSignalSnapshot) -> RouteToolPreflightResult,
+    val onReady: (RouteToolSession, LatLong, GpsSignalSnapshot) -> Unit,
     val onBlocked: (String?) -> Unit,
     val onTimeout: (RouteToolSession) -> Unit,
 )
@@ -76,22 +74,31 @@ private fun PendingDirectPoiRouteEffect(
     LaunchedEffect(
         triggers.session,
         triggers.currentLocation,
-        triggers.locationAvailable,
-        triggers.lastFixElapsedRealtimeMs,
-        triggers.lastFixAgeMs,
+        triggers.gpsSignalSnapshot.isLocationAvailable,
+        triggers.gpsSignalSnapshot.lastFixElapsedRealtimeMs,
+        triggers.gpsSignalSnapshot.lastFixAgeMs,
         triggers.offlineMode,
         triggers.selectedMapPath,
     ) {
         val pendingSession = triggers.session ?: return@LaunchedEffect
         val currentActions = latestActions.value
-        val preflight = currentActions.evaluatePreflight(pendingSession)
+        val preflight =
+            currentActions.evaluatePreflight(
+                pendingSession,
+                triggers.currentLocation,
+                triggers.gpsSignalSnapshot,
+            )
         when {
-            preflight.canStart -> {
+            preflight.canStart && triggers.currentLocation != null -> {
                 logPoiRoutePreflight(
                     event = "pending_ready",
                     triggers = triggers,
                 )
-                currentActions.onReady(pendingSession)
+                currentActions.onReady(
+                    pendingSession,
+                    triggers.currentLocation,
+                    triggers.gpsSignalSnapshot,
+                )
             }
 
             !preflight.shouldRequestFreshLocation -> {
@@ -167,6 +174,15 @@ internal fun rememberNavigateRouteToolActions(
     setShowCreatedPoiRenameDialog: (Boolean) -> Unit,
 ): NavigateRouteToolActions {
     val pendingDirectPoiRoute = remember { mutableStateOf<RouteToolSession?>(null) }
+    // POI popups can outlive the composition that opened them. Route actions therefore read
+    // these values when invoked rather than using the GPS state captured when the popup opened.
+    val latestRecenterTarget = rememberUpdatedState(recenterTarget)
+    val latestGpsSignalSnapshot = rememberUpdatedState(gpsSignalSnapshot)
+    val latestOfflineMode = rememberUpdatedState(offlineMode)
+    val latestActiveGpxDetailsCount = rememberUpdatedState(activeGpxDetailsCount)
+    val latestSelectedMapPath = rememberUpdatedState(selectedMapPath)
+    val latestRouteToolOptions = rememberUpdatedState(routeToolOptions)
+    val latestRouteToolDefaultOptions = rememberUpdatedState(routeToolDefaultOptions)
 
     fun clearRouteToolPreviewState() {
         setRouteToolPreview(null)
@@ -240,7 +256,7 @@ internal fun rememberNavigateRouteToolActions(
         setRouteToolLoopRetryOptions(emptyList())
         gpxViewModel.previewRouteToolCreation(
             session = draft,
-            currentLocation = recenterTarget,
+            currentLocation = latestRecenterTarget.value,
         ) { result ->
             setRouteToolCreatePreviewInProgress(false)
             result
@@ -305,11 +321,11 @@ internal fun rememberNavigateRouteToolActions(
         setShortcutTrayExpanded(false)
         setPoiCreationSelectionActive(false)
         setRouteToolOptions(
-            routeToolOptions
+            latestRouteToolOptions.value
                 .copy(
-                    routeStyle = routeToolDefaultOptions.routeStyle,
-                    useElevation = routeToolDefaultOptions.useElevation,
-                    allowFerries = routeToolDefaultOptions.allowFerries,
+                    routeStyle = latestRouteToolDefaultOptions.value.routeStyle,
+                    useElevation = latestRouteToolDefaultOptions.value.useElevation,
+                    allowFerries = latestRouteToolDefaultOptions.value.allowFerries,
                 ).withVisibleLoopDefaults()
                 .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
         )
@@ -367,17 +383,27 @@ internal fun rememberNavigateRouteToolActions(
         savePoiAt(mapView.model.mapViewPosition.center)
     }
 
-    fun startRouteToolSelection(session: RouteToolSession) {
+    fun preflightRouteToolStart(
+        session: RouteToolSession,
+        currentLocation: LatLong? = latestRecenterTarget.value,
+        gpsSignal: GpsSignalSnapshot = latestGpsSignalSnapshot.value,
+    ): RouteToolPreflightResult =
+        session.preflightStart(
+            context = context,
+            currentLocation = currentLocation,
+            gpsSignalSnapshot = gpsSignal,
+            isOfflineMode = latestOfflineMode.value,
+            hasSingleActiveGpx = latestActiveGpxDetailsCount.value == 1,
+            selectedMapPath = latestSelectedMapPath.value,
+        )
+
+    fun startRouteToolSelection(
+        session: RouteToolSession,
+        currentLocation: LatLong? = latestRecenterTarget.value,
+        gpsSignal: GpsSignalSnapshot = latestGpsSignalSnapshot.value,
+    ) {
         pendingDirectPoiRoute.value = null
-        val preflight =
-            session.preflightStart(
-                context = context,
-                currentLocation = recenterTarget,
-                gpsSignalSnapshot = gpsSignalSnapshot,
-                isOfflineMode = offlineMode,
-                hasSingleActiveGpx = activeGpxDetailsCount == 1,
-                selectedMapPath = selectedMapPath,
-            )
+        val preflight = preflightRouteToolStart(session, currentLocation, gpsSignal)
         if (!preflight.canStart) {
             preflight.message?.let(setRouteToolPreflightMessage)
             if (preflight.shouldRequestFreshLocation) {
@@ -413,7 +439,7 @@ internal fun rememberNavigateRouteToolActions(
                     beginRouteToolExecution("Finding route...")
                     gpxViewModel.applyRouteToolCreation(
                         session = session,
-                        currentLocation = recenterTarget,
+                        currentLocation = currentLocation,
                         onProgress = setRouteToolExecutionStatus,
                     ) { result ->
                         finishRouteToolExecution()
@@ -490,19 +516,28 @@ internal fun rememberNavigateRouteToolActions(
         setRouteToolSession(session)
     }
 
-    fun evaluatePendingPoiRoutePreflight(session: RouteToolSession): RouteToolPreflightResult =
-        session.preflightStart(
-            context = context,
-            currentLocation = recenterTarget,
-            gpsSignalSnapshot = gpsSignalSnapshot,
-            isOfflineMode = offlineMode,
-            hasSingleActiveGpx = activeGpxDetailsCount == 1,
-            selectedMapPath = selectedMapPath,
+    fun evaluatePendingPoiRoutePreflight(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+        gpsSignal: GpsSignalSnapshot,
+    ): RouteToolPreflightResult =
+        preflightRouteToolStart(
+            session = session,
+            currentLocation = currentLocation,
+            gpsSignal = gpsSignal,
         )
 
-    fun startPendingPoiRoute(session: RouteToolSession) {
+    fun startPendingPoiRoute(
+        session: RouteToolSession,
+        currentLocation: LatLong,
+        gpsSignal: GpsSignalSnapshot,
+    ) {
         pendingDirectPoiRoute.value = null
-        startRouteToolSelection(session)
+        startRouteToolSelection(
+            session = session,
+            currentLocation = currentLocation,
+            gpsSignal = gpsSignal,
+        )
     }
 
     fun showPendingPoiRouteBlocker(message: String?) {
@@ -527,9 +562,7 @@ internal fun rememberNavigateRouteToolActions(
             PendingDirectPoiRouteTriggers(
                 session = pendingDirectPoiRoute.value,
                 currentLocation = recenterTarget,
-                locationAvailable = gpsSignalSnapshot.isLocationAvailable,
-                lastFixElapsedRealtimeMs = gpsSignalSnapshot.lastFixElapsedRealtimeMs,
-                lastFixAgeMs = gpsSignalSnapshot.lastFixAgeMs,
+                gpsSignalSnapshot = gpsSignalSnapshot,
                 offlineMode = offlineMode,
                 selectedMapPath = selectedMapPath,
             ),
@@ -570,8 +603,10 @@ internal fun rememberNavigateRouteToolActions(
         clearRouteToolExecutionFeedback()
         clearRouteToolResultState()
         clearRouteToolPreviewState()
+        val currentLocation = latestRecenterTarget.value
+        val gpsSignal = latestGpsSignalSnapshot.value
         val createOptions =
-            routeToolOptions
+            latestRouteToolOptions.value
                 .copy(
                     toolKind = RouteToolKind.CREATE,
                     createMode = RouteCreateMode.CURRENT_TO_HERE,
@@ -583,20 +618,17 @@ internal fun rememberNavigateRouteToolActions(
                 destination = LatLong(marker.lat, marker.lon),
             )
         val preflight =
-            session.preflightStart(
-                context = context,
-                currentLocation = recenterTarget,
-                gpsSignalSnapshot = gpsSignalSnapshot,
-                isOfflineMode = offlineMode,
-                hasSingleActiveGpx = activeGpxDetailsCount == 1,
-                selectedMapPath = selectedMapPath,
+            preflightRouteToolStart(
+                session = session,
+                currentLocation = currentLocation,
+                gpsSignal = gpsSignal,
             )
         logPoiRoutePreflight(
             event = "click_preflight",
-            currentLocationPresent = recenterTarget != null,
-            locationAvailable = gpsSignalSnapshot.isLocationAvailable,
-            lastFixElapsedRealtimeMs = gpsSignalSnapshot.lastFixElapsedRealtimeMs,
-            lastFixAgeMs = gpsSignalSnapshot.lastFixAgeMs,
+            currentLocationPresent = currentLocation != null,
+            locationAvailable = gpsSignal.isLocationAvailable,
+            lastFixElapsedRealtimeMs = gpsSignal.lastFixElapsedRealtimeMs,
+            lastFixAgeMs = gpsSignal.lastFixAgeMs,
             result =
                 when {
                     preflight.canStart -> "ready"
@@ -606,7 +638,12 @@ internal fun rememberNavigateRouteToolActions(
             message = preflight.message,
         )
         when {
-            preflight.canStart -> startRouteToolSelection(session)
+            preflight.canStart ->
+                startRouteToolSelection(
+                    session = session,
+                    currentLocation = currentLocation,
+                    gpsSignal = gpsSignal,
+                )
             preflight.shouldRequestFreshLocation -> {
                 pendingDirectPoiRoute.value = session
                 locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
@@ -628,7 +665,7 @@ internal fun rememberNavigateRouteToolActions(
         beginRouteToolExecution(if (preview != null) "Saving GPX..." else "Finding route...")
         gpxViewModel.applyRouteToolCreation(
             session = draft,
-            currentLocation = recenterTarget,
+            currentLocation = latestRecenterTarget.value,
             preview = preview,
             onProgress = setRouteToolExecutionStatus,
         ) { result ->
@@ -795,7 +832,7 @@ internal fun rememberNavigateRouteToolActions(
         startPoiCreationSelection = ::startPoiCreationSelection,
         savePoiAtCurrentMapCenter = ::savePoiAtCurrentMapCenter,
         savePoiAt = ::savePoiAt,
-        startRouteToolSelection = ::startRouteToolSelection,
+        startRouteToolSelection = { session -> startRouteToolSelection(session) },
         undoRouteToolPoint = ::undoRouteToolPoint,
         createRouteToPoi = ::createRouteToPoi,
         executeCreateDraft = ::executeCreateDraft,
@@ -814,9 +851,9 @@ private fun logPoiRoutePreflight(
     logPoiRoutePreflight(
         event = event,
         currentLocationPresent = triggers.currentLocation != null,
-        locationAvailable = triggers.locationAvailable,
-        lastFixElapsedRealtimeMs = triggers.lastFixElapsedRealtimeMs,
-        lastFixAgeMs = triggers.lastFixAgeMs,
+        locationAvailable = triggers.gpsSignalSnapshot.isLocationAvailable,
+        lastFixElapsedRealtimeMs = triggers.gpsSignalSnapshot.lastFixElapsedRealtimeMs,
+        lastFixAgeMs = triggers.gpsSignalSnapshot.lastFixAgeMs,
         message = message,
     )
 }
