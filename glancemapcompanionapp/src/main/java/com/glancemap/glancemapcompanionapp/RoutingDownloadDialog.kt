@@ -195,12 +195,14 @@ internal fun RoutingDownloadDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "Download data for the areas you use to create GPX routes directly on your watch, even without a connection.",
+                        "Download data for the areas you use to create GPX routes directly on your " +
+                            "watch, even without a connection.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
                     Text(
-                        "The files are downloaded to your phone. In section 2, select the ones you want to send to the watch.",
+                        "The files are downloaded to your phone. In section 2, select the ones you " +
+                            "want to send to the watch.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
