@@ -72,7 +72,7 @@ internal object LiveTrackingControlQueue {
             .put("altitudeMeters", altitudeMeters)
             .put("speedMetersPerSecond", speedMetersPerSecond)
             .put("accuracyMeters", accuracyMeters.toDouble())
-            .put("epochSeconds", epochSeconds)
+            .put("epochMilliseconds", epochMilliseconds)
             .put("batteryPercent", batteryPercent)
             .put("gsmSignalPercent", gsmSignalPercent)
             .put("group", group)
@@ -81,6 +81,7 @@ internal object LiveTrackingControlQueue {
             .put("notificationEmails", notificationEmails)
             .put("alertEmails", alertEmails)
             .put("stuckAlarmMinutes", stuckAlarmMinutes)
+            .put("start", start)
             .put("pause", pause)
             .put("resume", resume)
             .put("dateId", dateId)
@@ -94,7 +95,7 @@ internal object LiveTrackingControlQueue {
                 altitudeMeters = nullableDouble("altitudeMeters"),
                 speedMetersPerSecond = nullableDouble("speedMetersPerSecond")?.toFloat(),
                 accuracyMeters = getDouble("accuracyMeters").toFloat(),
-                epochSeconds = getLong("epochSeconds"),
+                epochMilliseconds = storedEpochMilliseconds(),
                 batteryPercent = getInt("batteryPercent"),
                 gsmSignalPercent = getInt("gsmSignalPercent"),
                 group = getString("group"),
@@ -103,13 +104,22 @@ internal object LiveTrackingControlQueue {
                 notificationEmails = optString("notificationEmails"),
                 alertEmails = optString("alertEmails"),
                 stuckAlarmMinutes = optString("stuckAlarmMinutes"),
-                start = false,
+                start = optBoolean("start"),
                 stop = false,
                 pause = optBoolean("pause"),
                 resume = optBoolean("resume"),
                 dateId = optString("dateId").takeIf(String::isNotBlank),
             )
         }.getOrNull()
+
+    private fun JSONObject.storedEpochMilliseconds(): Long =
+        if (has("epochMilliseconds")) {
+            getLong("epochMilliseconds")
+        } else {
+            getLong("epochSeconds") * MILLIS_PER_SECOND
+        }
+
+    private const val MILLIS_PER_SECOND = 1_000L
 
     private fun JSONObject.nullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
 }

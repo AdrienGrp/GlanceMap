@@ -2,14 +2,16 @@ package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.content.Context
 
+internal const val DEFAULT_NO_MOVEMENT_ALERT_MINUTES = "10"
+
 internal data class SavedLiveTrackingSettings(
     val group: String = "",
     val participantPassword: String = "",
     val followerPassword: String = "",
     val userName: String = "",
     val notificationEmailAddresses: List<String> = emptyList(),
-    val alertEmailAddresses: List<String> = emptyList(),
-    val stuckAlarmMinutes: String = "15",
+    val alertRecipients: List<String> = emptyList(),
+    val stuckAlarmMinutes: String = DEFAULT_NO_MOVEMENT_ALERT_MINUTES,
     val updateIntervalSeconds: Int = 60,
 )
 
@@ -42,8 +44,12 @@ internal object LiveTrackingPreferences {
             followerPassword = prefs.getString(KEY_FOLLOWER_PASSWORD, "").orEmpty(),
             userName = prefs.getString(KEY_USER_NAME, "").orEmpty(),
             notificationEmailAddresses = prefs.getString(KEY_NOTIFICATION_EMAILS, "").orEmpty().toEmailList(),
-            alertEmailAddresses = prefs.getString(KEY_ALERT_EMAILS, "").orEmpty().toEmailList(),
-            stuckAlarmMinutes = prefs.getString(KEY_STUCK_ALARM_MINUTES, "15").orEmpty().ifBlank { "15" },
+            alertRecipients = prefs.getString(KEY_ALERT_EMAILS, "").orEmpty().toRecipientList(),
+            stuckAlarmMinutes =
+                prefs
+                    .getString(KEY_STUCK_ALARM_MINUTES, DEFAULT_NO_MOVEMENT_ALERT_MINUTES)
+                    .orEmpty()
+                    .ifBlank { DEFAULT_NO_MOVEMENT_ALERT_MINUTES },
             updateIntervalSeconds = prefs.getInt(KEY_UPDATE_INTERVAL_SECONDS, 60),
         )
     }
@@ -60,7 +66,7 @@ internal object LiveTrackingPreferences {
             .putString(KEY_FOLLOWER_PASSWORD, settings.followerPassword)
             .putString(KEY_USER_NAME, settings.userName)
             .putString(KEY_NOTIFICATION_EMAILS, settings.notificationEmailAddresses.joinToString(","))
-            .putString(KEY_ALERT_EMAILS, settings.alertEmailAddresses.joinToString(","))
+            .putString(KEY_ALERT_EMAILS, settings.alertRecipients.joinToString(","))
             .putString(KEY_STUCK_ALARM_MINUTES, settings.stuckAlarmMinutes)
             .putInt(KEY_UPDATE_INTERVAL_SECONDS, settings.updateIntervalSeconds)
             .apply()
@@ -103,9 +109,13 @@ internal object LiveTrackingPreferences {
                 userName = prefs.getString("$prefix.$KEY_USER_NAME", "").orEmpty(),
                 notificationEmailAddresses =
                     prefs.getString("$prefix.$KEY_NOTIFICATION_EMAILS", "").orEmpty().toEmailList(),
-                alertEmailAddresses = prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toEmailList(),
+                alertRecipients =
+                    prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toRecipientList(),
                 stuckAlarmMinutes =
-                    prefs.getString("$prefix.$KEY_STUCK_ALARM_MINUTES", "15").orEmpty().ifBlank { "15" },
+                    prefs
+                        .getString("$prefix.$KEY_STUCK_ALARM_MINUTES", DEFAULT_NO_MOVEMENT_ALERT_MINUTES)
+                        .orEmpty()
+                        .ifBlank { DEFAULT_NO_MOVEMENT_ALERT_MINUTES },
                 updateIntervalSeconds = prefs.getInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", 60),
             )
         }
@@ -123,7 +133,7 @@ internal object LiveTrackingPreferences {
             .edit()
             .putString("$prefix.$KEY_USER_NAME", settings.userName)
             .putString("$prefix.$KEY_NOTIFICATION_EMAILS", settings.notificationEmailAddresses.joinToString(","))
-            .putString("$prefix.$KEY_ALERT_EMAILS", settings.alertEmailAddresses.joinToString(","))
+            .putString("$prefix.$KEY_ALERT_EMAILS", settings.alertRecipients.joinToString(","))
             .putString("$prefix.$KEY_STUCK_ALARM_MINUTES", settings.stuckAlarmMinutes)
             .putInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", settings.updateIntervalSeconds)
             .apply()
@@ -150,6 +160,11 @@ internal object LiveTrackingPreferences {
     private fun groupProfilePrefix(group: String): String = "$GROUP_PROFILE_PREFIX.${group.trim().lowercase()}"
 
     private fun String.toEmailList(): List<String> =
+        split(",")
+            .map(String::trim)
+            .filter(String::isNotBlank)
+
+    private fun String.toRecipientList(): List<String> =
         split(",")
             .map(String::trim)
             .filter(String::isNotBlank)

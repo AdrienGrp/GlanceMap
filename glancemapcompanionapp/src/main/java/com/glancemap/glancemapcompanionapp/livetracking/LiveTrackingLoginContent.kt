@@ -1,3 +1,9 @@
+@file:Suppress(
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +32,6 @@ internal fun ColumnScope.LoginJoinContent(
     participantPassword: String,
     onParticipantPasswordChange: (String) -> Unit,
     isLoginJoinLoading: Boolean,
-    isConnected: Boolean,
     loginJoinStatusMessage: String?,
     onLoginJoin: () -> Unit,
     showCreateGroupDialog: Boolean,
@@ -34,23 +39,15 @@ internal fun ColumnScope.LoginJoinContent(
     onCreateGroupPasswordConfirmationChange: (String) -> Unit,
     onDismissCreateGroupDialog: () -> Unit,
     onConfirmCreateGroup: () -> Unit,
-    onLogout: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isPasswordConfirmationVisible by remember { mutableStateOf(false) }
-    val visibleStatusMessage =
-        loginJoinStatusMessage
-            ?: if (isConnected) {
-                "Connected to ${group.trim().ifBlank { "group" }}"
-            } else {
-                null
-            }
 
     HeaderRow(onBack = onBack) {
         Text(
-            text = "Create / Join",
+            text = "Live tracking setup",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
@@ -60,7 +57,12 @@ internal fun ColumnScope.LoginJoinContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        TrackingPanel(title = null) {
+        TrackingPanel(title = "Private group") {
+            Text(
+                text = "Connect to an existing group or create a new private group.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = group,
                 onValueChange = onGroupChange,
@@ -78,18 +80,17 @@ internal fun ColumnScope.LoginJoinContent(
             )
             Button(
                 onClick = onLoginJoin,
-                enabled = !isLoginJoinLoading && !isConnected,
+                enabled = !isLoginJoinLoading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     when {
-                        isConnected -> "Connected"
                         isLoginJoinLoading -> "Checking"
                         else -> "Connect"
                     },
                 )
             }
-            visibleStatusMessage?.let { message ->
+            loginJoinStatusMessage?.let { message ->
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
@@ -104,14 +105,6 @@ internal fun ColumnScope.LoginJoinContent(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                 )
-            }
-        }
-        if (isConnected) {
-            OutlinedButton(
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Logout")
             }
         }
     }

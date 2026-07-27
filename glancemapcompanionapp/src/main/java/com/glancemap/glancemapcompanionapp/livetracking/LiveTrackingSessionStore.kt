@@ -51,10 +51,20 @@ object LiveTrackingSessionStore {
                 isPaused = true,
                 status =
                     if (serverSyncPending) {
-                        "Paused on phone — Arkluz notification pending"
+                        "Paused on phone. Arkluz has not received the pause yet; a no-movement alert may still be sent."
                     } else {
                         "Paused"
                     },
+                lastError = null,
+            )
+    }
+
+    fun setStartPending(message: String = "Waiting for network to start tracking") {
+        _state.value =
+            _state.value.copy(
+                isTracking = true,
+                isPaused = false,
+                status = message,
                 lastError = null,
             )
     }

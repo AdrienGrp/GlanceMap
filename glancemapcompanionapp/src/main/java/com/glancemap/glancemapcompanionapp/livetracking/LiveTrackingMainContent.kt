@@ -37,6 +37,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,16 +49,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun ColumnScope.MainTrackingContent(
     onBack: () -> Unit,
-    onOpenLogin: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSetup: () -> Unit,
     onOpenGuide: () -> Unit,
     isConnected: Boolean,
     group: String,
-    headerMessage: String?,
     hasSelectedGpx: Boolean,
     selectedGpxName: String,
     comments: String,
@@ -89,6 +93,17 @@ internal fun ColumnScope.MainTrackingContent(
     adaptive: CompanionAdaptiveSpec,
 ) {
     val context = LocalContext.current
+    val isArkluzNotificationPending = sessionState.status.contains("Arkluz notification pending")
+    var showArkluzPendingWarning by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isArkluzNotificationPending) {
+        if (isArkluzNotificationPending) {
+            delay(ARKLUZ_PENDING_WARNING_DELAY_MS)
+            showArkluzPendingWarning = true
+        } else {
+            showArkluzPendingWarning = false
+        }
+    }
 
     Row(
         modifier =
@@ -199,7 +214,7 @@ internal fun ColumnScope.MainTrackingContent(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (sessionState.status.contains("Arkluz notification pending")) {
+            if (showArkluzPendingWarning) {
                 Text(
                     text = "Arkluz has not been notified yet. No-movement alerts may still be triggered.",
                     style = MaterialTheme.typography.bodySmall,
@@ -246,18 +261,18 @@ internal fun ColumnScope.MainTrackingContent(
                 Spacer(modifier = Modifier.size(8.dp))
                 Text("Select GPX")
             }
-            Text(
-                text = "Selected GPX",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = selectedGpxName.ifBlank { "No GPX selected" },
+                    text =
+                        if (hasSelectedGpx) {
+                            "GPX name: ${selectedGpxName.ifBlank { "Selected GPX" }}"
+                        } else {
+                            "No GPX selected"
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -399,57 +414,38 @@ internal fun ColumnScope.MainTrackingContent(
                 )
             }
         }
+
+        LiveTrackingDiagnosticsPanel()
     }
 
-    Row(
+    Button(
+        onClick = onOpenSetup,
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (isConnected) group.ifBlank { "Connected" } else "Create / Join",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        OutlinedButton(
-            onClick = onOpenSettings,
-            modifier = Modifier.weight(1f),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Settings,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint =
-                    if (isConnected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            )
-            Spacer(modifier = Modifier.size(6.dp))
-            Text(
-                text = "Settings",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color =
-                    if (isConnected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            )
-        }
-    }
-    headerMessage?.let { message ->
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.size(6.dp))
         Text(
-            text = message,
+            text = if (isConnected) "Edit live tracking setup" else "Set up live tracking",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (isConnected) {
+        Text(
+            text = "Connected to ${group.trim().ifBlank { "private group" }}",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
+
+private const val ARKLUZ_PENDING_WARNING_DELAY_MS = 1_000L
 
 @Composable
 private fun TrackLinkRow(

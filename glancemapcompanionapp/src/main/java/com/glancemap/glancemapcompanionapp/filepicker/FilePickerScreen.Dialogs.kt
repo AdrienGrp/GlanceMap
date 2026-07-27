@@ -117,7 +117,7 @@ internal fun DebugCaptureDialog(
                     "Recording is active on the phone. Stop when you are done and an email draft will open for Glancemap@protonmail.com.\n\nCaptured lines: ${debugCaptureState.bufferedLines}"
                 } else {
                     buildString {
-                        append("This records companion app transfer logs on the phone. Start it before reproducing a long transfer issue, then stop it to open an email draft to Glancemap@protonmail.com.")
+                        append("This records redacted companion app transfer and live tracking logs on the phone. Start it before reproducing the issue, then stop it to open an email draft to Glancemap@protonmail.com.")
                         if (hasSavedPhoneRecording) {
                             append("\n\nA saved phone recording is available and can be resent.")
                         }
@@ -411,8 +411,9 @@ internal fun FilePickerQuickGuideDialog(
                                 "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface to configure it.",
                             lines =
                                 listOf(
-                                    "Create or join a group.",
-                                    "In Settings, set participant name, GPS update frequency, alert emails, and no-movement alerts.",
+                                    "Tap Set up live tracking.",
+                                    "Connect to an existing private group or create one.",
+                                    "Add your name, GPS update frequency, and safety alerts.",
                                 ),
                         ),
                         QuickGuidePage(
@@ -959,7 +960,7 @@ private const val GUIDE_SEND_TO_WATCH_ICON_ID = "guide_send_to_watch_icon"
 private const val GUIDE_LIVE_TRACKING_ICON_ID = "guide_live_tracking_icon"
 private const val QUICK_GUIDE_PAGE_SWIPE_THRESHOLD_DP = 64
 private const val ARKLUZ_CONTACT_URL = "https://arkluz.com/trk?contact"
-private const val ARKLUZ_WEBSITE_URL = "https://arkluz.com/trk"
+private const val ARKLUZ_WEBSITE_URL = "https://arkluz.com/trk?api"
 private const val WELCOME_WATCH_DOWNLOAD_INTRO =
     "Start on the watch and use the download icon to download offline maps."
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"

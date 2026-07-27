@@ -9,6 +9,37 @@ apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapPhoneVersionCode = providers.gradleProperty("glanceMapPhoneVersionCode").get().toInt()
+val arkluzSmsApiKeyProperty = "ARKLUZ_SMS_API_KEY"
+val projectGradlePropertiesDefinesArkluzSmsApiKey =
+    rootProject.file("gradle.properties").useLines { lines ->
+        lines.any { line ->
+            val trimmedLine = line.trimStart()
+            !trimmedLine.startsWith("#") &&
+                '=' in trimmedLine &&
+                trimmedLine.substringBefore('=').trim() == arkluzSmsApiKeyProperty
+        }
+    }
+if (projectGradlePropertiesDefinesArkluzSmsApiKey) {
+    throw GradleException(
+        "$arkluzSmsApiKeyProperty must not be defined in the repository gradle.properties. " +
+            "Use ~/.gradle/gradle.properties or an environment variable.",
+    )
+}
+val arkluzSmsApiKey =
+    providers
+        .gradleProperty(arkluzSmsApiKeyProperty)
+        .orElse(providers.environmentVariable(arkluzSmsApiKeyProperty))
+        .orNull
+        .orEmpty()
+val hasArkluzSmsApiKey = arkluzSmsApiKey.isNotEmpty()
+val hasValidArkluzSmsApiKey =
+    arkluzSmsApiKey.length in 32..128 &&
+        arkluzSmsApiKey.matches(Regex("^[A-Za-z0-9+/]+={0,2}$"))
+if (hasArkluzSmsApiKey && !hasValidArkluzSmsApiKey) {
+    throw GradleException(
+        "$arkluzSmsApiKeyProperty must be a 32-128 character Base64 value.",
+    )
+}
 val releaseStoreFile =
     providers
         .gradleProperty("android.injected.signing.store.file")
@@ -45,6 +76,12 @@ val releaseArtifactTaskRequested =
             listOf("bundle", "assemble", "publish").any(normalized::contains)
     }
 
+if (releaseArtifactTaskRequested && !hasArkluzSmsApiKey) {
+    throw GradleException(
+        "Missing $arkluzSmsApiKeyProperty. Release artifacts must include the Arkluz SMS API key. " +
+            "Define it in ~/.gradle/gradle.properties or as an environment variable.",
+    )
+}
 if (releaseArtifactTaskRequested && !hasReleaseSigning) {
     throw GradleException(
         "Missing release signing properties. Release artifacts must not be debug-signed. " +
@@ -71,6 +108,7 @@ android {
         }
         manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
         buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/trk\"")
+        buildConfigField("String", "ARKLUZ_SMS_API_KEY", "\"$arkluzSmsApiKey\"")
     }
 
     signingConfigs {

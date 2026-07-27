@@ -23,7 +23,7 @@ internal object LiveTrackingPositionQueue {
 
     fun load(context: Context): List<ArkluzLocationUpdate> =
         synchronized(lock) {
-            loadLocked(context).sortedBy { it.epochSeconds }
+            loadLocked(context).sortedBy { it.epochMilliseconds }
         }
 
     fun replaceAll(
@@ -31,7 +31,7 @@ internal object LiveTrackingPositionQueue {
         updates: List<ArkluzLocationUpdate>,
     ) {
         synchronized(lock) {
-            saveLocked(context, updates.sortedBy { it.epochSeconds }.takeLast(MAX_QUEUE_SIZE))
+            saveLocked(context, updates.sortedBy { it.epochMilliseconds }.takeLast(MAX_QUEUE_SIZE))
         }
     }
 
@@ -72,7 +72,7 @@ internal object LiveTrackingPositionQueue {
             .put("altitudeMeters", altitudeMeters)
             .put("speedMetersPerSecond", speedMetersPerSecond)
             .put("accuracyMeters", accuracyMeters.toDouble())
-            .put("epochSeconds", epochSeconds)
+            .put("epochMilliseconds", epochMilliseconds)
             .put("batteryPercent", batteryPercent)
             .put("gsmSignalPercent", gsmSignalPercent)
             .put("group", group)
@@ -96,7 +96,7 @@ internal object LiveTrackingPositionQueue {
                 altitudeMeters = nullableDouble("altitudeMeters"),
                 speedMetersPerSecond = nullableDouble("speedMetersPerSecond")?.toFloat(),
                 accuracyMeters = getDouble("accuracyMeters").toFloat(),
-                epochSeconds = getLong("epochSeconds"),
+                epochMilliseconds = storedEpochMilliseconds(),
                 batteryPercent = getInt("batteryPercent"),
                 gsmSignalPercent = getInt("gsmSignalPercent"),
                 group = getString("group"),
@@ -112,6 +112,15 @@ internal object LiveTrackingPositionQueue {
                 dateId = optString("dateId").takeIf(String::isNotBlank),
             )
         }.getOrNull()
+
+    private fun JSONObject.storedEpochMilliseconds(): Long =
+        if (has("epochMilliseconds")) {
+            getLong("epochMilliseconds")
+        } else {
+            getLong("epochSeconds") * MILLIS_PER_SECOND
+        }
+
+    private const val MILLIS_PER_SECOND = 1_000L
 
     private fun JSONObject.nullableDouble(key: String): Double? =
         if (isNull(key)) {

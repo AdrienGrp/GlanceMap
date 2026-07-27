@@ -1,8 +1,15 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "ReturnCount",
+)
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.util.Patterns
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -13,23 +20,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContactMail
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +58,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun ColumnScope.SettingsContent(
     onBack: () -> Unit,
+    group: String,
+    onChangeGroup: () -> Unit,
     userName: String,
     onUserNameChange: (String) -> Unit,
     notificationEmailInput: String,
@@ -60,12 +68,15 @@ internal fun ColumnScope.SettingsContent(
     onNotificationEmailAdd: (String) -> Unit,
     onNotificationEmailRemove: (String) -> Unit,
     onPickNotificationEmailFromContacts: () -> Unit,
-    alertEmailInput: String,
-    onAlertEmailInputChange: (String) -> Unit,
-    alertEmailAddresses: List<String>,
-    onAlertEmailAdd: (String) -> Unit,
-    onAlertEmailRemove: (String) -> Unit,
+    alertRecipientInput: String,
+    onAlertRecipientInputChange: (String) -> Unit,
+    alertRecipients: List<String>,
+    onAlertRecipientAdd: (AlertRecipient) -> Unit,
+    onAlertRecipientRemove: (String) -> Unit,
     onPickAlertEmailFromContacts: () -> Unit,
+    onPickAlertPhoneFromContacts: () -> Unit,
+    isValidatingAlertRecipient: Boolean,
+    alertRecipientStatusMessage: String?,
     stuckAlarmMinutes: String,
     onStuckAlarmMinutesChange: (String) -> Unit,
     updateIntervalSeconds: Int,
@@ -76,25 +87,13 @@ internal fun ColumnScope.SettingsContent(
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        FilledTonalIconButton(
-            onClick = onBack,
-            modifier =
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .size(48.dp),
-            colors = companionTonalIconButtonColors(),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                modifier = Modifier.size(20.dp),
-            )
-        }
+    HeaderRow(onBack = onBack) {
         Text(
-            text = "Settings",
+            text = "Live tracking setup",
             style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.align(Alignment.Center),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
     }
 
@@ -102,30 +101,28 @@ internal fun ColumnScope.SettingsContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        Button(
-            onClick = onSaveSettings,
-            enabled = !isSavingSettings,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (isSavingSettings) "Saving" else "Save")
-        }
-        saveSettingsStatusMessage?.let { message ->
+        TrackingPanel(title = "Private group") {
             Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color =
-                    if (
-                        message.startsWith("Save failed", ignoreCase = true) ||
-                        message.contains("required", ignoreCase = true)
-                    ) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                text = "Connected to ${group.trim().ifBlank { "private group" }}",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            Text(
+                text = "Your tracking links and options are linked to this group.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onChangeGroup,
+                enabled = !isSavingSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Change group")
+            }
         }
 
-        TrackingPanel(title = "Participant") {
+        TrackingPanel(title = "Participant:") {
             OutlinedTextField(
                 value = userName,
                 onValueChange = onUserNameChange,
@@ -149,7 +146,7 @@ internal fun ColumnScope.SettingsContent(
                 onSelected = onUpdateIntervalSecondsChange,
             )
             EmailAddressInput(
-                label = "Send tracking notifications & alerts",
+                label = "Send tracking notifications & safety alerts to:",
                 input = notificationEmailInput,
                 onInputChange = onNotificationEmailInputChange,
                 addresses = notificationEmailAddresses,
@@ -157,29 +154,48 @@ internal fun ColumnScope.SettingsContent(
                 onRemove = onNotificationEmailRemove,
                 onPickFromContacts = onPickNotificationEmailFromContacts,
             )
-            EmailAddressInput(
-                label = "Send only alerts to",
-                input = alertEmailInput,
-                onInputChange = onAlertEmailInputChange,
-                addresses = alertEmailAddresses,
-                onAdd = onAlertEmailAdd,
-                onRemove = onAlertEmailRemove,
-                onPickFromContacts = onPickAlertEmailFromContacts,
+            AlertRecipientInput(
+                label = "Also send safety alerts to:",
+                input = alertRecipientInput,
+                onInputChange = onAlertRecipientInputChange,
+                recipients = alertRecipients,
+                onAdd = onAlertRecipientAdd,
+                onRemove = onAlertRecipientRemove,
+                onPickEmailFromContacts = onPickAlertEmailFromContacts,
+                onPickPhoneFromContacts = onPickAlertPhoneFromContacts,
+                isValidating = isValidatingAlertRecipient,
+                statusMessage = alertRecipientStatusMessage,
             )
             NoMovementAlertInput(
                 minutes = stuckAlarmMinutes,
                 onMinutesChange = onStuckAlarmMinutesChange,
             )
         }
+
+        Button(
+            onClick = onSaveSettings,
+            enabled = !isSavingSettings,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (isSavingSettings) "Saving" else "Save and return")
+        }
+        saveSettingsStatusMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color =
+                    if (
+                        message.startsWith("Save failed", ignoreCase = true) ||
+                        message.contains("required", ignoreCase = true)
+                    ) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
     }
 }
-
-@Composable
-private fun companionTonalIconButtonColors() =
-    IconButtonDefaults.filledTonalIconButtonColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    )
 
 @Composable
 internal fun PasswordField(
@@ -206,17 +222,16 @@ internal fun PasswordField(
                 keyboardType = KeyboardType.Password,
             ),
         trailingIcon = {
-            FilledTonalIconButton(
+            IconButton(
                 onClick = { onVisibilityChange(!isVisible) },
-                modifier = Modifier.size(48.dp),
-                colors = companionTonalIconButtonColors(),
+                modifier = Modifier.size(40.dp),
             ) {
                 Icon(
                     imageVector =
                         if (isVisible) {
-                            Icons.Filled.VisibilityOff
-                        } else {
                             Icons.Filled.Visibility
+                        } else {
+                            Icons.Filled.VisibilityOff
                         },
                     contentDescription = if (isVisible) "Hide password" else "Show password",
                     modifier = Modifier.size(18.dp),
@@ -235,6 +250,17 @@ private fun NoMovementAlertInput(
 ) {
     val isDisabled = minutes == "-1"
     val validationMessage = validateNoMovementAlertMinutes(minutes)
+    var lastEnabledMinutes by remember {
+        mutableStateOf(
+            minutes.takeUnless { it == "-1" } ?: DEFAULT_NO_MOVEMENT_ALERT_MINUTES,
+        )
+    }
+
+    LaunchedEffect(minutes) {
+        if (minutes != "-1" && validateNoMovementAlertMinutes(minutes) == null) {
+            lastEnabledMinutes = minutes
+        }
+    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -247,7 +273,13 @@ private fun NoMovementAlertInput(
             Checkbox(
                 checked = isDisabled,
                 onCheckedChange = { disabled ->
-                    onMinutesChange(if (disabled) "-1" else "15")
+                    onMinutesChange(
+                        if (disabled) {
+                            "-1"
+                        } else {
+                            lastEnabledMinutes
+                        },
+                    )
                 },
             )
             Text(
@@ -256,7 +288,7 @@ private fun NoMovementAlertInput(
             )
         }
         Text(
-            text = "Send alert email when no movement for",
+            text = "Send safety alert when no movement for:",
             style = MaterialTheme.typography.labelMedium,
             color =
                 if (isDisabled) {
@@ -272,9 +304,14 @@ private fun NoMovementAlertInput(
         ) {
             OutlinedTextField(
                 value = if (isDisabled) "" else minutes,
-                onValueChange = onMinutesChange,
+                onValueChange = { value ->
+                    if (validateNoMovementAlertMinutes(value) == null && value != "-1") {
+                        lastEnabledMinutes = value
+                    }
+                    onMinutesChange(value)
+                },
                 enabled = !isDisabled,
-                placeholder = { Text("15") },
+                placeholder = { Text(DEFAULT_NO_MOVEMENT_ALERT_MINUTES) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 isError = !isDisabled && validationMessage != null,
@@ -322,7 +359,6 @@ private fun EmailAddressInput(
             errorMessage = "Email already added"
             return true
         }
-
         onAdd(email)
         onInputChange("")
         errorMessage = null
@@ -333,10 +369,7 @@ private fun EmailAddressInput(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-        )
+        Text(text = label, style = MaterialTheme.typography.labelMedium)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -360,11 +393,7 @@ private fun EmailAddressInput(
                 supportingText = errorMessage?.let { message -> { Text(message) } },
                 isError = errorMessage != null,
                 singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done,
-                    ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submitEmail() }),
                 modifier =
                     Modifier
@@ -377,10 +406,7 @@ private fun EmailAddressInput(
                             }
                         },
             )
-            Button(
-                onClick = { submitEmail() },
-                enabled = canAddEmail,
-            ) {
+            Button(onClick = { submitEmail() }, enabled = canAddEmail) {
                 Text("Add")
             }
         }
@@ -405,6 +431,144 @@ private fun EmailAddressInput(
                             Icon(
                                 imageVector = Icons.Filled.Close,
                                 contentDescription = "Remove $email",
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlertRecipientInput(
+    label: String,
+    input: String,
+    onInputChange: (String) -> Unit,
+    recipients: List<String>,
+    onAdd: (AlertRecipient) -> Unit,
+    onRemove: (String) -> Unit,
+    onPickEmailFromContacts: () -> Unit,
+    onPickPhoneFromContacts: () -> Unit,
+    isValidating: Boolean,
+    statusMessage: String?,
+) {
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val recipient = normalizedAlertRecipient(input)
+    val isDuplicate =
+        recipient != null && recipients.any { it.equals(recipient.value, ignoreCase = true) }
+    val canAddRecipient = recipient != null && !isDuplicate && !isValidating
+
+    fun submitRecipient(): Boolean {
+        if (input.isBlank()) return false
+        if (recipient == null) {
+            errorMessage = "Enter a valid email address or phone number starting with +"
+            return true
+        }
+        if (isDuplicate) {
+            errorMessage = "Recipient already added"
+            return true
+        }
+
+        onAdd(recipient)
+        errorMessage = null
+        return true
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = {
+                    onInputChange(it)
+                    errorMessage = null
+                },
+                placeholder = { Text("email@example.com or +33612345678") },
+                trailingIcon = {
+                    Row {
+                        IconButton(
+                            onClick = onPickEmailFromContacts,
+                            enabled = !isValidating,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContactMail,
+                                contentDescription = "Pick email from contacts",
+                            )
+                        }
+                        IconButton(
+                            onClick = onPickPhoneFromContacts,
+                            enabled = !isValidating,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Phone,
+                                contentDescription = "Pick phone number from contacts",
+                            )
+                        }
+                    }
+                },
+                supportingText =
+                    (errorMessage ?: statusMessage)?.let { message ->
+                        { Text(message) }
+                    },
+                isError = errorMessage != null || statusMessage != null,
+                singleLine = true,
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions = KeyboardActions(onDone = { submitRecipient() }),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onPreviewKeyEvent { event ->
+                            when {
+                                event.key != Key.Enter -> false
+                                event.type == KeyEventType.KeyDown -> submitRecipient()
+                                else -> true
+                            }
+                        },
+            )
+            Button(
+                onClick = { submitRecipient() },
+                enabled = canAddRecipient,
+            ) {
+                Text(if (isValidating) "Checking" else "Add")
+            }
+        }
+        if (recipients.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                recipients.forEach { recipientValue ->
+                    InputChip(
+                        selected = false,
+                        onClick = { onRemove(recipientValue) },
+                        label = {
+                            Text(
+                                text = recipientValue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Remove $recipientValue",
                                 modifier = Modifier.size(16.dp),
                             )
                         },

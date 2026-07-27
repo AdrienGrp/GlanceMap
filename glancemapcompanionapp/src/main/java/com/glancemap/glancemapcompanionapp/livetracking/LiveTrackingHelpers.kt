@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.ContactsContract
-import android.util.Patterns
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
 import java.text.DateFormat
@@ -33,7 +32,7 @@ internal fun validateAccountSettings(
     when {
         group.isBlank() -> "Private group is required."
         participantPassword.isBlank() -> "Participant password is required."
-        followerPassword.isBlank() -> "Create / Join first."
+        followerPassword.isBlank() -> "Set up live tracking first."
         else -> null
     }
 
@@ -69,23 +68,30 @@ internal fun validateRecordedTrackDownloadSettings(
 ): String? =
     when {
         group.isBlank() -> "Private group is required."
-        followerPassword.isBlank() -> "Create / Join first."
+        followerPassword.isBlank() -> "Set up live tracking first."
         userOnly && userName.isBlank() -> "Participant name is required."
         else -> null
     }
 
-internal fun validatePendingEmailInputs(
+internal enum class AlertRecipientType {
+    EMAIL,
+    SMS,
+}
+
+internal data class AlertRecipient(
+    val value: String,
+    val type: AlertRecipientType,
+)
+
+internal fun validatePendingRecipientInputs(
     notificationEmailInput: String,
-    alertEmailInput: String,
+    alertRecipientInput: String,
 ): String? =
     validatePendingEmailInput(
         input = notificationEmailInput,
         label = "tracking notification email",
     )
-        ?: validatePendingEmailInput(
-            input = alertEmailInput,
-            label = "alert email",
-        )
+        ?: validatePendingAlertRecipientInput(alertRecipientInput)
 
 internal fun validatePendingEmailInput(
     input: String,
@@ -94,30 +100,86 @@ internal fun validatePendingEmailInput(
     val email = input.normalizedEmailInput()
     return when {
         email.isBlank() -> null
-        Patterns.EMAIL_ADDRESS.matcher(email).matches() -> null
+        email.isValidEmailAddress() -> null
         else -> "Enter a valid $label address."
     }
 }
 
+internal fun validatePendingAlertRecipientInput(input: String): String? =
+    when {
+        input.isBlank() -> null
+        normalizedAlertRecipient(input) != null -> null
+        else -> "Enter a valid alert email address or phone number starting with +."
+    }
+
 internal fun emailAddressesForRequest(
     addresses: List<String>,
     pendingInput: String,
-): String {
+): String = resolvedEmailAddresses(addresses, pendingInput).joinToString(",")
+
+internal fun resolvedEmailAddresses(
+    addresses: List<String>,
+    pendingInput: String,
+): List<String> {
     val pendingEmail = pendingInput.normalizedEmailInput()
-    val allAddresses =
-        if (
-            pendingEmail.isNotBlank() &&
-            Patterns.EMAIL_ADDRESS.matcher(pendingEmail).matches() &&
-            addresses.none { it.equals(pendingEmail, ignoreCase = true) }
-        ) {
-            addresses + pendingEmail
-        } else {
-            addresses
-        }
-    return allAddresses.joinToString(",")
+    return buildList {
+        addresses
+            .map(String::normalizedEmailInput)
+            .filter(String::isNotBlank)
+            .forEach(::add)
+        if (pendingEmail.isValidEmailAddress()) add(pendingEmail)
+    }.distinctBy(String::lowercase)
 }
 
 private fun String.normalizedEmailInput(): String = trim().trimEnd(',', ';').lowercase()
+
+private fun String.isValidEmailAddress(): Boolean = matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+
+internal fun alertRecipientsForRequest(
+    recipients: List<String>,
+    pendingInput: String,
+): String = resolvedAlertRecipients(recipients, pendingInput).joinToString(",")
+
+internal fun resolvedAlertRecipients(
+    recipients: List<String>,
+    pendingInput: String,
+): List<String> =
+    buildList {
+        recipients.mapNotNull(::normalizedAlertRecipient).forEach { add(it.value) }
+        normalizedAlertRecipient(pendingInput)?.let { add(it.value) }
+    }.distinctBy(String::lowercase)
+
+internal fun smsAlertRecipients(
+    recipients: List<String>,
+    pendingInput: String = "",
+): List<String> =
+    buildList {
+        recipients.forEach { recipient ->
+            normalizedAlertRecipient(recipient)
+                ?.takeIf { it.type == AlertRecipientType.SMS }
+                ?.let { add(it.value) }
+        }
+        normalizedAlertRecipient(pendingInput)
+            ?.takeIf { it.type == AlertRecipientType.SMS }
+            ?.let { add(it.value) }
+    }.distinct()
+
+internal fun normalizedAlertRecipient(input: String): AlertRecipient? {
+    val trimmedInput = input.trim()
+    val email = trimmedInput.lowercase()
+    val digits = trimmedInput.filter(Char::isDigit)
+    val hasValidPhoneCharacters =
+        trimmedInput.all { character ->
+            character.isDigit() || character in "+-()./ "
+        }
+    return when {
+        trimmedInput.isBlank() -> null
+        email.isValidEmailAddress() -> AlertRecipient(value = email, type = AlertRecipientType.EMAIL)
+        !trimmedInput.startsWith("+") || trimmedInput.count { it == '+' } != 1 -> null
+        !hasValidPhoneCharacters || digits.isBlank() -> null
+        else -> AlertRecipient(value = "+$digits", type = AlertRecipientType.SMS)
+    }
+}
 
 internal fun recordedTrackDownloadFilename(
     group: String,
@@ -199,22 +261,21 @@ private fun String.safeDownloadFileName(): String =
         .replace("\n", "")
         .trim()
 
-internal fun editableSettingsSnapshot(
-    group: String,
-    userName: String,
-    notificationEmailAddresses: List<String>,
-    alertEmailAddresses: List<String>,
-    stuckAlarmMinutes: String,
-    updateIntervalSeconds: Int,
-): SavedLiveTrackingSettings =
-    SavedLiveTrackingSettings(
-        group = group,
-        userName = userName,
-        notificationEmailAddresses = notificationEmailAddresses,
-        alertEmailAddresses = alertEmailAddresses,
-        stuckAlarmMinutes = stuckAlarmMinutes,
-        updateIntervalSeconds = updateIntervalSeconds,
-    )
+internal enum class LiveTrackingPermissionOutcome {
+    CONTINUE,
+    LOCATION_REQUIRED,
+    NOTIFICATION_WARNING,
+}
+
+internal fun liveTrackingPermissionOutcome(
+    locationGranted: Boolean,
+    notificationGranted: Boolean,
+): LiveTrackingPermissionOutcome =
+    when {
+        !locationGranted -> LiveTrackingPermissionOutcome.LOCATION_REQUIRED
+        !notificationGranted -> LiveTrackingPermissionOutcome.NOTIFICATION_WARNING
+        else -> LiveTrackingPermissionOutcome.CONTINUE
+    }
 
 internal fun hasLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -294,6 +355,12 @@ internal fun contactEmailPickerIntent(): Intent =
         ContactsContract.CommonDataKinds.Email.CONTENT_URI,
     )
 
+internal fun contactPhonePickerIntent(): Intent =
+    Intent(
+        Intent.ACTION_PICK,
+        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+    )
+
 internal fun resolveSelectedContactEmail(
     context: Context,
     uri: Uri,
@@ -311,7 +378,27 @@ internal fun resolveSelectedContactEmail(
                 .getString(0)
                 ?.trim()
                 ?.lowercase()
-                ?.takeIf { Patterns.EMAIL_ADDRESS.matcher(it).matches() }
+                ?.takeIf(String::isValidEmailAddress)
+        }
+
+internal fun resolveSelectedContactPhone(
+    context: Context,
+    uri: Uri,
+): String? =
+    context.contentResolver
+        .query(
+            uri,
+            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            cursor
+                .getString(0)
+                ?.let(::normalizedAlertRecipient)
+                ?.takeIf { it.type == AlertRecipientType.SMS }
+                ?.value
         }
 
 internal fun shareUrl(
