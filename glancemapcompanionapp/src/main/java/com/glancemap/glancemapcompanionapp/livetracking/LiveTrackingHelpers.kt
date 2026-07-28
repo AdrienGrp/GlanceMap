@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
@@ -282,6 +283,34 @@ internal fun hasLocationPermission(context: Context): Boolean =
         PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
+
+internal fun hasBackgroundLocationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED
+
+internal fun needsBackgroundLocationPermission(context: Context): Boolean =
+    backgroundLocationProtectionRequired(
+        supportsBackgroundLocation = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
+        foregroundLocationGranted = hasLocationPermission(context),
+        backgroundLocationGranted = hasBackgroundLocationPermission(context),
+    )
+
+internal fun backgroundLocationProtectionRequired(
+    supportsBackgroundLocation: Boolean,
+    foregroundLocationGranted: Boolean,
+    backgroundLocationGranted: Boolean,
+): Boolean = supportsBackgroundLocation && foregroundLocationGranted && !backgroundLocationGranted
+
+internal fun isIgnoringBatteryOptimizations(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        true
+    } else {
+        context
+            .getSystemService(PowerManager::class.java)
+            ?.isIgnoringBatteryOptimizations(context.packageName)
+            ?: false
+    }
 
 internal fun hasLiveTrackingNotificationPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

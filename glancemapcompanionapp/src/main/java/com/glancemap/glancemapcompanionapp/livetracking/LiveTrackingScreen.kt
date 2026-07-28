@@ -15,6 +15,8 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -105,10 +107,16 @@ fun LiveTrackingScreen(
     }
     var selectedGpxName by remember { mutableStateOf(savedDraft.gpxName) }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
+    var hasBackgroundLocationPermission by remember {
+        mutableStateOf(hasBackgroundLocationPermission(context))
+    }
     var hasNotificationPermission by remember { mutableStateOf(hasLiveTrackingNotificationPermission(context)) }
     var isStartWaitingForPermissionResult by remember { mutableStateOf(false) }
     var continueStartAfterPermissionResult by remember { mutableStateOf(false) }
+    var continueStartAfterBackgroundLocationResult by remember { mutableStateOf(false) }
     var showNotificationPermissionWarningDialog by remember { mutableStateOf(false) }
+    var showBackgroundLocationDialog by remember { mutableStateOf(false) }
+    var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
     var sendStatusMessage by remember { mutableStateOf<String?>(null) }
     var loginJoinStatusMessage by remember { mutableStateOf<String?>(null) }
@@ -382,6 +390,13 @@ fun LiveTrackingScreen(
                     LiveTrackingPermissionOutcome.CONTINUE -> continueStartAfterPermissionResult = true
                 }
             }
+        }
+    val backgroundLocationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            hasBackgroundLocationPermission = granted || hasBackgroundLocationPermission(context)
+            continueStartAfterBackgroundLocationResult = true
         }
 
     BoxWithConstraints(
@@ -677,7 +692,10 @@ fun LiveTrackingScreen(
         fun startTrackingNow() {
             isStartWaitingForPermissionResult = false
             continueStartAfterPermissionResult = false
+            continueStartAfterBackgroundLocationResult = false
             showNotificationPermissionWarningDialog = false
+            showBackgroundLocationDialog = false
+            showBatteryOptimizationDialog = false
             isStartingSession = true
             validationMessage = null
             sendStatusMessage = null
@@ -687,6 +705,25 @@ fun LiveTrackingScreen(
                 LiveTrackingService.start(context = context, settings = settings)
                 isStartingSession = false
             }
+        }
+
+        fun continueStartWithBatteryProtection() {
+            if (!isIgnoringBatteryOptimizations(context)) {
+                isStartingSession = false
+                showBatteryOptimizationDialog = true
+                return
+            }
+            startTrackingNow()
+        }
+
+        fun continueStartWithBackgroundLocationProtection() {
+            hasBackgroundLocationPermission = hasBackgroundLocationPermission(context)
+            if (needsBackgroundLocationPermission(context)) {
+                isStartingSession = false
+                showBackgroundLocationDialog = true
+                return
+            }
+            continueStartWithBatteryProtection()
         }
 
         fun continueStartAfterSmsValidation() {
@@ -699,7 +736,7 @@ fun LiveTrackingScreen(
                 isStartWaitingForPermissionResult = true
                 locationPermissionLauncher.launch(missingPermissions)
             } else {
-                startTrackingNow()
+                continueStartWithBackgroundLocationProtection()
             }
         }
 
@@ -777,7 +814,15 @@ fun LiveTrackingScreen(
 
         LaunchedEffect(continueStartAfterPermissionResult) {
             if (continueStartAfterPermissionResult) {
-                startTrackingNow()
+                continueStartAfterPermissionResult = false
+                continueStartWithBackgroundLocationProtection()
+            }
+        }
+
+        LaunchedEffect(continueStartAfterBackgroundLocationResult) {
+            if (continueStartAfterBackgroundLocationResult) {
+                continueStartAfterBackgroundLocationResult = false
+                continueStartWithBatteryProtection()
             }
         }
 
@@ -1170,7 +1215,7 @@ fun LiveTrackingScreen(
                     )
                 },
                 confirmButton = {
-                    Button(onClick = { startTrackingNow() }) {
+                    Button(onClick = { continueStartWithBackgroundLocationProtection() }) {
                         Text("Start anyway")
                     }
                 },
@@ -1182,6 +1227,98 @@ fun LiveTrackingScreen(
                         },
                     ) {
                         Text("Cancel")
+                    }
+                },
+            )
+        }
+        if (showBackgroundLocationDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showBackgroundLocationDialog = false
+                    isStartingSession = false
+                },
+                title = { Text("Keep GPS tracking in the background") },
+                text = {
+                    Text(
+                        "Allow location all the time so Android can restore live tracking if the app " +
+                            "is no longer visible. On Android 11 and newer, select Location then " +
+                            "Allow all the time in the system settings.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showBackgroundLocationDialog = false
+                            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                                backgroundLocationPermissionLauncher.launch(
+                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                                )
+                            } else {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.fromParts("package", context.packageName, null),
+                                        ),
+                                    )
+                                }
+                            }
+                        },
+                    ) {
+                        Text("Open location settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showBackgroundLocationDialog = false
+                            continueStartWithBatteryProtection()
+                        },
+                    ) {
+                        Text("Start with foreground service")
+                    }
+                },
+            )
+        }
+        if (showBatteryOptimizationDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showBatteryOptimizationDialog = false
+                    isStartingSession = false
+                },
+                title = { Text("Protect live tracking from battery saving") },
+                text = {
+                    Text(
+                        "Battery saving can stop long-running tracking. Allow unrestricted battery " +
+                            "use for GlanceMap. On Samsung, also ensure the app is not in Sleeping " +
+                            "apps or Deep sleeping apps.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showBatteryOptimizationDialog = false
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.fromParts("package", context.packageName, null),
+                                    ),
+                                )
+                            }
+                        },
+                    ) {
+                        Text("Open battery settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showBatteryOptimizationDialog = false
+                            startTrackingNow()
+                        },
+                    ) {
+                        Text("Start anyway")
                     }
                 },
             )

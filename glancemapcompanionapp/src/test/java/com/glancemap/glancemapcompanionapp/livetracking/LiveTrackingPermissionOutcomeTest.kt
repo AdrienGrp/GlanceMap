@@ -43,4 +43,32 @@ class LiveTrackingPermissionOutcomeTest {
             ),
         )
     }
+
+    @Test
+    fun backgroundProtectionIsRequestedOnlyWhenForegroundLocationExists() {
+        assertEquals(
+            true,
+            backgroundLocationProtectionRequired(
+                supportsBackgroundLocation = true,
+                foregroundLocationGranted = true,
+                backgroundLocationGranted = false,
+            ),
+        )
+        assertEquals(
+            false,
+            backgroundLocationProtectionRequired(
+                supportsBackgroundLocation = true,
+                foregroundLocationGranted = false,
+                backgroundLocationGranted = false,
+            ),
+        )
+        assertEquals(
+            false,
+            backgroundLocationProtectionRequired(
+                supportsBackgroundLocation = false,
+                foregroundLocationGranted = true,
+                backgroundLocationGranted = false,
+            ),
+        )
+    }
 }

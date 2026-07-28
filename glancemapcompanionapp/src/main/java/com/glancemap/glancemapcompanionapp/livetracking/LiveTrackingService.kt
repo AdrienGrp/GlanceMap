@@ -75,47 +75,31 @@ class LiveTrackingService : Service() {
     ): Int =
         when (intent?.action) {
             ACTION_PAUSE -> {
-                pauseTracking()
-                START_STICKY
+                if (restoreActiveSessionIfNeeded()) pauseTracking()
+                START_REDELIVER_INTENT
             }
 
             ACTION_RESUME -> {
-                resumeTracking()
-                START_STICKY
+                if (restoreActiveSessionIfNeeded()) resumeTracking()
+                START_REDELIVER_INTENT
             }
 
-            ACTION_UPDATE_ALERT_SETTINGS -> updateAlertSettings(intent, startId)
+            ACTION_UPDATE_ALERT_SETTINGS -> {
+                if (!restoreActiveSessionIfNeeded()) {
+                    stopSelf(startId)
+                    START_NOT_STICKY
+                } else {
+                    updateAlertSettings(intent)
+                    START_REDELIVER_INTENT
+                }
+            }
 
             ACTION_STOP -> {
                 stopTracking()
                 START_NOT_STICKY
             }
 
-            else -> {
-                val parsedSettings = intent?.toLiveTrackingSettings()
-                when {
-                    parsedSettings == null -> {
-                        LiveTrackingSessionStore.setStopped("Missing live tracking settings")
-                        stopSelf()
-                        START_NOT_STICKY
-                    }
-
-                    settings != null -> START_STICKY
-
-                    else -> {
-                        settings = parsedSettings
-                        sentStart = false
-                        dateId = null
-                        isPaused = false
-                        isStopping = false
-                        LiveTrackingControlQueue.clear(this)
-                        LiveTrackingSessionStore.setStarting()
-                        startForegroundNotification("Starting live tracking")
-                        startTracking()
-                        START_STICKY
-                    }
-                }
-            }
+            else -> startOrRestoreTracking(intent)
         }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -126,14 +110,50 @@ class LiveTrackingService : Service() {
         super.onDestroy()
     }
 
-    private fun updateAlertSettings(
-        intent: Intent,
-        startId: Int,
-    ): Int {
-        if (settings == null) {
-            stopSelf(startId)
+    private fun startOrRestoreTracking(intent: Intent?): Int {
+        if (restoreActiveSessionIfNeeded()) return START_REDELIVER_INTENT
+
+        val parsedSettings = intent?.toLiveTrackingSettings()
+        if (parsedSettings == null) {
+            LiveTrackingSessionStore.setStopped("Missing live tracking settings")
+            stopSelf()
             return START_NOT_STICKY
         }
+
+        settings = parsedSettings
+        sentStart = false
+        dateId = null
+        isPaused = false
+        isStopping = false
+        LiveTrackingControlQueue.clear(this)
+        persistActiveSession()
+        LiveTrackingSessionStore.setStarting()
+        startForegroundNotification("Starting live tracking")
+        startTracking()
+        return START_REDELIVER_INTENT
+    }
+
+    private fun restoreActiveSessionIfNeeded(): Boolean {
+        if (settings != null) return true
+        val session = LiveTrackingActiveSessionStore.load(this) ?: return false
+
+        settings = session.settings
+        isPaused = session.isPaused
+        sentStart = session.sentStart
+        dateId = session.dateId
+        isStopping = false
+        if (isPaused) {
+            startForegroundNotification("Live tracking paused")
+            LiveTrackingSessionStore.setPaused()
+        } else {
+            startForegroundNotification("Restoring live tracking")
+            LiveTrackingSessionStore.setActive(status = "Restoring GPS tracking")
+            startTracking()
+        }
+        return true
+    }
+
+    private fun updateAlertSettings(intent: Intent) {
         val notificationEmails = intent.getStringExtra(EXTRA_NOTIFICATION_EMAILS).orEmpty()
         val alertEmails = intent.getStringExtra(EXTRA_ALERT_EMAILS).orEmpty()
         val stuckAlarmMinutes = intent.getStringExtra(EXTRA_STUCK_ALARM_MINUTES).orEmpty()
@@ -145,15 +165,14 @@ class LiveTrackingService : Service() {
                         alertEmails = alertEmails,
                         stuckAlarmMinutes = stuckAlarmMinutes,
                     )
+                persistActiveSession()
             }
         }
-        return START_STICKY
     }
 
     private fun startTracking() {
         if (!hasLocationPermission()) {
-            LiveTrackingSessionStore.setStopped("Location permission is required")
-            stopSelf()
+            finishStopped("Location permission is required")
             return
         }
 
@@ -208,6 +227,7 @@ class LiveTrackingService : Service() {
                 if (sentStartInRequest) {
                     sentStart = true
                     result.dateId?.let { dateId = it }
+                    persistActiveSession()
                 }
                 val serverMessage = result.message.takeUnless { it == "Server accepted request" }
                 val status =
@@ -338,6 +358,7 @@ class LiveTrackingService : Service() {
         if (isPaused || isStopping || !sentStart) return
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
         isPaused = true
+        persistActiveSession()
         LiveTrackingControlQueue.enqueue(
             this,
             buildSessionControl(
@@ -360,12 +381,11 @@ class LiveTrackingService : Service() {
         val location = lastLocation ?: return
         if (!isPaused || isStopping) return
         if (!hasLocationPermission()) {
-            LiveTrackingSessionStore.setStopped("Location permission is required")
-            updateNotification("Location permission is required")
-            stopSelf()
+            finishStopped("Location permission is required")
             return
         }
         isPaused = false
+        persistActiveSession()
         LiveTrackingControlQueue.enqueue(
             this,
             buildSessionControl(
@@ -538,6 +558,7 @@ class LiveTrackingService : Service() {
 
     private fun finishStopped(status: String) {
         LiveTrackingControlQueue.clear(this)
+        LiveTrackingActiveSessionStore.clear(this)
         LiveTrackingSessionStore.setStopped(status)
         ServiceCompat.stopForeground(this@LiveTrackingService, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -545,7 +566,7 @@ class LiveTrackingService : Service() {
 
     private fun startForegroundNotification(text: String) {
         val type =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             } else {
                 0
@@ -621,6 +642,17 @@ class LiveTrackingService : Service() {
             ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
 
+    private fun persistActiveSession() {
+        val activeSettings = settings ?: return
+        LiveTrackingActiveSessionStore.save(
+            context = this,
+            settings = activeSettings,
+            isPaused = isPaused,
+            sentStart = sentStart,
+            dateId = dateId,
+        )
+    }
+
     companion object {
         private const val CHANNEL_ID = "live_tracking_channel"
         private const val NOTIFICATION_ID = 42
@@ -656,6 +688,8 @@ class LiveTrackingService : Service() {
             context: Context,
             settings: LiveTrackingSettings,
         ) {
+            // A user-initiated start supersedes any session that Android was eligible to restore.
+            LiveTrackingActiveSessionStore.clear(context)
             val intent =
                 Intent(context, LiveTrackingService::class.java)
                     .putExtra(EXTRA_TRACKING_URL, settings.trackingUrl)
