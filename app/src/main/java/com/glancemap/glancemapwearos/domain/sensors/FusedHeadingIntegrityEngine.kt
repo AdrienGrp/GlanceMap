@@ -423,9 +423,8 @@ internal class FusedHeadingIntegrityEngine(
 
     fun snapshot(): FusedHeadingIntegritySnapshot = buildSnapshot()
 
-    private fun updateWhileAcquiring(evidence: AbsoluteHeadingEvidence): Float {
-        renderHeadingDeg = moveTowardFusedHeading(evidence)
-        return when {
+    private fun updateWhileAcquiring(evidence: AbsoluteHeadingEvidence): Float =
+        when {
             !evidence.fieldAcceptable -> {
                 reason = unavailableMagneticReason()
                 0f
@@ -450,11 +449,14 @@ internal class FusedHeadingIntegrityEngine(
                     reason = CompassTrackingReason.ABSOLUTE_WINDOW_UNSTABLE
                     0f
                 } else {
+                    // Preserve the previous rendered heading until the new provider has
+                    // established a stable reference. A first fused sample can be far from
+                    // the last known heading while its magnetic integrity is still unknown.
+                    renderHeadingDeg = moveTowardFusedHeading(evidence)
                     completeAcquisition()
                 }
             }
         }
-    }
 
     private fun completeAcquisition(): Float {
         trackingResidualAnchorDeg = residualWindow.lastOrNull()?.valueDeg

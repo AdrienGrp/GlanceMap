@@ -36,6 +36,26 @@ class FusedHeadingIntegrityEngineTest {
     }
 
     @Test
+    fun acquiringDoesNotDisplaceSeedHeadingForAnUnverifiedFirstSample() {
+        val engine = integrityEngine()
+        engine.reset(
+            seedHeadingDeg = 100f,
+            atElapsedMs = 1_000L,
+            clearSensorEvidence = true,
+        )
+        val replay = Replay(engine, nowElapsedMs = 1_000L)
+
+        replay.magnetic(42f)
+        replay.advance(200L)
+        replay.magnetic(42f)
+        val snapshot = replay.absolute(headingDeg = 2f)
+
+        assertEquals(CompassTrackingState.ACQUIRING, snapshot.state)
+        assertEquals(100f, requireNotNull(snapshot.renderHeadingDeg), ANGLE_TOLERANCE_DEG)
+        assertFalse(snapshot.trusted)
+    }
+
+    @Test
     fun persistentWitnessDisagreementIsSuppressedAndCannotSteerTheMap() {
         val replay = Replay(integrityEngine())
         replay.acquireStableHeading(headingDeg = 10f)
