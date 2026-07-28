@@ -8,6 +8,29 @@ import java.nio.file.Files
 
 class MapsforgeHillshadeDemFolderTest {
     @Test
+    fun folderExposesOnlyDemTilesRequiredByCurrentMap() {
+        val root = Files.createTempDirectory("hillshade-folder").toFile()
+        File(root, "N46/N46E006.hgt.zip").apply {
+            parentFile?.mkdirs()
+            writeText("required")
+        }
+        File(root, "N46/N46E007.hgt.zip").writeText("unrelated")
+        File(root, "N47/N47E006.hgt.gz").apply {
+            parentFile?.mkdirs()
+            writeText("unrelated")
+        }
+
+        val files =
+            MapsforgeHillshadeDemFolder(
+                demRootDirs = listOf(root),
+                requiredTileIds = setOf("n46e006"),
+            ).files()
+
+        assertEquals(listOf("N46E006.hgt"), files.map { demFile -> demFile.name })
+        root.deleteRecursively()
+    }
+
+    @Test
     fun detailedWithoutRealTilesFallsBackToStandardRootOnly() {
         val root = Files.createTempDirectory("hillshade-roots").toFile()
         val detailed = File(root, "dem1").apply { mkdirs() }

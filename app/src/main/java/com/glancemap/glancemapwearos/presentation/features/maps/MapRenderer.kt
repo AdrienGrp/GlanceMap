@@ -913,6 +913,15 @@ class MapRenderer(
                     append(demSignature)
                     append("|ROOTS:")
                     append(effectiveDemRootDirs.joinToString("|") { it.absolutePath })
+                    append("|TILES:")
+                    append(
+                        requiredDemTileIds
+                            ?.asSequence()
+                            ?.map { tileId -> tileId.uppercase(Locale.ROOT) }
+                            ?.sorted()
+                            ?.joinToString(",")
+                            ?: "UNKNOWN",
+                    )
                 }
             hillsRenderConfig?.let { existing ->
                 if (hillsRenderConfigDemSignature == effectiveDemSignature) {
@@ -925,7 +934,11 @@ class MapRenderer(
 
             val config =
                 runCatching {
-                    val demFolder = MapsforgeHillshadeDemFolder(effectiveDemRootDirs)
+                    val demFolder =
+                        MapsforgeHillshadeDemFolder(
+                            demRootDirs = effectiveDemRootDirs,
+                            requiredTileIds = requiredDemTileIds,
+                        )
                     val tileSource =
                         MemoryCachingHgtReaderTileSource(
                             demFolder,

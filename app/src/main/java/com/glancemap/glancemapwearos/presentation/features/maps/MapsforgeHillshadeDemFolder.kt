@@ -15,17 +15,38 @@ import java.util.zip.ZipFile
 
 internal class MapsforgeHillshadeDemFolder(
     private val demRootDirs: List<File>,
+    requiredTileIds: Set<String>? = null,
 ) : DemFolder {
+    private val normalizedRequiredTileIds =
+        requiredTileIds?.mapTo(linkedSetOf()) { tileId -> tileId.uppercase(Locale.ROOT) }
+
     override fun files(): Iterable<DemFile> =
-        demRootDirs
-            .asSequence()
-            .filter { it.exists() && it.isDirectory }
-            .flatMap { root -> root.walkTopDown().filter { it.isFile } }
+        selectedDemFiles()
             .mapNotNull(::toHillshadeDemFile)
             .distinctBy { demFile -> demFile.name.uppercase(Locale.ROOT) }
             .toList()
 
     override fun subs(): Iterable<DemFolder> = emptyList()
+
+    private fun selectedDemFiles(): Sequence<File> {
+        val requiredTiles = normalizedRequiredTileIds
+        return if (requiredTiles == null) {
+            demRootDirs
+                .asSequence()
+                .filter { it.exists() && it.isDirectory }
+                .flatMap { root -> root.walkTopDown().filter { it.isFile } }
+        } else {
+            demRootDirs
+                .asSequence()
+                .filter { it.exists() && it.isDirectory }
+                .flatMap { root ->
+                    requiredTiles
+                        .asSequence()
+                        .flatMap(root::hillshadeDemTileCandidates)
+                        .filter { candidate -> candidate.isFile }
+                }
+        }
+    }
 
     private fun toHillshadeDemFile(file: File): DemFile? {
         val lowerName = file.name.lowercase(Locale.ROOT)
@@ -95,19 +116,23 @@ private fun String.isHillshadeDemFileName(): Boolean {
 
 private fun File.containsHillshadeDemTile(tileId: String): Boolean {
     val normalizedTileId = tileId.uppercase(Locale.ROOT)
-    return if (!exists() || !isDirectory || normalizedTileId.length < 3) {
-        false
-    } else {
-        val folder = normalizedTileId.substring(0, 3)
-        listOf(
-            File(File(this, folder), "$normalizedTileId.hgt"),
-            File(File(this, folder), "$normalizedTileId.hgt.zip"),
-            File(File(this, folder), "$normalizedTileId.hgt.gz"),
-            File(this, "$normalizedTileId.hgt"),
-            File(this, "$normalizedTileId.hgt.zip"),
-            File(this, "$normalizedTileId.hgt.gz"),
-        ).any { candidate -> candidate.isFile }
-    }
+    return exists() &&
+        isDirectory &&
+        normalizedTileId.length >= 3 &&
+        hillshadeDemTileCandidates(normalizedTileId).any { candidate -> candidate.isFile }
+}
+
+private fun File.hillshadeDemTileCandidates(tileId: String): Sequence<File> {
+    if (tileId.length < 3) return emptySequence()
+    val folder = tileId.substring(0, 3)
+    return sequenceOf(
+        File(File(this, folder), "$tileId.hgt"),
+        File(File(this, folder), "$tileId.hgt.zip"),
+        File(File(this, folder), "$tileId.hgt.gz"),
+        File(this, "$tileId.hgt"),
+        File(this, "$tileId.hgt.zip"),
+        File(this, "$tileId.hgt.gz"),
+    )
 }
 
 private class ZipHgtDemFile(
