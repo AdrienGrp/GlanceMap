@@ -14,6 +14,13 @@ class ArkluzSessionControlUrlTest {
     }
 
     @Test
+    fun locationAltitudeIsRoundedToOneDecimalPlace() {
+        val url = buildArkluzLocationUrl(update(altitudeMeters = 1234.567890123))
+
+        assertEquals("1234.6", url.queryParameter("alt"))
+    }
+
+    @Test
     fun pauseIncludesPauseAndDateIdWithoutStartingNewActivity() {
         val url = buildArkluzLocationUrl(update(pause = true, dateId = "20260622-42"))
 
@@ -37,11 +44,12 @@ class ArkluzSessionControlUrlTest {
         pause: Boolean = false,
         resume: Boolean = false,
         dateId: String? = null,
+        altitudeMeters: Double? = null,
     ) = ArkluzLocationUpdate(
         trackingUrl = "https://arkluz.com/trk",
         latitude = 45.0,
         longitude = 6.0,
-        altitudeMeters = null,
+        altitudeMeters = altitudeMeters,
         speedMetersPerSecond = null,
         accuracyMeters = 5f,
         epochMilliseconds = 1_750_000_000_000,

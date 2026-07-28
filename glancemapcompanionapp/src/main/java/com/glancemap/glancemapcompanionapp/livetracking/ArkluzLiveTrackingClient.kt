@@ -643,7 +643,7 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
             .addQueryParameter("pass", update.participantPassword)
             .addQueryParameter("user", update.userName)
 
-    update.altitudeMeters?.let { urlBuilder.addQueryParameter("alt", it.toString()) }
+    update.altitudeMeters?.let { urlBuilder.addQueryParameter("alt", formatArkluzAltitudeMeters(it)) }
     update.speedMetersPerSecond?.let { urlBuilder.addQueryParameter("speed", it.toString()) }
     update.notificationEmails.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("email", it) }
     update.alertEmails.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("alert", it) }
@@ -655,6 +655,8 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
     update.dateId?.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("date_id", it) }
     return urlBuilder.build()
 }
+
+internal fun formatArkluzAltitudeMeters(altitudeMeters: Double): String = String.format(Locale.US, "%.1f", altitudeMeters)
 
 internal fun buildArkluzSmsSupportUrl(
     trackingUrl: String,

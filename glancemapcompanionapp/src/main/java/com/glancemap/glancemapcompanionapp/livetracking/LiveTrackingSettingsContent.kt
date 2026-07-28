@@ -271,19 +271,19 @@ private fun NoMovementAlertInput(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
-                checked = isDisabled,
-                onCheckedChange = { disabled ->
+                checked = !isDisabled,
+                onCheckedChange = { enabled ->
                     onMinutesChange(
-                        if (disabled) {
-                            "-1"
-                        } else {
+                        if (enabled) {
                             lastEnabledMinutes
+                        } else {
+                            "-1"
                         },
                     )
                 },
             )
             Text(
-                text = "Disable no-movement alerts",
+                text = "Enable no-movement alerts",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
