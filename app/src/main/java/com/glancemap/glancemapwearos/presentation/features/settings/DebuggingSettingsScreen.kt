@@ -201,7 +201,6 @@ fun DebuggingSettingsScreen(
             )
             ScreenStateDiagnostics.configure(captureActive = true)
             CompassHeadingDiagnostics.reset()
-            DebugTelemetry.setEnabled(fullDiagnostics)
             DebugTelemetry.log(
                 "DiagnosticsFlow",
                 "capture enabled mode=$diagnosticsCaptureMode",
@@ -221,7 +220,6 @@ fun DebuggingSettingsScreen(
                 detail = "source=debug_screen",
             )
             CompassHeadingDiagnostics.flush(reason = "capture_toggle_off")
-            DebugTelemetry.setEnabled(false)
             CompassHeadingDiagnostics.reset()
             EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
             ScreenStateDiagnostics.configure(captureActive = false)
@@ -450,6 +448,7 @@ fun DebuggingSettingsScreen(
                         exportDialogMode = DiagnosticsExportDialogMode.GENERATING
                         exportDialogMessage = "Generating diagnostics file..."
                         val captureWasEnabled = gpsDebugTelemetry
+                        var captureFrozenForExport = false
                         try {
                             CompassDeepTraceDiagnostics.stop(reason = "export")
                             val hasBufferedLogs =
@@ -478,7 +477,8 @@ fun DebuggingSettingsScreen(
                                 )
                                 CompassHeadingDiagnostics.flush(reason = "capture_export")
                                 viewModel.setGpsDebugTelemetry(false)
-                                DebugTelemetry.setEnabled(false)
+                                DebugTelemetry.freezeForExport()
+                                captureFrozenForExport = true
                                 CompassHeadingDiagnostics.reset()
                                 EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
                                 ScreenStateDiagnostics.configure(captureActive = false)
@@ -636,7 +636,9 @@ fun DebuggingSettingsScreen(
                                 "Export failed.\nTap Resend Diagnostic to try again."
                         } finally {
                             viewModel.setGpsDebugTelemetry(false)
-                            DebugTelemetry.setEnabled(false)
+                            if (captureWasEnabled && !captureFrozenForExport) {
+                                DebugTelemetry.freezeForExport()
+                            }
                             EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
                             ScreenStateDiagnostics.configure(captureActive = false)
                             if (exportDialogMode == DiagnosticsExportDialogMode.GENERATING) {

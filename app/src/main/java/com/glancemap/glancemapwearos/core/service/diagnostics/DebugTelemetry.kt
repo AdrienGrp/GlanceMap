@@ -22,6 +22,9 @@ internal object DebugTelemetry {
 
     private val enabled = AtomicBoolean(false)
     private val lock = Any()
+    private var exportFreezeActive = false
+
+    @Volatile private var transitionMarkersEnabled = true
     private val lines = ArrayDeque<String>()
     private val lineTimesMs = ArrayDeque<Long>()
     private const val MAX_LINES = 30_000
@@ -35,28 +38,59 @@ internal object DebugTelemetry {
             .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneId.systemDefault())
 
-    fun setEnabled(value: Boolean) {
-        val previous = enabled.getAndSet(value)
-        if (previous == value) return
-
-        var markerType: String? = null
-        var markerNote: String? = null
-        synchronized(lock) {
-            if (value) {
-                sessionId += 1L
-                sessionStartedAtMs = System.currentTimeMillis()
-                sessionEndedAtMs = null
-                markerType = "diagnostics_capture_start"
-                markerNote = "s$sessionId"
-            } else if (sessionStartedAtMs != null) {
-                sessionEndedAtMs = System.currentTimeMillis()
-                markerType = "diagnostics_capture_stop"
-                markerNote = "s$sessionId"
+    fun setEnabledFromLocationService(value: Boolean) {
+        val marker =
+            synchronized(lock) {
+                if (value && exportFreezeActive) return
+                if (!value) exportFreezeActive = false
+                setEnabledLocked(value)
             }
+        recordTransitionMarker(marker)
+    }
+
+    /**
+     * Stops capture without allowing an in-flight settings emission to reopen a short-lived
+     * session while the diagnostic export is taking its snapshot.
+     */
+    fun freezeForExport() {
+        val marker =
+            synchronized(lock) {
+                exportFreezeActive = true
+                setEnabledLocked(false)
+            }
+        recordTransitionMarker(marker)
+    }
+
+    private fun setEnabledLocked(value: Boolean): CaptureTransition? {
+        val previous = enabled.getAndSet(value)
+        if (previous == value) return null
+
+        return if (value) {
+            sessionId += 1L
+            sessionStartedAtMs = System.currentTimeMillis()
+            sessionEndedAtMs = null
+            CaptureTransition(type = "diagnostics_capture_start", note = "s$sessionId")
+        } else if (sessionStartedAtMs != null) {
+            sessionEndedAtMs = System.currentTimeMillis()
+            CaptureTransition(type = "diagnostics_capture_stop", note = "s$sessionId")
+        } else {
+            null
         }
-        markerType?.let { type ->
-            FieldMarkerDiagnostics.recordMarker(type = type, note = markerNote ?: "na")
-        }
+    }
+
+    private fun recordTransitionMarker(transition: CaptureTransition?) {
+        transition ?: return
+        if (!transitionMarkersEnabled) return
+        FieldMarkerDiagnostics.recordMarker(type = transition.type, note = transition.note)
+    }
+
+    private data class CaptureTransition(
+        val type: String,
+        val note: String,
+    )
+
+    internal fun setTransitionMarkersEnabledForTests(enabled: Boolean) {
+        transitionMarkersEnabled = enabled
     }
 
     fun isEnabled(): Boolean = enabled.get()

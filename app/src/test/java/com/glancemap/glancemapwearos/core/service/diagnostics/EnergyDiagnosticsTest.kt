@@ -11,7 +11,7 @@ import org.junit.Test
 class EnergyDiagnosticsTest {
     @Before
     fun setUp() {
-        DebugTelemetry.setEnabled(false)
+        DebugTelemetry.setEnabledFromLocationService(false)
         DebugTelemetry.clear()
         EnergyDiagnostics.clear()
         EnergyDiagnostics.setEnabled(false)
@@ -19,7 +19,7 @@ class EnergyDiagnosticsTest {
 
     @After
     fun tearDown() {
-        DebugTelemetry.setEnabled(false)
+        DebugTelemetry.setEnabledFromLocationService(false)
         DebugTelemetry.clear()
         EnergyDiagnostics.clear()
         EnergyDiagnostics.setEnabled(false)

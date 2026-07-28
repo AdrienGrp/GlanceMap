@@ -735,7 +735,7 @@ internal class LocationServiceTelemetry(
     }
 
     fun setDebugEnabled(enabled: Boolean) {
-        DebugTelemetry.setEnabled(enabled)
+        DebugTelemetry.setEnabledFromLocationService(enabled)
     }
 
     private fun recordAcceptedFix(nowElapsedMs: Long): Long? {
