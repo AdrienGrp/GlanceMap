@@ -29,6 +29,8 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
+import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
+import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupReason
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
@@ -158,6 +160,13 @@ fun NavigateScreen(
         notificationPermissionState.copy(
             launchPermissionRequest = { showNotificationPermissionDialog = true },
         )
+
+    val hillshadeTerrainUnavailableEvent by mapViewModel.hillshadeTerrainUnavailableEvent.collectAsState()
+    DemSetupBottomSheet(
+        visible = hillshadeTerrainUnavailableEvent != null,
+        reason = DemSetupReason.HILL_SHADING_VISIBLE_AREA,
+        onDismiss = mapViewModel::dismissHillshadeTerrainUnavailable,
+    )
 
     // ---- SETTINGS ----
     val navigateSettings = collectNavigateSettingsState(settingsViewModel)

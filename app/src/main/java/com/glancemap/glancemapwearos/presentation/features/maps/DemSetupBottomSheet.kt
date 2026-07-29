@@ -23,6 +23,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 enum class DemSetupReason {
     GENERIC,
     HILL_SHADING,
+    HILL_SHADING_VISIBLE_AREA,
     LIVE_ELEVATION,
     SLOPE_OVERLAY,
 }
@@ -39,6 +40,7 @@ fun DemSetupBottomSheet(
         when (reason) {
             DemSetupReason.GENERIC -> "DEM Setup"
             DemSetupReason.HILL_SHADING -> "Elevation data needed"
+            DemSetupReason.HILL_SHADING_VISIBLE_AREA -> "No terrain data"
             DemSetupReason.LIVE_ELEVATION -> "Elevation data needed"
             DemSetupReason.SLOPE_OVERLAY -> "Elevation data needed"
         }
@@ -52,6 +54,9 @@ fun DemSetupBottomSheet(
                 "Hill shading needs DEM data for this map.\n" +
                     "Open Maps and tap the DEM icon to download it.\n" +
                     "When it is ready, come back and enable Hill shading again."
+            DemSetupReason.HILL_SHADING_VISIBLE_AREA ->
+                "No Detailed or Standard terrain data is available for this area.\n" +
+                    "Open Maps and download terrain data to display hill shading here."
             DemSetupReason.LIVE_ELEVATION ->
                 "Live elevation needs DEM data for this map.\n" +
                     "Open Maps and tap the DEM icon to download it.\n" +

@@ -124,6 +124,13 @@ object Dem3CoverageUtils {
         return requiredTileIdsForMap(mapFile, mapSignature)
     }
 
+    fun tileIdsForBounds(
+        minLat: Double,
+        minLon: Double,
+        maxLat: Double,
+        maxLon: Double,
+    ): Set<String> = tilesFromBbox(minLat, minLon, maxLat, maxLon)
+
     fun tilesToDeleteForMap(
         deletedMapFile: File,
         remainingMapFiles: List<File>,

@@ -70,6 +70,7 @@ data class DemDownloadUiState(
 
 data class DemMapReadiness(
     val isReady: Boolean,
+    val hasAnyTerrain: Boolean,
     val selectedSource: DemSource,
     val usesFallbackTerrain: Boolean,
 )
@@ -457,6 +458,7 @@ class ThemeViewModel(
                     ?.let(::File)
                     ?: return@withContext DemMapReadiness(
                         isReady = false,
+                        hasAnyTerrain = false,
                         selectedSource = selectedSource,
                         usesFallbackTerrain = false,
                     )
@@ -474,6 +476,7 @@ class ThemeViewModel(
                 )
             DemMapReadiness(
                 isReady = runtimeCoverage.isReady,
+                hasAnyTerrain = runtimeCoverage.availableTiles > 0,
                 selectedSource = selectedSource,
                 usesFallbackTerrain = runtimeCoverage.isReady && !selectedCoverage.isReady,
             )

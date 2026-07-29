@@ -34,7 +34,7 @@ internal class MapsforgeHillshadeDemFolder(
             demRootDirs
                 .asSequence()
                 .filter { it.exists() && it.isDirectory }
-                .flatMap { root -> root.walkTopDown().filter { it.isFile } }
+                .flatMap { root -> root.walkTopDown().filter { it.isFile && it.length() > 0L } }
         } else {
             demRootDirs
                 .asSequence()
@@ -43,7 +43,7 @@ internal class MapsforgeHillshadeDemFolder(
                     requiredTiles
                         .asSequence()
                         .flatMap(root::hillshadeDemTileCandidates)
-                        .filter { candidate -> candidate.isFile }
+                        .filter { candidate -> candidate.isFile && candidate.length() > 0L }
                 }
         }
     }
@@ -59,43 +59,82 @@ internal class MapsforgeHillshadeDemFolder(
     }
 }
 
+internal data class VisibleHillshadeTerrainCoverage(
+    val requiredTileIds: Set<String>,
+    val detailedTileCount: Int,
+    val standardFallbackTileCount: Int,
+    val missingTileCount: Int,
+) {
+    val availableTileCount: Int
+        get() = detailedTileCount + standardFallbackTileCount
+
+    val hasAnyTerrain: Boolean
+        get() = availableTileCount > 0
+
+    val diagnosticKey: String
+        get() = requiredTileIds.sorted().joinToString(",")
+}
+
+internal fun resolveVisibleHillshadeTerrainCoverage(
+    demRootDirs: List<File>,
+    requiredTileIds: Set<String>,
+): VisibleHillshadeTerrainCoverage {
+    var detailedTileCount = 0
+    var standardFallbackTileCount = 0
+    var missingTileCount = 0
+
+    requiredTileIds.forEach { tileId ->
+        val rootIndex =
+            demRootDirs.indexOfFirst { root ->
+                root.containsHillshadeDemTile(tileId)
+            }
+        when {
+            rootIndex == 0 -> detailedTileCount += 1
+            rootIndex > 0 -> standardFallbackTileCount += 1
+            else -> missingTileCount += 1
+        }
+    }
+
+    return VisibleHillshadeTerrainCoverage(
+        requiredTileIds = requiredTileIds,
+        detailedTileCount = detailedTileCount,
+        standardFallbackTileCount = standardFallbackTileCount,
+        missingTileCount = missingTileCount,
+    )
+}
+
 /**
  * Keeps Mapsforge's hillshade index focused on roots that contain real elevation data.
  *
  * A DEM root can exist with only partial downloads or `.missing` markers. Passing that root to
  * Mapsforge makes it look like the preferred source is available even though there is nothing it
- * can render. In particular, Detailed selected with only Standard installed must use the exact
- * same single-root path as Standard selected.
+ * can render. Relevant roots remain in priority order so Detailed cells shadow Standard cells,
+ * while Standard can fill individual gaps in Detailed coverage.
  */
 internal fun resolveHillshadeDemRootDirs(
     demRootDirs: List<File>,
     requiredTileIds: Set<String>? = null,
-): List<File> {
+): List<File> =
     if (requiredTileIds.isNullOrEmpty()) {
-        return demRootDirs.filter(::containsHillshadeDemFile)
-    }
-
-    val coverageByRoot =
-        demRootDirs.map { root ->
-            root to requiredTileIds.count { tileId -> root.containsHillshadeDemTile(tileId) }
-        }
-
-    // Prefer one complete source. Detailed selected with incomplete or unrelated coverage must
-    // resolve to complete Standard terrain instead of building a mixed hillshade index.
-    val completeRoot =
-        coverageByRoot
-            .firstOrNull { (_, availableTiles) -> availableTiles == requiredTileIds.size }
-
-    // Neither source covers the whole map. Retain only roots that can contribute relevant tiles,
-    // preserving the selected-to-fallback preference order.
-    return if (completeRoot != null) {
-        listOf(completeRoot.first)
+        demRootDirs.filter(::containsHillshadeDemFile)
     } else {
-        coverageByRoot
-            .filter { (_, availableTiles) -> availableTiles > 0 }
-            .map { (root, _) -> root }
+        val coverageByRoot =
+            demRootDirs.map { root ->
+                root to requiredTileIds.count { tileId -> root.containsHillshadeDemTile(tileId) }
+            }
+
+        // If the preferred Detailed source covers the whole map, Standard cannot contribute.
+        // Otherwise keep every relevant root in preference order so each missing Detailed cell
+        // can fall back independently to its Standard counterpart.
+        val preferredCoverage = coverageByRoot.firstOrNull()?.second ?: 0
+        if (preferredCoverage == requiredTileIds.size) {
+            listOf(coverageByRoot.first().first)
+        } else {
+            coverageByRoot
+                .filter { (_, availableTiles) -> availableTiles > 0 }
+                .map { (root, _) -> root }
+        }
     }
-}
 
 private fun containsHillshadeDemFile(root: File): Boolean {
     if (!root.exists() || !root.isDirectory) return false
@@ -119,7 +158,9 @@ private fun File.containsHillshadeDemTile(tileId: String): Boolean {
     return exists() &&
         isDirectory &&
         normalizedTileId.length >= 3 &&
-        hillshadeDemTileCandidates(normalizedTileId).any { candidate -> candidate.isFile }
+        hillshadeDemTileCandidates(normalizedTileId).any { candidate ->
+            candidate.isFile && candidate.length() > 0L
+        }
 }
 
 private fun File.hillshadeDemTileCandidates(tileId: String): Sequence<File> {

@@ -104,7 +104,7 @@ class MapsforgeHillshadeDemFolderTest {
     }
 
     @Test
-    fun completeStandardCoverageWinsOverPartialDetailedCoverage() {
+    fun partialDetailedCoverageUsesStandardPerTileFallback() {
         val root = Files.createTempDirectory("hillshade-roots").toFile()
         val detailed = File(root, "dem1").apply { mkdirs() }
         val standard = File(root, "dem3").apply { mkdirs() }
@@ -118,7 +118,7 @@ class MapsforgeHillshadeDemFolderTest {
                 requiredTileIds = setOf("N46E006", "N46E007"),
             )
 
-        assertEquals(listOf(standard), resolved)
+        assertEquals(listOf(detailed, standard), resolved)
         root.deleteRecursively()
     }
 
@@ -139,6 +139,54 @@ class MapsforgeHillshadeDemFolderTest {
             )
 
         assertEquals(listOf(detailed), resolved)
+        root.deleteRecursively()
+    }
+
+    @Test
+    fun visibleCoverageCountsDetailedFallbackAndMissingCells() {
+        val root = Files.createTempDirectory("hillshade-roots").toFile()
+        val detailed = File(root, "dem1").apply { mkdirs() }
+        val standard = File(root, "dem3").apply { mkdirs() }
+        File(detailed, "N46E006.hgt.gz").writeText("detailed")
+        File(standard, "N46E006.hgt.zip").writeText("shadowed-standard")
+        File(standard, "N46E007.hgt.zip").writeText("fallback-standard")
+
+        val coverage =
+            resolveVisibleHillshadeTerrainCoverage(
+                demRootDirs = listOf(detailed, standard),
+                requiredTileIds = setOf("N46E006", "N46E007", "N46E008"),
+            )
+
+        assertEquals(1, coverage.detailedTileCount)
+        assertEquals(1, coverage.standardFallbackTileCount)
+        assertEquals(1, coverage.missingTileCount)
+        assertEquals(2, coverage.availableTileCount)
+        assertTrue(coverage.hasAnyTerrain)
+        root.deleteRecursively()
+    }
+
+    @Test
+    fun emptyDetailedCellDoesNotShadowStandardFallback() {
+        val root = Files.createTempDirectory("hillshade-roots").toFile()
+        val detailed = File(root, "dem1").apply { mkdirs() }
+        val standard = File(root, "dem3").apply { mkdirs() }
+        File(detailed, "N46E006.hgt").createNewFile()
+        File(standard, "N46E006.hgt").writeText("fallback-standard")
+
+        val coverage =
+            resolveVisibleHillshadeTerrainCoverage(
+                demRootDirs = listOf(detailed, standard),
+                requiredTileIds = setOf("N46E006"),
+            )
+        val demFiles =
+            MapsforgeHillshadeDemFolder(
+                demRootDirs = listOf(detailed, standard),
+                requiredTileIds = setOf("N46E006"),
+            ).files()
+
+        assertEquals(0, coverage.detailedTileCount)
+        assertEquals(1, coverage.standardFallbackTileCount)
+        assertEquals(1, demFiles.count())
         root.deleteRecursively()
     }
 }

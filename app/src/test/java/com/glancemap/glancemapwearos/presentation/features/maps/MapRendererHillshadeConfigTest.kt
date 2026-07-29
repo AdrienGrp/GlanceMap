@@ -14,6 +14,22 @@ class MapRendererHillshadeConfigTest {
         assertTrue(algorithm.isAdaptiveZoomEnabled)
         assertFalse(algorithm.isHqEnabled)
         assertEquals(WEAR_HILLSHADE_QUALITY_SCALE, algorithm.customQualityScale, 0.0)
+        assertEquals(WEAR_HILLSHADE_MIN_ZOOM_LEVEL, algorithm.zoomMinOverride)
+    }
+
+    @Test
+    fun wearAlgorithmConstrainsDemConcurrencyAndPreprocessing() {
+        val params = createWearHillShadingParams()
+
+        assertEquals(1, params.readingThreadsCount)
+        assertEquals(1, params.computingThreadsCount)
+        assertFalse(params.isPreprocess)
+    }
+
+    @Test
+    fun hillshadeRenderingStartsOnlyAtDetailedZoom() {
+        assertFalse(shouldRenderHillshadeAtZoom((WEAR_HILLSHADE_MIN_ZOOM_LEVEL - 1).toByte()))
+        assertTrue(shouldRenderHillshadeAtZoom(WEAR_HILLSHADE_MIN_ZOOM_LEVEL.toByte()))
     }
 
     @Test

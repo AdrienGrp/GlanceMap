@@ -155,6 +155,10 @@ class MapViewModel(
 
     private val _mapAppearanceApplyInProgress = MutableStateFlow(false)
     val mapAppearanceApplyInProgress: StateFlow<Boolean> = _mapAppearanceApplyInProgress.asStateFlow()
+    private val _hillshadeTerrainUnavailableEvent =
+        MutableStateFlow<MapRenderer.HillshadeTerrainUnavailableEvent?>(null)
+    val hillshadeTerrainUnavailableEvent: StateFlow<MapRenderer.HillshadeTerrainUnavailableEvent?> =
+        _hillshadeTerrainUnavailableEvent.asStateFlow()
 
     val selectedMapPath: StateFlow<String?> =
         settingsRepository.selectedMapPath
@@ -178,6 +182,7 @@ class MapViewModel(
     private var rendererConfigApplyPending: Boolean = false
     private var themeApplyJob: Job? = null
     private var rendererWorkJob: Job? = null
+    private var hillshadeTerrainEventJob: Job? = null
     private var rendererWorkGeneration: Long = 0L
     private var pendingMapLayerPath: String? = null
     private var pendingExternalCacheClear: Boolean = false
@@ -323,6 +328,8 @@ class MapViewModel(
         mapHolder?.renderer?.destroy()
         runCatching { mapHolder?.mapView?.destroyAll() }
         mapHolder = null
+        hillshadeTerrainEventJob?.cancel()
+        hillshadeTerrainEventJob = null
         mapRenderer = null
         latestZoomMin = null
         latestZoomMax = null
@@ -572,9 +579,22 @@ class MapViewModel(
     }
 
     fun setMapRenderer(renderer: MapRenderer?) {
-        mapRenderer = renderer
+        if (mapRenderer !== renderer) {
+            hillshadeTerrainEventJob?.cancel()
+            _hillshadeTerrainUnavailableEvent.value = null
+            mapRenderer = renderer
+            hillshadeTerrainEventJob =
+                renderer
+                    ?.hillshadeTerrainUnavailableEvent
+                    ?.onEach { event -> _hillshadeTerrainUnavailableEvent.value = event }
+                    ?.launchIn(viewModelScope)
+        }
         applyRendererConfigIfReady()
         schedulePendingRendererWorkIfReady()
+    }
+
+    fun dismissHillshadeTerrainUnavailable() {
+        _hillshadeTerrainUnavailableEvent.value = null
     }
 
     fun setThemeRenderingDeferred(deferred: Boolean) {

@@ -12,6 +12,8 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -71,7 +73,12 @@ class MapRenderer(
     private data class PendingFirstVisibleHillshadeTiming(
         val requestId: Long,
         val mapName: String,
-        val demSource: String,
+        val demSources: String,
+        val zoomLevel: Int,
+        val visibleTileCount: Int,
+        val detailedDemTileCount: Int,
+        val standardFallbackDemTileCount: Int,
+        val missingDemTileCount: Int,
         val startedAtElapsedMs: Long,
         val traceMarker: BenchmarkTrace.AsyncMarker,
     )
@@ -89,6 +96,13 @@ class MapRenderer(
         val enabled: Boolean,
         val processing: Boolean,
         val progressPercent: Int?,
+    )
+
+    data class HillshadeTerrainUnavailableEvent(
+        val mapName: String,
+        val zoomLevel: Int,
+        val missingTileCount: Int,
+        val areaKey: String,
     )
 
     data class CacheDiagnosticsSnapshot(
@@ -167,12 +181,15 @@ class MapRenderer(
         get() = Dem3CoverageUtils.demRootDir(context, currentDemSource)
     private val demRootDirs: List<File>
         get() = currentDemSource.readFallbackOrder().map { source -> Dem3CoverageUtils.demRootDir(context, source) }
+    private val hillshadeDemRootDirs: List<File>
+        get() = DemSource.LOAD_PRIORITY.map { source -> Dem3CoverageUtils.demRootDir(context, source) }
     private val reliefOverlayCacheRootDir: File by lazy {
         val root = context.externalCacheDir ?: context.cacheDir
         File(root, RELIEF_OVERLAY_CACHE_DIR_NAME)
     }
     private var hillsRenderConfig: HillsRenderConfig? = null
     private var hillsRenderConfigDemSignature: String? = null
+    private var activeHillshadeDemRootDirs: List<File> = emptyList()
     private var rebuildTileCacheRequested: Boolean = false
     private var currentTileCacheId: String = "$CACHE_ID_PREFIX-bootstrap"
     private var skipNextStartupTilePrewarm: Boolean = false
@@ -183,6 +200,10 @@ class MapRenderer(
     private val tileCacheUpdateVersion = MutableStateFlow(0L)
     private val firstVisibleMapCounter = AtomicLong(0L)
     private val firstVisibleMapEvent = MutableStateFlow<FirstVisibleMapEvent?>(null)
+    private val _hillshadeTerrainUnavailableEvent =
+        MutableStateFlow<HillshadeTerrainUnavailableEvent?>(null)
+    val hillshadeTerrainUnavailableEvent: StateFlow<HillshadeTerrainUnavailableEvent?> =
+        _hillshadeTerrainUnavailableEvent.asStateFlow()
     private var nextFirstVisibleMapRequestId: Long = 0L
     private var pendingFirstVisibleMapTiming: PendingFirstVisibleMapTiming? = null
     private var nextFirstVisibleHillshadeRequestId: Long = 0L
@@ -1013,18 +1034,20 @@ class MapRenderer(
                 timingStatus = "missing_dem"
                 Log.d(
                     TAG,
-                    "Hill shading enabled but no DEM files found in ${demRootDirs.joinToString { it.absolutePath }}.",
+                    "Hill shading enabled but no DEM files found in " +
+                        hillshadeDemRootDirs.joinToString { it.absolutePath },
                 )
                 destroyHillsRenderConfig()
                 return null
             }
-            val effectiveDemRootDirs = resolveHillshadeDemRootDirs(demRootDirs, requiredDemTileIds)
+            val effectiveDemRootDirs =
+                resolveHillshadeDemRootDirs(hillshadeDemRootDirs, requiredDemTileIds)
             if (effectiveDemRootDirs.isEmpty()) {
                 timingStatus = "missing_renderable_dem"
                 Log.d(
                     TAG,
                     "Hill shading enabled but no renderable DEM files found in " +
-                        demRootDirs.joinToString { it.absolutePath },
+                        hillshadeDemRootDirs.joinToString { it.absolutePath },
                 )
                 destroyHillsRenderConfig()
                 return null
@@ -1047,6 +1070,7 @@ class MapRenderer(
             hillsRenderConfig?.let { existing ->
                 if (hillsRenderConfigDemSignature == effectiveDemSignature) {
                     timingStatus = "reuse_cached_config"
+                    activeHillshadeDemRootDirs = effectiveDemRootDirs
                     return existing
                 }
             }
@@ -1074,7 +1098,8 @@ class MapRenderer(
                     timingStatus = "error_${e.javaClass.simpleName}"
                     Log.w(
                         TAG,
-                        "Failed to initialize DEM hillshading from ${demRootDirs.joinToString { it.absolutePath }}",
+                        "Failed to initialize DEM hillshading from " +
+                            hillshadeDemRootDirs.joinToString { it.absolutePath },
                         e,
                     )
                     return null
@@ -1083,6 +1108,7 @@ class MapRenderer(
             timingStatus = "built_new_config"
             hillsRenderConfig = config
             hillsRenderConfigDemSignature = effectiveDemSignature
+            activeHillshadeDemRootDirs = effectiveDemRootDirs
             config
         } finally {
             MapHotPathDiagnostics.end(
@@ -1127,20 +1153,39 @@ class MapRenderer(
             }
         }
 
-    @Suppress("ReturnCount")
+    @Suppress("LongMethod", "ReturnCount")
     private fun updateHillshadeLayer(
         mapFile: File,
         demSignature: String?,
         requiredDemTileIds: Set<String>?,
     ) {
         clearHillshadeLayer(reason = "replace")
-        if (!currentHillShadingEnabled || demSignature == null) return
+        if (!currentHillShadingEnabled) return
+        if (demSignature == null) {
+            publishHillshadeTerrainUnavailable(
+                mapFile = mapFile,
+                zoomLevel = mapView.model.mapViewPosition.zoomLevel,
+                missingTileCount = requiredDemTileIds?.size ?: 0,
+                areaKey = "map:${mapFile.name}",
+            )
+            return
+        }
 
-        val hillsConfig = buildHillsRenderConfigOrNull(demSignature, requiredDemTileIds) ?: return
+        val hillsConfig =
+            buildHillsRenderConfigOrNull(demSignature, requiredDemTileIds)
+                ?: run {
+                    publishHillshadeTerrainUnavailable(
+                        mapFile = mapFile,
+                        zoomLevel = mapView.model.mapViewPosition.zoomLevel,
+                        missingTileCount = requiredDemTileIds?.size ?: 0,
+                        areaKey = "map:${mapFile.name}",
+                    )
+                    return
+                }
         val cacheId =
             resolveMapRendererHillshadeCacheId(
                 baseCacheId = currentTileCacheId,
-                demSourceId = currentDemSource.id,
+                demSourceId = DemSource.LOAD_PRIORITY.joinToString(">") { source -> source.id },
                 demSignature = demSignature,
             )
         val cache = createHillshadeTileCache(cacheId)
@@ -1151,6 +1196,7 @@ class MapRenderer(
                     Log.w(TAG, "updateHillshadeLayer: Failed opening map store", error)
                     return
                 }
+        var cachedVisibleTerrainCoverage: VisibleHillshadeTerrainCoverage? = null
         val layer =
             runCatching {
                 FirstVisibleHillshadeTileRendererLayer(
@@ -1159,7 +1205,57 @@ class MapRenderer(
                     mapViewPosition = mapView.model.mapViewPosition,
                     graphicFactory = AndroidGraphicFactory.INSTANCE,
                     hillsRenderConfig = hillsConfig,
-                    onFirstVisibleHillshadeTile = ::handleFirstVisibleHillshadeTile,
+                    callbacks =
+                        HillshadeLayerCallbacks(
+                            onWorkStarted = {
+                                candidate,
+                                zoomLevel,
+                                visibleTileCount,
+                                terrainCoverage,
+                                ->
+                                _hillshadeTerrainUnavailableEvent.value = null
+                                startFirstVisibleHillshadeTiming(
+                                    layer = candidate,
+                                    mapFile = mapFile,
+                                    zoomLevel = zoomLevel,
+                                    visibleTileCount = visibleTileCount,
+                                    terrainCoverage = terrainCoverage,
+                                )
+                            },
+                            onWorkPaused = { candidate, reason ->
+                                if (hillshadeLayer === candidate) {
+                                    cancelFirstVisibleHillshadeTiming(reason = reason)
+                                }
+                            },
+                            resolveVisibleTerrainCoverage = { boundingBox ->
+                                val tileIds =
+                                    Dem3CoverageUtils.tileIdsForBounds(
+                                        minLat = boundingBox.minLatitude,
+                                        minLon = boundingBox.minLongitude,
+                                        maxLat = boundingBox.maxLatitude,
+                                        maxLon = boundingBox.maxLongitude,
+                                    )
+                                cachedVisibleTerrainCoverage
+                                    ?.takeIf { coverage -> coverage.requiredTileIds == tileIds }
+                                    ?: resolveVisibleHillshadeTerrainCoverage(
+                                        demRootDirs = activeHillshadeDemRootDirs,
+                                        requiredTileIds = tileIds,
+                                    ).also { coverage ->
+                                        cachedVisibleTerrainCoverage = coverage
+                                    }
+                            },
+                            onTerrainUnavailable = { candidate, zoomLevel, terrainCoverage ->
+                                if (hillshadeLayer === candidate) {
+                                    publishHillshadeTerrainUnavailable(
+                                        mapFile = mapFile,
+                                        zoomLevel = zoomLevel,
+                                        missingTileCount = terrainCoverage.missingTileCount,
+                                        areaKey = terrainCoverage.diagnosticKey,
+                                    )
+                                }
+                            },
+                            onFirstVisibleTile = ::handleFirstVisibleHillshadeTile,
+                        ),
                 ).apply {
                     setXmlRenderTheme(MapsforgeThemes.HILLSHADING)
                     setCacheZoomPlus(0)
@@ -1181,7 +1277,6 @@ class MapRenderer(
             val index = if (currentLayer != null && layers.size() > 0) 1 else 0
             layers.add(index, layer)
         }
-        startFirstVisibleHillshadeTiming(layer = layer, mapFile = mapFile)
     }
 
     private fun createHillshadeTileCache(cacheId: String): TileCache =
@@ -1195,6 +1290,7 @@ class MapRenderer(
 
     private fun clearHillshadeLayer(reason: String) {
         cancelFirstVisibleHillshadeTiming(reason)
+        _hillshadeTerrainUnavailableEvent.value = null
         hillshadeLayer?.let { layer ->
             disableLayerTileExpansion(layer, reason)
             mapView.mutateLayers { layers ->
@@ -1291,7 +1387,11 @@ class MapRenderer(
     private fun startFirstVisibleHillshadeTiming(
         layer: FirstVisibleHillshadeTileRendererLayer,
         mapFile: File,
+        zoomLevel: Byte,
+        visibleTileCount: Int,
+        terrainCoverage: VisibleHillshadeTerrainCoverage,
     ) {
+        if (hillshadeLayer !== layer || pendingFirstVisibleHillshadeTiming != null) return
         cancelFirstVisibleHillshadeTiming(reason = "superseded")
         val requestId = ++nextFirstVisibleHillshadeRequestId
         val startedAtElapsedMs = SystemClock.elapsedRealtime()
@@ -1299,7 +1399,12 @@ class MapRenderer(
             PendingFirstVisibleHillshadeTiming(
                 requestId = requestId,
                 mapName = mapFile.name,
-                demSource = currentDemSource.id,
+                demSources = DemSource.LOAD_PRIORITY.joinToString(">") { source -> source.id },
+                zoomLevel = zoomLevel.toInt(),
+                visibleTileCount = visibleTileCount,
+                detailedDemTileCount = terrainCoverage.detailedTileCount,
+                standardFallbackDemTileCount = terrainCoverage.standardFallbackTileCount,
+                missingDemTileCount = terrainCoverage.missingTileCount,
                 startedAtElapsedMs = startedAtElapsedMs,
                 traceMarker = BenchmarkTrace.beginAsync(FIRST_VISIBLE_HILLSHADE_TRACE_STAGE),
             )
@@ -1314,7 +1419,7 @@ class MapRenderer(
                     startedAtElapsedMs = timing.startedAtElapsedMs,
                     completedAtElapsedMs = SystemClock.elapsedRealtime(),
                     status = "timeout",
-                    detail = "map=${timing.mapName} demSource=${timing.demSource}",
+                    detail = timing.hillshadeDiagnosticDetail(),
                 )
                 clearHillshadeLayer(reason = "first_tile_timeout")
                 destroyHillsRenderConfig()
@@ -1334,7 +1439,7 @@ class MapRenderer(
             startedAtElapsedMs = timing.startedAtElapsedMs,
             completedAtElapsedMs = SystemClock.elapsedRealtime(),
             status = "ready",
-            detail = "map=${timing.mapName} demSource=${timing.demSource}",
+            detail = timing.hillshadeDiagnosticDetail(),
         )
     }
 
@@ -1347,14 +1452,40 @@ class MapRenderer(
             startedAtElapsedMs = timing.startedAtElapsedMs,
             completedAtElapsedMs = SystemClock.elapsedRealtime(),
             status = reason,
-            detail = "map=${timing.mapName} demSource=${timing.demSource}",
+            detail = timing.hillshadeDiagnosticDetail(),
         )
+    }
+
+    private fun PendingFirstVisibleHillshadeTiming.hillshadeDiagnosticDetail(): String =
+        "map=$mapName demSources=$demSources zoom=$zoomLevel visibleTiles=$visibleTileCount " +
+            "detailedDemTiles=$detailedDemTileCount standardFallbackDemTiles=$standardFallbackDemTileCount " +
+            "missingDemTiles=$missingDemTileCount"
+
+    private fun publishHillshadeTerrainUnavailable(
+        mapFile: File,
+        zoomLevel: Byte,
+        missingTileCount: Int,
+        areaKey: String,
+    ) {
+        Log.w(
+            TAG,
+            "No Detailed or Standard hillshade terrain available for visible area " +
+                "map=${mapFile.name} zoom=$zoomLevel missingTiles=$missingTileCount",
+        )
+        _hillshadeTerrainUnavailableEvent.value =
+            HillshadeTerrainUnavailableEvent(
+                mapName = mapFile.name,
+                zoomLevel = zoomLevel.toInt(),
+                missingTileCount = missingTileCount,
+                areaKey = areaKey,
+            )
     }
 
     private fun destroyHillsRenderConfig() {
         hillsRenderConfig?.interruptAndDestroy()
         hillsRenderConfig = null
         hillsRenderConfigDemSignature = null
+        activeHillshadeDemRootDirs = emptyList()
     }
 
     private fun recreateTileCache(newCacheId: String) {
