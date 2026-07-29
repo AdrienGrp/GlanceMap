@@ -867,7 +867,10 @@ class MapViewModel(
                             themeId = latestBundledThemeId,
                             styleId = selection.styleId,
                             enabledOverlayLayerIds = selection.enabledOverlayLayerIds,
-                            hillShadingEnabled = selection.hillShadingEnabled,
+                            // Hillshade is rendered by an independent transparent Mapsforge layer.
+                            // Keep the base theme free of hill instructions so its tile jobs never
+                            // wait for DEM indexing or shading generation.
+                            hillShadingEnabled = false,
                         )
                     }
                 latestMapsforgeThemeName = null

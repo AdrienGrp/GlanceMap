@@ -111,26 +111,12 @@ internal fun computeMapRendererMapSignature(mapPath: String?): String? {
 internal fun resolveMapRendererDesiredCacheId(
     mapSignature: String?,
     themeSignature: String,
-    demSignature: String?,
-    hillShadingEnabled: Boolean,
     elevationLabelsMetric: Boolean,
 ): String {
     val mapPart = mapSignature ?: "MAP:NONE"
     val themePart = themeSignature.ifBlank { "THEME:UNSET" }
-    val demPart =
-        if (hillShadingEnabled) {
-            demSignature ?: "DEM:NONE"
-        } else {
-            "DEM:OFF"
-        }
     val unitPart = if (elevationLabelsMetric) "UNITS:METRIC" else "UNITS:IMPERIAL"
-    val hillshadeCachePart =
-        if (hillShadingEnabled) {
-            "|HILLSHADE_CACHE:$HILLSHADE_TILE_CACHE_SCHEMA_VERSION"
-        } else {
-            ""
-        }
-    val signature = "$mapPart|$themePart|$demPart|$unitPart$hillshadeCachePart"
+    val signature = "$mapPart|$themePart|$unitPart"
 
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
     val shortHex =
