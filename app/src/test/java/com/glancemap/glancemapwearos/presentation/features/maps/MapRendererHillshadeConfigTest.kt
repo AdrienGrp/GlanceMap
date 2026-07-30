@@ -33,6 +33,31 @@ class MapRendererHillshadeConfigTest {
     }
 
     @Test
+    fun baseMapStartupPrewarmingIsDisabledWhileHillshadeIsActive() {
+        assertFalse(
+            shouldWarmMapStartupTileCache(
+                prewarmingEnabled = true,
+                skipNextStartupPrewarm = false,
+                hillshadeEnabled = true,
+            ),
+        )
+        assertTrue(
+            shouldWarmMapStartupTileCache(
+                prewarmingEnabled = true,
+                skipNextStartupPrewarm = false,
+                hillshadeEnabled = false,
+            ),
+        )
+        assertFalse(
+            shouldWarmMapStartupTileCache(
+                prewarmingEnabled = true,
+                skipNextStartupPrewarm = true,
+                hillshadeEnabled = false,
+            ),
+        )
+    }
+
+    @Test
     fun detailedTerrainOutputIsCappedAboveStandardResolution() {
         assertTrue(WEAR_HILLSHADE_MAX_OUTPUT_AXIS > 1200)
         assertEquals(-2, resolveWearHillshadeQualityFactor(inputAxisLen = 3600, adaptiveQualityFactor = 1))

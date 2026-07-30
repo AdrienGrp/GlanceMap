@@ -35,6 +35,12 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.min
 import org.mapsforge.map.model.common.Observer as MapsforgeObserver
 
+internal fun shouldWarmMapStartupTileCache(
+    prewarmingEnabled: Boolean,
+    skipNextStartupPrewarm: Boolean,
+    hillshadeEnabled: Boolean,
+): Boolean = prewarmingEnabled && !skipNextStartupPrewarm && !hillshadeEnabled
+
 class MapRenderer(
     private val context: Context,
     private val mapView: MapView,
@@ -711,7 +717,12 @@ class MapRenderer(
                     MapFile(mapFile)
                 }
             currentStore = mapDataStore
-            warmStartupCache = tileCacheConfig.startupPrewarmEnabled && !skipNextStartupTilePrewarm
+            warmStartupCache =
+                shouldWarmMapStartupTileCache(
+                    prewarmingEnabled = tileCacheConfig.startupPrewarmEnabled,
+                    skipNextStartupPrewarm = skipNextStartupTilePrewarm,
+                    hillshadeEnabled = currentHillShadingEnabled,
+                )
             val tileRendererLayer =
                 createTileRendererLayer(
                     mapDataStore = mapDataStore,
@@ -988,7 +999,15 @@ class MapRenderer(
 
     private fun armStartupTilePrewarm(layer: TileRendererLayer) {
         val config = tileCacheConfig
-        if (!config.startupPrewarmEnabled) return
+        if (
+            !shouldWarmMapStartupTileCache(
+                prewarmingEnabled = config.startupPrewarmEnabled,
+                skipNextStartupPrewarm = false,
+                hillshadeEnabled = currentHillShadingEnabled,
+            )
+        ) {
+            return
+        }
         if (config.startupPrewarmZoomPlus <= 0 &&
             config.startupPrewarmZoomMinus <= 0 &&
             config.startupPrewarmTileMargin <= 0
@@ -998,7 +1017,7 @@ class MapRenderer(
 
         mapView.postDelayed(
             {
-                if (currentLayer !== layer) return@postDelayed
+                if (currentLayer !== layer || currentHillShadingEnabled) return@postDelayed
                 // Warm adjacent zoom levels once startup rendering has had a chance to settle.
                 layer.setCacheZoomPlus(config.startupPrewarmZoomPlus)
                 layer.setCacheZoomMinus(config.startupPrewarmZoomMinus)
