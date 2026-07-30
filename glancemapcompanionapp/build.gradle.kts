@@ -107,7 +107,7 @@ android {
             useSupportLibrary = true
         }
         manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
-        buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/dev/trk\"")
+        buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/trk\"")
         buildConfigField("String", "ARKLUZ_SMS_API_KEY", "\"$arkluzSmsApiKey\"")
     }
 
