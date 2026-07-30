@@ -65,6 +65,11 @@ private enum class EmailPickerTarget {
     ALERT,
 }
 
+private enum class ExternalSettingsStartStep {
+    BACKGROUND_LOCATION,
+    BATTERY_OPTIMIZATION,
+}
+
 internal enum class RecordedTrackDownloadTarget {
     USER,
     GROUP,
@@ -114,6 +119,12 @@ fun LiveTrackingScreen(
     var isStartWaitingForPermissionResult by remember { mutableStateOf(false) }
     var continueStartAfterPermissionResult by remember { mutableStateOf(false) }
     var continueStartAfterBackgroundLocationResult by remember { mutableStateOf(false) }
+    var pendingExternalSettingsStartStep by remember {
+        mutableStateOf<ExternalSettingsStartStep?>(null)
+    }
+    var continueStartAfterExternalSettingsResult by remember {
+        mutableStateOf<ExternalSettingsStartStep?>(null)
+    }
     var showNotificationPermissionWarningDialog by remember { mutableStateOf(false) }
     var showBackgroundLocationDialog by remember { mutableStateOf(false) }
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
@@ -408,6 +419,16 @@ fun LiveTrackingScreen(
         ) { granted ->
             hasBackgroundLocationPermission = granted || hasBackgroundLocationPermission(context)
             continueStartAfterBackgroundLocationResult = true
+        }
+    val externalSettingsLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) {
+            val step =
+                pendingExternalSettingsStartStep
+                    ?: return@rememberLauncherForActivityResult
+            pendingExternalSettingsStartStep = null
+            continueStartAfterExternalSettingsResult = step
         }
 
     BoxWithConstraints(
@@ -704,6 +725,8 @@ fun LiveTrackingScreen(
             isStartWaitingForPermissionResult = false
             continueStartAfterPermissionResult = false
             continueStartAfterBackgroundLocationResult = false
+            pendingExternalSettingsStartStep = null
+            continueStartAfterExternalSettingsResult = null
             showNotificationPermissionWarningDialog = false
             showBackgroundLocationDialog = false
             showBatteryOptimizationDialog = false
@@ -834,6 +857,22 @@ fun LiveTrackingScreen(
             if (continueStartAfterBackgroundLocationResult) {
                 continueStartAfterBackgroundLocationResult = false
                 continueStartWithBatteryProtection()
+            }
+        }
+
+        LaunchedEffect(continueStartAfterExternalSettingsResult) {
+            when (continueStartAfterExternalSettingsResult) {
+                ExternalSettingsStartStep.BACKGROUND_LOCATION -> {
+                    continueStartAfterExternalSettingsResult = null
+                    continueStartWithBackgroundLocationProtection()
+                }
+
+                ExternalSettingsStartStep.BATTERY_OPTIMIZATION -> {
+                    continueStartAfterExternalSettingsResult = null
+                    continueStartWithBatteryProtection()
+                }
+
+                null -> Unit
             }
         }
 
@@ -1267,7 +1306,9 @@ fun LiveTrackingScreen(
                                 )
                             } else {
                                 runCatching {
-                                    context.startActivity(
+                                    pendingExternalSettingsStartStep =
+                                        ExternalSettingsStartStep.BACKGROUND_LOCATION
+                                    externalSettingsLauncher.launch(
                                         Intent(
                                             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                             Uri.fromParts("package", context.packageName, null),
@@ -1311,7 +1352,9 @@ fun LiveTrackingScreen(
                         onClick = {
                             showBatteryOptimizationDialog = false
                             runCatching {
-                                context.startActivity(
+                                pendingExternalSettingsStartStep =
+                                    ExternalSettingsStartStep.BATTERY_OPTIMIZATION
+                                externalSettingsLauncher.launch(
                                     Intent(
                                         Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                                         Uri.fromParts("package", context.packageName, null),
