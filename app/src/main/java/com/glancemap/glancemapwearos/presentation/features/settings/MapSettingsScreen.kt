@@ -196,6 +196,12 @@ fun MapSettingsScreen(
                         themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
                     } else {
                         scope.launch {
+                            if (selectedMapPath.isNullOrBlank()) {
+                                themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
+                                demSetupReason = DemSetupReason.HILL_SHADING_MAP_REQUIRED
+                                showDemSetupDialog = true
+                                return@launch
+                            }
                             val terrainAvailable =
                                 themeViewModel
                                     .demReadinessForMap(selectedMapPath)

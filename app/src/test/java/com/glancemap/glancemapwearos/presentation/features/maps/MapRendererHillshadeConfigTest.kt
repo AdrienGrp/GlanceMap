@@ -33,6 +33,14 @@ class MapRendererHillshadeConfigTest {
     }
 
     @Test
+    fun detailedTerrainOutputIsCappedAboveStandardResolution() {
+        assertTrue(WEAR_HILLSHADE_MAX_OUTPUT_AXIS > 1200)
+        assertEquals(-2, resolveWearHillshadeQualityFactor(inputAxisLen = 3600, adaptiveQualityFactor = 1))
+        assertEquals(1, resolveWearHillshadeQualityFactor(inputAxisLen = 1200, adaptiveQualityFactor = 1))
+        assertEquals(-3, resolveWearHillshadeQualityFactor(inputAxisLen = 3600, adaptiveQualityFactor = -3))
+    }
+
+    @Test
     fun hillshadeCacheIdentityChangesWithDemSourceAndContent() {
         val standard =
             resolveMapRendererHillshadeCacheId(
