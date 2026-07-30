@@ -110,48 +110,54 @@ class LiveTrackingService : Service() {
         super.onDestroy()
     }
 
-    private fun startOrRestoreTracking(intent: Intent?): Int {
-        if (restoreActiveSessionIfNeeded()) return START_REDELIVER_INTENT
-
-        val parsedSettings = intent?.toLiveTrackingSettings()
-        if (parsedSettings == null) {
-            LiveTrackingSessionStore.setStopped("Missing live tracking settings")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        settings = parsedSettings
-        sentStart = false
-        dateId = null
-        isPaused = false
-        isStopping = false
-        LiveTrackingControlQueue.clear(this)
-        persistActiveSession()
-        LiveTrackingSessionStore.setStarting()
-        startForegroundNotification("Starting live tracking")
-        startTracking()
-        return START_REDELIVER_INTENT
-    }
-
-    private fun restoreActiveSessionIfNeeded(): Boolean {
-        if (settings != null) return true
-        val session = LiveTrackingActiveSessionStore.load(this) ?: return false
-
-        settings = session.settings
-        isPaused = session.isPaused
-        sentStart = session.sentStart
-        dateId = session.dateId
-        isStopping = false
-        if (isPaused) {
-            startForegroundNotification("Live tracking paused")
-            LiveTrackingSessionStore.setPaused()
+    private fun startOrRestoreTracking(intent: Intent?): Int =
+        if (restoreActiveSessionIfNeeded()) {
+            START_REDELIVER_INTENT
         } else {
-            startForegroundNotification("Restoring live tracking")
-            LiveTrackingSessionStore.setActive(status = "Restoring GPS tracking")
-            startTracking()
+            val parsedSettings = intent?.toLiveTrackingSettings()
+            if (parsedSettings == null) {
+                LiveTrackingSessionStore.setStopped("Missing live tracking settings")
+                stopSelf()
+                START_NOT_STICKY
+            } else {
+                settings = parsedSettings
+                sentStart = false
+                dateId = null
+                isPaused = false
+                isStopping = false
+                LiveTrackingControlQueue.clear(this)
+                persistActiveSession()
+                LiveTrackingSessionStore.setStarting()
+                startForegroundNotification("Starting live tracking")
+                startTracking()
+                START_REDELIVER_INTENT
+            }
         }
-        return true
-    }
+
+    private fun restoreActiveSessionIfNeeded(): Boolean =
+        if (settings != null) {
+            true
+        } else {
+            val session = LiveTrackingActiveSessionStore.load(this)
+            if (session == null) {
+                false
+            } else {
+                settings = session.settings
+                isPaused = session.isPaused
+                sentStart = session.sentStart
+                dateId = session.dateId
+                isStopping = false
+                if (isPaused) {
+                    startForegroundNotification("Live tracking paused")
+                    LiveTrackingSessionStore.setPaused()
+                } else {
+                    startForegroundNotification("Restoring live tracking")
+                    LiveTrackingSessionStore.setActive(status = "Restoring GPS tracking")
+                    startTracking()
+                }
+                true
+            }
+        }
 
     private fun updateAlertSettings(intent: Intent) {
         val notificationEmails = intent.getStringExtra(EXTRA_NOTIFICATION_EMAILS).orEmpty()

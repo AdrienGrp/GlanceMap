@@ -665,7 +665,9 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
     return urlBuilder.build()
 }
 
-internal fun formatArkluzAltitudeMeters(altitudeMeters: Double): String = String.format(Locale.US, "%.1f", altitudeMeters)
+internal fun formatArkluzAltitudeMeters(
+    altitudeMeters: Double,
+): String = String.format(Locale.US, "%.1f", altitudeMeters)
 
 internal fun buildArkluzSmsSupportUrl(
     trackingUrl: String,

@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 
+@Suppress("TooManyFunctions")
 internal object DebugTelemetry {
     internal data class CaptureSessionSnapshot(
         val sessionId: Long,

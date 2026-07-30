@@ -29,7 +29,7 @@ enum class DemSetupReason {
     SLOPE_OVERLAY,
 }
 
-@Suppress("FunctionName", "LongMethod")
+@Suppress("CyclomaticComplexMethod", "FunctionName", "LongMethod")
 @Composable
 fun DemSetupBottomSheet(
     visible: Boolean,

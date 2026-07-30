@@ -21,6 +21,7 @@ internal data class SavedLiveTrackingDraft(
     val gpxName: String = "",
 )
 
+@Suppress("TooManyFunctions")
 internal object LiveTrackingPreferences {
     private const val PREFS_NAME = "arkluz_live_tracking"
     private const val KEY_GROUP = "group"

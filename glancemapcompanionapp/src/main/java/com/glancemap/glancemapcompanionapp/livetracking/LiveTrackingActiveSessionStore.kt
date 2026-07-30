@@ -69,40 +69,40 @@ internal object LiveTrackingActiveSessionStore {
         val group = prefs.getString(KEY_GROUP, "").orEmpty()
         val participantPassword = prefs.getString(KEY_PARTICIPANT_PASSWORD, "").orEmpty()
         val userName = prefs.getString(KEY_USER_NAME, "").orEmpty()
-        if (group.isBlank() || participantPassword.isBlank() || userName.isBlank()) {
+        return if (group.isBlank() || participantPassword.isBlank() || userName.isBlank()) {
             clear(context)
-            return null
+            null
+        } else {
+            Session(
+                settings =
+                    LiveTrackingSettings(
+                        trackingUrl =
+                            prefs
+                                .getString(KEY_TRACKING_URL, ArkluzTrackingEndpoint.defaultUrl)
+                                .orEmpty()
+                                .ifBlank { ArkluzTrackingEndpoint.defaultUrl },
+                        updateIntervalSeconds = prefs.getInt(KEY_UPDATE_INTERVAL_SECONDS, 60),
+                        group = group,
+                        participantPassword = participantPassword,
+                        followerPassword = prefs.getString(KEY_FOLLOWER_PASSWORD, "").orEmpty(),
+                        userName = userName,
+                        notificationEmails = prefs.getString(KEY_NOTIFICATION_EMAILS, "").orEmpty(),
+                        alertEmails = prefs.getString(KEY_ALERT_EMAILS, "").orEmpty(),
+                        stuckAlarmMinutes = prefs.getString(KEY_STUCK_ALARM_MINUTES, "").orEmpty(),
+                        comments = prefs.getString(KEY_COMMENTS, "").orEmpty(),
+                        gpxUri =
+                            prefs
+                                .getString(KEY_GPX_URI, "")
+                                .orEmpty()
+                                .takeIf(String::isNotBlank)
+                                ?.let(Uri::parse),
+                        gpxName = prefs.getString(KEY_GPX_NAME, "").orEmpty(),
+                    ),
+                isPaused = prefs.getBoolean(KEY_PAUSED, false),
+                sentStart = prefs.getBoolean(KEY_SENT_START, false),
+                dateId = prefs.getString(KEY_DATE_ID, null),
+            )
         }
-
-        return Session(
-            settings =
-                LiveTrackingSettings(
-                    trackingUrl =
-                        prefs
-                            .getString(KEY_TRACKING_URL, ArkluzTrackingEndpoint.defaultUrl)
-                            .orEmpty()
-                            .ifBlank { ArkluzTrackingEndpoint.defaultUrl },
-                    updateIntervalSeconds = prefs.getInt(KEY_UPDATE_INTERVAL_SECONDS, 60),
-                    group = group,
-                    participantPassword = participantPassword,
-                    followerPassword = prefs.getString(KEY_FOLLOWER_PASSWORD, "").orEmpty(),
-                    userName = userName,
-                    notificationEmails = prefs.getString(KEY_NOTIFICATION_EMAILS, "").orEmpty(),
-                    alertEmails = prefs.getString(KEY_ALERT_EMAILS, "").orEmpty(),
-                    stuckAlarmMinutes = prefs.getString(KEY_STUCK_ALARM_MINUTES, "").orEmpty(),
-                    comments = prefs.getString(KEY_COMMENTS, "").orEmpty(),
-                    gpxUri =
-                        prefs
-                            .getString(KEY_GPX_URI, "")
-                            .orEmpty()
-                            .takeIf(String::isNotBlank)
-                            ?.let(Uri::parse),
-                    gpxName = prefs.getString(KEY_GPX_NAME, "").orEmpty(),
-                ),
-            isPaused = prefs.getBoolean(KEY_PAUSED, false),
-            sentStart = prefs.getBoolean(KEY_SENT_START, false),
-            dateId = prefs.getString(KEY_DATE_ID, null),
-        )
     }
 
     fun clear(context: Context) {
