@@ -94,6 +94,16 @@ internal object LiveTrackingPreferences {
             .apply()
     }
 
+    fun clearDraft(context: Context) {
+        context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_DRAFT_COMMENTS)
+            .remove(KEY_DRAFT_GPX_URI)
+            .remove(KEY_DRAFT_GPX_NAME)
+            .apply()
+    }
+
     fun loadGroupSettings(
         context: Context,
         group: String,

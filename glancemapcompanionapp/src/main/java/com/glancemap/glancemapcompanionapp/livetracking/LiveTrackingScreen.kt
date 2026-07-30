@@ -182,6 +182,17 @@ fun LiveTrackingScreen(
         )
     }
 
+    LaunchedEffect(sessionState.status) {
+        if (sessionState.status == "Stopped") {
+            comments = ""
+            selectedGpxUri = null
+            selectedGpxName = ""
+            planSent = false
+            sendStatusMessage = null
+            LiveTrackingPreferences.clearDraft(context)
+        }
+    }
+
     val gpxPicker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
@@ -877,6 +888,7 @@ fun LiveTrackingScreen(
                         showSendPlan = showSendPlan,
                         canSendPlan = canSendPlan,
                         isSendingPlan = isSendingPlan,
+                        planSent = planSent,
                         onSendPlan = {
                             if (!sessionState.isTracking) {
                                 sendStatusMessage = "Start live tracking before sending a route or comment."

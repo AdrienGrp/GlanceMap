@@ -129,6 +129,7 @@ internal class ArkluzLiveTrackingClient(
                         .Builder()
                         .setType(MultipartBody.FORM)
                         .addFormDataPart("q", "upload")
+                        .addFormDataPart("api", "1")
                         .addFormDataPart("group", settings.group.trim())
                         .addFormDataPart("pass", settings.participantPassword.trim())
                 if (tempFile != null) {
@@ -153,6 +154,7 @@ internal class ArkluzLiveTrackingClient(
                         LiveTrackingDiagnosticRequest(
                             operation = LiveTrackingDiagnosticOperation.UPLOAD,
                         ),
+                    responseParser = String::toArkluzUploadResult,
                 )
             } finally {
                 tempFile?.delete()
@@ -405,6 +407,7 @@ internal class ArkluzLiveTrackingClient(
     private fun execute(
         request: Request,
         diagnosticRequest: LiveTrackingDiagnosticRequest,
+        responseParser: (String) -> ArkluzServerResult = String::toArkluzServerResult,
     ): ArkluzServerResult =
         withDiagnostics(diagnosticRequest) { recordOutcome ->
             httpClient.newCall(request).execute().use { response ->
@@ -420,8 +423,14 @@ internal class ArkluzLiveTrackingClient(
                     recordOutcome(LiveTrackingDiagnosticResult.SERVER_REJECTED, response.code)
                     error(serverMessage)
                 }
+                val serverResult =
+                    runCatching { responseParser(serverMessage) }
+                        .getOrElse { error ->
+                            recordOutcome(LiveTrackingDiagnosticResult.SERVER_REJECTED, response.code)
+                            throw error
+                        }
                 recordOutcome(LiveTrackingDiagnosticResult.SUCCESS, response.code)
-                serverMessage.toArkluzServerResult()
+                serverResult
             }
         }
 
@@ -772,6 +781,14 @@ private fun String.toArkluzServerResult(): ArkluzServerResult {
         responseValue = responseValue,
         groupAvailable = equals("group available", ignoreCase = true),
     )
+}
+
+internal fun String.toArkluzUploadResult(): ArkluzServerResult {
+    val response = trim()
+    check(response.equals("OK", ignoreCase = true)) {
+        response.ifBlank { "Arkluz did not confirm the upload." }
+    }
+    return ArkluzServerResult(message = "Comment sent")
 }
 
 internal fun String.toArkluzSmsSupport(): ArkluzSmsSupport =

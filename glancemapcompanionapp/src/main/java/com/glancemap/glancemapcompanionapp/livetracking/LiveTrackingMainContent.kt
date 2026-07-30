@@ -67,6 +67,7 @@ internal fun ColumnScope.MainTrackingContent(
     showSendPlan: Boolean,
     canSendPlan: Boolean,
     isSendingPlan: Boolean,
+    planSent: Boolean,
     onSendPlan: () -> Unit,
     sessionState: LiveTrackingUiState,
     updateIntervalSeconds: Int,
@@ -318,10 +319,16 @@ internal fun ColumnScope.MainTrackingContent(
             if (showSendPlan) {
                 Button(
                     onClick = onSendPlan,
-                    enabled = canSendPlan && !isSendingPlan,
+                    enabled = canSendPlan && !isSendingPlan && !planSent,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (isSendingPlan) "Sending" else "Send update")
+                    Text(
+                        when {
+                            isSendingPlan -> "Sending"
+                            planSent -> "Comment sent"
+                            else -> "Send update"
+                        },
+                    )
                 }
             }
             sendStatusMessage?.let { message ->

@@ -504,7 +504,10 @@ class LiveTrackingService : Service() {
         serviceScope.launch {
             val location = lastLocation
             if (location == null) {
-                finishStopped("Stopped")
+                finishStopped(
+                    status = "Stopped",
+                    clearPlannedDraft = true,
+                )
                 return@launch
             }
             retryStopUntilConfirmed(location)
@@ -519,7 +522,10 @@ class LiveTrackingService : Service() {
             val result = runCatching { sendStopConfirmation(location) }
             result
                 .onSuccess {
-                    finishStopped("Stopped")
+                    finishStopped(
+                        status = "Stopped",
+                        clearPlannedDraft = true,
+                    )
                     return
                 }.onFailure { error ->
                     if (!error.isRetryableArkluzFailure()) {
@@ -556,9 +562,15 @@ class LiveTrackingService : Service() {
         }
     }
 
-    private fun finishStopped(status: String) {
+    private fun finishStopped(
+        status: String,
+        clearPlannedDraft: Boolean = false,
+    ) {
         LiveTrackingControlQueue.clear(this)
         LiveTrackingActiveSessionStore.clear(this)
+        if (clearPlannedDraft) {
+            LiveTrackingPreferences.clearDraft(this)
+        }
         LiveTrackingSessionStore.setStopped(status)
         ServiceCompat.stopForeground(this@LiveTrackingService, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
