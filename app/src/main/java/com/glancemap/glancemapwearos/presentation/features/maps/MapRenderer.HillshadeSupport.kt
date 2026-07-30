@@ -7,6 +7,7 @@ import java.security.MessageDigest
 
 internal const val WEAR_HILLSHADE_QUALITY_SCALE = 0.5
 internal const val WEAR_HILLSHADE_MIN_ZOOM_LEVEL = 10
+internal const val WEAR_HILLSHADE_MAX_INPUT_AXIS = 1800
 internal const val WEAR_HILLSHADE_MAX_OUTPUT_AXIS = 1800
 internal const val WEAR_HILLSHADE_READING_THREADS = 1
 internal const val WEAR_HILLSHADE_COMPUTING_THREADS = 1
@@ -81,6 +82,7 @@ internal fun resolveMapRendererHillshadeCacheId(
             append("|ALGORITHM:adaptive_no_hq")
             append("|QUALITY:").append(WEAR_HILLSHADE_QUALITY_SCALE)
             append("|ZOOM_MIN:").append(WEAR_HILLSHADE_MIN_ZOOM_LEVEL)
+            append("|MAX_INPUT_AXIS:").append(WEAR_HILLSHADE_MAX_INPUT_AXIS)
             append("|MAX_OUTPUT_AXIS:").append(WEAR_HILLSHADE_MAX_OUTPUT_AXIS)
             append("|READERS:").append(WEAR_HILLSHADE_READING_THREADS)
             append("|COMPUTERS:").append(WEAR_HILLSHADE_COMPUTING_THREADS)

@@ -1,20 +1,25 @@
 package com.glancemap.glancemapwearos.presentation.features.maps
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mapsforge.map.layer.hills.DemFile
+import org.mapsforge.map.layer.hills.HgtFileInfo
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.InputStream
 import java.nio.file.Files
 
 class MapsforgeHillshadeDemFolderTest {
     @Test
     fun folderExposesOnlyDemTilesRequiredByCurrentMap() {
         val root = Files.createTempDirectory("hillshade-folder").toFile()
-        File(root, "N46/N46E006.hgt.zip").apply {
+        File(root, "N46/N46E006.hgt").apply {
             parentFile?.mkdirs()
             writeText("required")
         }
-        File(root, "N46/N46E007.hgt.zip").writeText("unrelated")
+        File(root, "N46/N46E007.hgt").writeText("unrelated")
         File(root, "N47/N47E006.hgt.gz").apply {
             parentFile?.mkdirs()
             writeText("unrelated")
@@ -189,4 +194,54 @@ class MapsforgeHillshadeDemFolderTest {
         assertEquals(1, demFiles.count())
         root.deleteRecursively()
     }
+
+    @Test
+    fun detailedDemIsDownsampledBeforeMapsforgeCalculatesItsGrid() {
+        val detailed = InMemoryDemFile(axisLen = 6)
+
+        val limited = limitHillshadeDemFileInput(detailed, maxAxisLen = 3)
+
+        assertEquals(2, hillshadeInputDownsamplingStride(sourceAxisLen = 6, maxAxisLen = 3))
+        assertEquals(3, HgtFileInfo.computeAxisLen(limited.size))
+        assertEquals(
+            listOf(0, 2, 4, 6, 14, 16, 18, 20, 28, 30, 32, 34, 42, 44, 46, 48),
+            limited.asRawStream().readBytes().toHgtSamples(),
+        )
+    }
+
+    @Test
+    fun standardDemIsNotDownsampled() {
+        val standard = InMemoryDemFile(axisLen = 3)
+
+        assertSame(standard, limitHillshadeDemFileInput(standard, maxAxisLen = 3))
+    }
+
+    private class InMemoryDemFile(
+        axisLen: Int,
+    ) : DemFile {
+        private val bytes =
+            ByteArray((axisLen + 1) * (axisLen + 1) * 2).also { output ->
+                repeat((axisLen + 1) * (axisLen + 1)) { sample ->
+                    output[sample * 2] = (sample shr 8).toByte()
+                    output[(sample * 2) + 1] = sample.toByte()
+                }
+            }
+
+        override fun getName(): String = "N00E000.hgt"
+
+        override fun getSize(): Long = bytes.size.toLong()
+
+        override fun openInputStream(bufferSize: Int): InputStream = ByteArrayInputStream(bytes)
+
+        override fun asStream(): InputStream = ByteArrayInputStream(bytes)
+
+        override fun asRawStream(): InputStream = ByteArrayInputStream(bytes)
+    }
 }
+
+private fun ByteArray.toHgtSamples(): List<Int> =
+    indices
+        .step(2)
+        .map { index ->
+            ((this[index].toInt() and 0xff) shl 8) or (this[index + 1].toInt() and 0xff)
+        }
