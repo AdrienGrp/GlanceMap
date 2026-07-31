@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.0"
+   width="580"
+   height="580"
+   id="svg5"
+   sodipodi:docname="ice_cream.svg"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+  <defs
+     id="defs9" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     id="namedview7"
+     showgrid="false"
+     inkscape:zoom="1.3810345"
+     inkscape:cx="290"
+     inkscape:cy="290"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg5"
+     inkscape:document-rotation="0" />
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     d="m 214.84963,26.976628 c -62.25642,0 -112.72551,50.469105 -112.72551,112.725492 0,13.3591 2.78058,25.68375 7.04535,37.57517 h 211.3603 c 4.26565,-11.89142 7.04544,-24.21607 7.04544,-37.57517 0,-62.256387 -50.46916,-112.725492 -112.72558,-112.725492 z m 150.30058,0 c -15.17498,0 -29.05795,3.956671 -42.27198,9.393791 25.85065,26.994388 42.27198,63.004544 42.27198,103.331701 0,13.03031 -2.58874,25.51392 -5.87092,37.57517 H 470.8305 c 4.26557,-11.89142 7.04537,-24.21607 7.04537,-37.57517 0,-62.256387 -50.46913,-112.725492 -112.72566,-112.725492 z M 149.09308,214.85246 289.99988,553.02897 430.9068,214.85246 Z"
+     id="path833"
+     fill="#734a08"
+     vector-effect="none"
+     style="fill:none;stroke:#ffffff;stroke-width:51.8181;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.8;paint-order:stroke fill markers" />
+  <path
+     d="m 214.84963,26.976628 c -62.25642,0 -112.72551,50.469105 -112.72551,112.725492 0,13.3591 2.78058,25.68375 7.04535,37.57517 h 211.3603 c 4.26565,-11.89142 7.04544,-24.21607 7.04544,-37.57517 0,-62.256387 -50.46916,-112.725492 -112.72558,-112.725492 z m 150.30058,0 c -15.17498,0 -29.05795,3.956671 -42.27198,9.393791 25.85065,26.994388 42.27198,63.004544 42.27198,103.331701 0,13.03031 -2.58874,25.51392 -5.87092,37.57517 H 470.8305 c 4.26557,-11.89142 7.04537,-24.21607 7.04537,-37.57517 0,-62.256387 -50.46913,-112.725492 -112.72566,-112.725492 z M 149.09308,214.85246 289.99988,553.02897 430.9068,214.85246 Z"
+     id="ice-cream"
+     fill="#734a08"
+     vector-effect="none"
+     style="stroke:none;stroke-width:41.4544;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.8;paint-order:stroke fill markers" />
+</svg>

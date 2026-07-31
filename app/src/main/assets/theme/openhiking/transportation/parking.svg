@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32.0px"
+   height="32.0px"
+   viewBox="0 0 32.0 32.0"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs55316" />
+  <g
+     id="layer1"
+     transform="matrix(0.97139509,0,0,0.97195193,0.4261871,0.40790438)"
+     style="stroke-width:2.26413509;stroke-dasharray:none">
+    <rect
+       style="fill:#3131ff;fill-opacity:1;stroke:#ffffff;stroke-width:2.26414;stroke-linecap:square;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect55503"
+       width="30.711987"
+       height="30.637047"
+       x="0.68147784"
+       y="0.7189486"
+       ry="3.2747257" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:29.1816px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:2.26413509;stroke-linecap:square;stroke-dasharray:none;paint-order:markers fill stroke"
+       x="5.2611804"
+       y="26.712839"
+       id="text56908"
+       transform="scale(1.0026707,0.99733641)"><tspan
+         id="tspan56906"
+         x="5.2611804"
+         y="26.712839"
+         style="stroke-width:2.26413509;stroke-dasharray:none">P</tspan></text>
+  </g>
+</svg>

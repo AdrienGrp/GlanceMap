@@ -1,0 +1,15 @@
+<svg width="100" height="100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <g transform="translate(0 -952.36)">
+  <rect x="-6.5129" y="945.79" width="113.79" height="113.79" enable-background="new" fill="#e5ffe1" fill-opacity=".73333"/>
+  <g id="g4923" transform="translate(-373.07 1340.8)" enable-background="new">
+   <path d="m332.01-321.02 0.0228-5.7464 5e-3 -1.1721" enable-background="new" fill="#445500" stroke="#668000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9672"/>
+   <path d="m336.1-325.49-2.1876 4.4847" enable-background="new" fill="#445500" stroke="#668000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9672"/>
+   <path d="m338.84-323.75-2.6799 2.7346" enable-background="new" fill="#445500" stroke="#668000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9672"/>
+   <path d="m328.28-325.68 1.8869 4.6761" enable-background="new" fill="#445500" stroke="#668000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9672"/>
+   <path d="m325.26-323.67 2.6526 2.6526" enable-background="new" fill="#445500" stroke="#668000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9672"/>
+  </g>
+  <use transform="matrix(1.4375 0 0 1.8956 80.875 -890.78)" width="100" height="100" xlink:href="#g4923"/>
+  <use transform="matrix(1.9571 0 0 1.9571 125.88 -1009.5)" width="100" height="100" xlink:href="#g4923"/>
+  <use transform="matrix(1.875 0 0 1.875 152.91 -880.39)" width="100" height="100" xlink:href="#g4923"/>
+ </g>
+</svg>

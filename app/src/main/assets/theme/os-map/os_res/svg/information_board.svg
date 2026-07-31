@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.0"
+   width="580"
+   height="580"
+   id="svg2034"
+   sodipodi:docname="information_board.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs2038" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview2036"
+     showgrid="false"
+     inkscape:zoom="0.8137931"
+     inkscape:cx="762.30921"
+     inkscape:cy="106.27291"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2034" />
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     style="color:#000000;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-feature-settings:normal;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000000;letter-spacing:normal;word-spacing:normal;text-transform:none;writing-mode:lr-tb;direction:ltr;text-orientation:mixed;dominant-baseline:auto;baseline-shift:baseline;text-anchor:start;white-space:normal;shape-padding:0;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:1;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;vector-effect:none;fill:#0098e3;fill-opacity:0.78431373;fill-rule:evenodd;stroke:none;stroke-width:25.9109993;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate"
+     d="M 512.04492 34.28125 C 511.26786 34.25484 510.49257 34.259985 509.7207 34.296875 C 361.4607 35.620875 213.15969 33.116438 64.929688 35.648438 C 49.434688 39.676437 42.70275 57.788328 45.21875 72.361328 C 46.83175 178.30533 43.747141 284.34586 46.869141 390.25586 C 48.91811 396.54402 53.30376 401.23674 58.771484 404.36523 L 58.835938 545.81055 A 12.90579 12.90579 0 0 0 71.740234 558.71094 L 92.630859 558.71094 A 12.90579 12.90579 0 0 0 105.53516 545.80469 L 105.53516 408.28711 C 230.46375 408.01709 355.40859 408.9946 480.32812 407.89844 L 480.39453 547.53125 A 12.956795 12.956795 0 0 0 493.34961 560.48047 L 514.24023 560.48047 A 12.956795 12.956795 0 0 0 527.19531 547.52539 L 527.19531 404.16406 C 537.7629 397.08063 542.13712 382.2063 539.42969 369.89453 C 538.87969 264.53453 540.61969 159.09625 538.42969 53.78125 C 535.62657 42.100938 523.70082 34.67734 512.04492 34.28125 z M 328.625 79.400391 C 348.87219 79.719173 366.02332 88.935877 370.12305 105.31055 C 375.58936 125.77688 357.39926 148.52119 328.21289 156.7207 C 300.00268 164.43214 271.75909 153.53219 265.80469 133.52148 C 259.45982 111.65612 279.47217 89.857421 307.71484 82.113281 C 314.78373 80.177307 321.87594 79.294123 328.625 79.400391 z M 264.01758 188.08789 L 335.99023 188.08789 L 295.44727 285.86328 C 289.03725 300.89572 303.19256 312.70648 321.86914 298.16211 C 330.0686 291.32919 342.36745 298.61819 329.58008 313.61719 C 321.86866 329.98375 282.69422 356.37163 258.0957 355.91602 C 213.90936 355.45968 208.442 312.70655 217.55273 292.24023 L 264.01758 188.08789 z "
+     id="path2019" />
+</svg>

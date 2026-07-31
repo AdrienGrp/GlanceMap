@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="570"
+   width="570"
+   version="1.0"
+   id="svg4521"
+   sodipodi:docname="circle-purple2-hollow.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs4525" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4523"
+     showgrid="false"
+     inkscape:zoom="0.7310345"
+     inkscape:cx="132.76772"
+     inkscape:cy="340.54172"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4521" />
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <circle
+     style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:28.03125;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     id="path814-1"
+     cx="284.31155"
+     cy="286.52484"
+     r="283.16037" />
+  <path
+     style="opacity:1;fill:#a536e1;fill-opacity:0.50196081;stroke:none;stroke-width:26.13541603;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 284.31087,22.515427 A 264.00943,264.00943 0 0 0 20.303054,286.52519 264.00943,264.00943 0 0 0 284.31087,550.53495 264.00943,264.00943 0 0 0 548.32063,286.52519 264.00943,264.00943 0 0 0 284.31087,22.515427 Z m 0,116.072263 a 147.93719,147.93719 0 0 1 147.9375,147.9375 147.93719,147.93719 0 0 1 -147.9375,147.9375 147.93719,147.93719 0 0 1 -147.9375,-147.9375 147.93719,147.93719 0 0 1 147.9375,-147.9375 z"
+     id="path814-2-4"
+     inkscape:connector-curvature="0" />
+</svg>

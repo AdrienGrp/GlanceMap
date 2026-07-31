@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg4521"
+   sodipodi:docname="customer-parking-night.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs4525" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4523"
+     showgrid="false"
+     inkscape:zoom="1.0338389"
+     inkscape:cx="-152.48108"
+     inkscape:cy="216.26024"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4521" />
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     style="fill:#373737;fill-opacity:0.75294119;stroke:none;stroke-width:22.58747482;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.78431373"
+     d="M 76.398438,74.191406 V 507.28125 H 509.48828 V 74.191406 Z m 88.287112,53.824214 h 132.21289 c 29.48965,0 51.97593,3.29331 67.58008,9.58399 15.68826,6.32459 29.73608,17.4467 42.02343,33.66601 12.28735,16.21931 18.43164,36.12508 18.43164,59.7168 0,16.54697 -3.27878,32.68431 -9.83203,48.41211 -6.55326,15.72781 -15.80985,28.0967 -27.76953,37.10742 -11.95969,9.01074 -23.59739,14.97036 -34.89648,17.93946 -11.14585,2.92884 -28.6685,4.42382 -52.58789,4.42382 h -55.29493 v 124.59375 h -79.86718 z m 77.16601,60.94532 v 88.96094 h 51.11524 c 19.49593,0 33.17515,-4.50686 41.03906,-13.51758 7.8639,-9.01072 11.79492,-19.33086 11.79492,-30.96289 0,-13.59801 -4.45991,-24.37084 -13.26953,-32.43946 -8.72053,-7.98703 -21.95293,-12.04101 -39.81055,-12.04101 z"
+     id="path1368-7"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="ccccccssssssssccccccsssssc" />
+  <path
+     style="fill:#0098e3;fill-opacity:0.78431373;stroke:none;stroke-width:24;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.78431373"
+     d="M 35.773438 33.566406 L 35.773438 547.90625 L 550.11328 547.90625 L 550.11328 33.566406 L 35.773438 33.566406 z M 76.398438 74.191406 L 509.48828 74.191406 L 509.48828 507.28125 L 76.398438 507.28125 L 76.398438 74.191406 z "
+     id="path2003" />
+  <path
+     style="fill:#0098e3;fill-opacity:0.78431373;stroke:none;stroke-width:0.87841797;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.78431373"
+     d="M 164.68619,128.01523 V 463.45938 H 244.5536 V 338.86471 c 0,0 36.86267,0 55.294,0 23.91939,0 41.44257,-1.49413 52.58842,-4.42297 11.29909,-2.9691 22.93684,-8.92821 34.89653,-17.93895 11.95968,-9.01072 21.21641,-21.3802 27.76967,-37.10801 6.55325,-15.7278 9.83073,-31.86552 9.83073,-48.41249 0,-23.59172 -6.14398,-43.49768 -18.43133,-59.71698 -12.28735,-16.21931 -26.33512,-27.34181 -42.02338,-33.6664 -15.60415,-6.29068 -38.0902,-9.58368 -67.57985,-9.58368 -44.07073,0 -132.2122,0 -132.2122,0 z m 77.16524,60.94539 c 0,0 33.91288,0 50.86932,0 17.85762,0 31.08965,4.05348 39.81018,12.04051 8.80962,8.06862 13.27064,18.84169 13.27064,32.4397 0,11.63203 -3.93127,21.9518 -11.79517,30.96252 -7.86391,9.01072 -21.54437,13.51768 -41.0403,13.51768 -17.03822,0 -51.11467,0 -51.11467,0 z"
+     id="path4552"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="ccccssssssssccssssscc" />
+</svg>

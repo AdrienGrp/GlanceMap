@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="25"
+   viewBox="0 0 32 25"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs17323" />
+  <g
+     id="layer1">
+    <path
+       id="rect616-5"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.44919;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       d="M 3.4961553,0.20525025 C 2.3485389,0.3751863 1.6909823,1.5724882 1.860717,2.6478843 c 0,5.5118707 -9e-7,11.0237407 0,16.5356117 -0.5401588,0.06446 -1.34250245,-0.128371 -1.72061773,0.09511 0,1.870396 0,3.740791 0,5.611187 5.81489163,0 11.62978273,-1e-6 17.44467473,0 0,-1.902097 0,-3.804194 0,-5.70629 -0.482766,-0.11657 -1.447816,0.240138 -1.61083,-0.19021 0,-2.084506 -10e-7,-4.169011 0,-6.253515 5.315804,0 10.63161,0 15.947416,0 0,-2.32623 0,-4.6524593 0,-6.9786894 -5.315806,0 -10.631612,0 -15.947416,0 -0.04911,-1.3738359 0.09858,-2.7683378 -0.07403,-4.1292232 -0.244137,-1.05681569 -1.410532,-1.62161 -2.458631,-1.46933711 -3.27776,0.0134637 -6.5612804,-0.0267619 -9.8354889,0.0198091 l -0.094792,0.0198091 z" />
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#7b0000;stroke-width:1.44919;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect616"
+       width="17.068153"
+       height="3.3375564"
+       x="13.199538"
+       y="7.6532078" />
+    <rect
+       style="fill:#313131;fill-opacity:1;stroke:none;stroke-width:32.2775;stroke-linecap:square;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect616-4"
+       width="10.56206"
+       height="20"
+       x="3.2501168"
+       y="1.7656454"
+       ry="0.11282092" />
+    <rect
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:15.2304;stroke-linecap:square;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect616-4-6"
+       width="14"
+       height="2"
+       x="1.4749414"
+       y="21.765642" />
+    <rect
+       style="fill:#bd0000;fill-opacity:1;stroke:none;stroke-width:0.539672;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect11480-2"
+       width="1.9748404"
+       height="1.9157994"
+       x="18.907639"
+       y="8.3517475"
+       ry="0" />
+    <rect
+       style="fill:#bd0000;fill-opacity:1;stroke:none;stroke-width:0.539672;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect11480-3"
+       width="1.9748404"
+       height="1.9157994"
+       x="15.105734"
+       y="8.3517475"
+       ry="0" />
+    <rect
+       style="fill:#bd0000;fill-opacity:1;stroke:none;stroke-width:0.539672;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect11480-8"
+       width="1.9748404"
+       height="1.9157994"
+       x="22.530634"
+       y="8.3517466"
+       ry="0" />
+    <rect
+       style="fill:#bd0000;fill-opacity:1;stroke:none;stroke-width:0.539672;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect11480-37"
+       width="1.9748404"
+       height="1.9157994"
+       x="26.287815"
+       y="8.3517466"
+       ry="0" />
+    <rect
+       style="fill:#ffffd5;fill-opacity:1;stroke:none;stroke-width:32.2775;stroke-linecap:square;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect616-4-0"
+       width="8"
+       height="16"
+       x="4.4749413"
+       y="3.765646"
+       ry="0.090256728" />
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:14.2412px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI Bold';fill:#006500;fill-opacity:1;stroke:none;stroke-width:0.999998;paint-order:fill markers stroke"
+       x="4.6188335"
+       y="16.662495"
+       id="text21662"
+       transform="scale(0.9967376,1.0032731)"><tspan
+         id="tspan21660"
+         x="4.6188335"
+         y="16.662495"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Arial;-inkscape-font-specification:'Arial Bold';fill:#006500;fill-opacity:1;stroke-width:0.999998">$</tspan></text>
+  </g>
+</svg>

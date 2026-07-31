@@ -1,0 +1,195 @@
+@file:Suppress("FunctionName", "FunctionNaming")
+
+package com.glancemap.glancemapwearos.presentation.features.routetools
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
+
+@Composable
+internal fun RouteToolBusySpinner(
+    modifier: Modifier = Modifier,
+    size: Dp = 26.dp,
+    tint: Color = MaterialTheme.colorScheme.primary,
+) {
+    val transition = rememberInfiniteTransition(label = "route-tool-progress")
+    val rotationDeg by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 900, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+        label = "route-tool-progress-value",
+    )
+
+    Icon(
+        imageVector = Icons.Default.Autorenew,
+        contentDescription = null,
+        modifier =
+            modifier
+                .size(size)
+                .graphicsLayer { rotationZ = rotationDeg },
+        tint = tint,
+    )
+}
+
+@Composable
+internal fun RouteToolProgressDialog(
+    visible: Boolean,
+    message: String,
+    fullScreenBackground: Boolean = false,
+) {
+    if (!visible) return
+
+    Dialog(
+        onDismissRequest = {},
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+            ),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .let { base ->
+                        if (fullScreenBackground) {
+                            base.background(Color.Black.copy(alpha = 0.92f))
+                        } else {
+                            base
+                        }
+                    },
+            contentAlignment = Alignment.Center,
+        ) {
+            BoxWithConstraints(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    modifier =
+                        Modifier
+                            .widthIn(max = minOf(maxWidth, 164.dp))
+                            .background(
+                                Color.Black.copy(alpha = 0.88f),
+                                RoundedCornerShape(15.dp),
+                            ).padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    RouteToolBusySpinner(size = 18.dp)
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = TextAlign.Start,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+internal fun BoxScope.RouteToolInlineProgressBanner(
+    visible: Boolean,
+    message: String,
+    startInset: Dp,
+    endInset: Dp,
+    verticalPadding: Dp = 0.dp,
+) {
+    val isSmallScreen = rememberWearScreenSize() == WearScreenSize.SMALL
+    val spinnerSize = if (isSmallScreen) 14.dp else 18.dp
+    val horizontalPadding = if (isSmallScreen) 7.dp else 10.dp
+    val contentVerticalPadding = if (isSmallScreen) 4.dp else 6.dp
+    val itemSpacing = if (isSmallScreen) 5.dp else 8.dp
+    val textStyle =
+        if (isSmallScreen) {
+            MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp)
+        } else {
+            MaterialTheme.typography.labelMedium
+        }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(180)),
+        modifier =
+            Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(start = startInset, end = endInset, top = verticalPadding, bottom = verticalPadding),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                modifier =
+                    Modifier
+                        .widthIn(max = maxWidth)
+                        .background(
+                            Color.Black.copy(alpha = 0.88f),
+                            RoundedCornerShape(15.dp),
+                        ).padding(horizontal = horizontalPadding, vertical = contentVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RouteToolBusySpinner(size = spinnerSize)
+                Text(
+                    text = message,
+                    style = textStyle,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}

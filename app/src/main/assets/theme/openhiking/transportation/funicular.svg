@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="30"
+   viewBox="0 0 32 30"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs239" />
+  <g
+     id="layer1">
+    <path
+       style="fill:#ffffff;stroke:none;stroke-width:0.9;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none"
+       d="M 31.648712,0.374 31.592546,21.440541 0.45804582,29.675233 0.51518777,8.5272142 C 7.993502,6.5305139 25.291524,2.0001044 31.648712,0.374 Z"
+       id="path8561" />
+    <path
+       fill-rule="evenodd"
+       clip-rule="evenodd"
+       d="M 6.0363053,8.5555296 C 3.6731431,9.2253396 2.0548037,11.280296 2.0548037,13.611236 v 8.814413 c 0,0.883975 0.901912,1.517959 1.7980625,1.263943 L 28.993876,16.563955 c 0.590743,-0.167452 0.995373,-0.681157 0.995373,-1.263942 V 5.3137152 c 0,-1.7678506 -1.803866,-3.0358115 -3.596139,-2.5278262 z M 21.608919,13.262476 27.195807,11.679001 V 7.0871212 c 0,-0.8838956 -0.901934,-1.5178793 -1.79807,-1.2638834 L 21.608919,6.897091 Z M 13.22859,9.2727121 18.815477,7.6892374 V 16.693735 L 13.22859,18.277209 Z M 5.8436204,11.36554 10.435147,10.064187 v 6.365371 l -5.5869002,1.583474 v -5.383616 c 0,-0.582718 0.4045814,-1.096424 0.9953736,-1.263876 z"
+       fill="white"
+       id="path2"
+       style="fill:#c83737;stroke-width:0.999997" />
+    <path
+       style="fill:#c83737;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none"
+       d="M 3.4473069,27.076578 29.41452,19.694845"
+       id="path1105" />
+    <path
+       style="fill:#000000;stroke:none;stroke-width:0.9;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none"
+       id="path6957"
+       d="m 3.9068635,24.037601 a 2.4918025,2.0406668 0 0 1 -1.2459013,1.76727 2.4918025,2.0406668 0 0 1 -2.4918025,0 2.4918025,2.0406668 0 0 1 -1.2459012,-1.76727 H 1.415061 Z"
+       transform="matrix(0.9625774,-0.27100691,0.27031446,0.96277209,0,0)" />
+    <path
+       style="fill:#000000;stroke:none;stroke-width:0.9;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none"
+       id="path6957-4"
+       d="m 22.853295,23.995296 a 2.4918025,2.0406668 0 0 1 -1.245902,1.76727 2.4918025,2.0406668 0 0 1 -2.491802,0 2.4918025,2.0406668 0 0 1 -1.245901,-1.76727 h 2.491802 z"
+       transform="matrix(0.9625774,-0.27100691,0.27031446,0.96277209,0,0)" />
+  </g>
+</svg>

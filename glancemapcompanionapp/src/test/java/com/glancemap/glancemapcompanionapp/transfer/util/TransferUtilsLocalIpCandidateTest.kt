@@ -1,0 +1,81 @@
+package com.glancemap.glancemapcompanionapp.transfer.util
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class TransferUtilsLocalIpCandidateTest {
+    @Test
+    fun `prefers wlan candidate over hotspot candidate`() {
+        val hotspot =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "ap0",
+                ip = "192.168.43.1",
+                source = "interfaces",
+            )
+        val wifi =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "wlan0",
+                ip = "192.168.0.189",
+                source = "interfaces",
+            )
+
+        val best = TransferUtils.selectBestLocalIpCandidate(listOfNotNull(hotspot, wifi))
+
+        assertEquals("192.168.0.189", best?.ip)
+    }
+
+    @Test
+    fun `keeps hotspot candidate when it is the only option`() {
+        val hotspot =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "softap0",
+                ip = "192.168.43.1",
+                source = "interfaces",
+            )
+
+        val best = TransferUtils.selectBestLocalIpCandidate(listOfNotNull(hotspot))
+
+        assertEquals("192.168.43.1", best?.ip)
+    }
+
+    @Test
+    fun `wifi interface scores above hotspot interface`() {
+        val wifiScore = TransferUtils.scoreLocalIpCandidate("wlan0", "192.168.0.189")
+        val hotspotScore = TransferUtils.scoreLocalIpCandidate("ap0", "192.168.43.1")
+
+        assertTrue(wifiScore > hotspotScore)
+    }
+
+    @Test
+    fun `local http interface filter rejects cellular style interfaces`() {
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("wlan0"))
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("softap0"))
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("rndis0"))
+        assertFalse(TransferUtils.isLocalPeerInterfaceName("rmnet_data0"))
+        assertFalse(TransferUtils.isLocalPeerInterfaceName("ccmni0"))
+    }
+
+    @Test
+    fun `adds gpx extension when provider exposes gpx mime without extension`() {
+        assertEquals(
+            "shared-route.gpx",
+            TransferUtils.resolveTransferDisplayName(
+                rawName = "shared-route",
+                mimeType = "application/gpx+xml",
+            ),
+        )
+    }
+
+    @Test
+    fun `keeps existing gpx display name`() {
+        assertEquals(
+            "track.gpx",
+            TransferUtils.resolveTransferDisplayName(
+                rawName = "track.gpx",
+                mimeType = "application/gpx+xml",
+            ),
+        )
+    }
+}
