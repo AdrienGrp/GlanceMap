@@ -548,6 +548,7 @@ internal class LocationServiceTelemetry(
 
     fun logLocationEnvironmentPreflight(
         sourceMode: String,
+        watchGpsReason: String,
         locationSettingsSatisfied: Boolean?,
         locationSettingsStatusCode: Int?,
         phoneConnected: Boolean?,
@@ -557,10 +558,48 @@ internal class LocationServiceTelemetry(
     ) {
         log(
             "locationEnvironment: sourceMode=$sourceMode " +
+                "watchGpsReason=$watchGpsReason " +
                 "settingsSatisfied=${locationSettingsSatisfied ?: "na"} " +
                 "settingsStatus=${locationSettingsStatusCode?.toString() ?: "na"} " +
                 "phoneConnected=${phoneConnected ?: "na"} " +
                 "watchGps=${watchGpsAvailability ?: "na"} warning=$warning action=$action",
+        )
+    }
+
+    fun logWatchGpsFirstRawCallback(
+        delayMs: Long,
+        rawLocationCount: Int,
+    ) {
+        log(
+            "watchGpsCallback: first_raw delayMs=$delayMs " +
+                "rawLocations=${rawLocationCount.coerceAtLeast(0)}",
+        )
+    }
+
+    fun logWatchGpsCurrentLocationResult(
+        durationMs: Long,
+        returnedLocation: Boolean,
+    ) {
+        log(
+            "watchGpsCurrentLocation: result=${if (returnedLocation) "location" else "no_location"} " +
+                "durationMs=$durationMs",
+        )
+    }
+
+    fun logWatchGpsRawCallbackSummary(
+        reason: String,
+        runtimeMs: Long,
+        rawCallbackCount: Int,
+        rawLocationCount: Int,
+        duplicatesDropped: Int,
+        firstRawCallbackDelayMs: Long?,
+    ) {
+        log(
+            "watchGpsCallback: summary reason=$reason runtimeMs=$runtimeMs " +
+                "rawCallbacks=${rawCallbackCount.coerceAtLeast(0)} " +
+                "rawLocations=${rawLocationCount.coerceAtLeast(0)} " +
+                "duplicatesDropped=${duplicatesDropped.coerceAtLeast(0)} " +
+                "firstRawDelayMs=${firstRawCallbackDelayMs ?: "na"}",
         )
     }
 

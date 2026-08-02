@@ -22,6 +22,7 @@ internal class GnssDiagnosticsCoordinator(
     private val keepOpen: () -> Boolean,
     private val watchOnly: () -> Boolean,
     private val sourceMode: () -> String,
+    private val watchGpsReason: () -> String,
     private val ambientModeActive: () -> Boolean,
     private val debugTelemetryEnabled: () -> Boolean,
 ) {
@@ -33,6 +34,21 @@ internal class GnssDiagnosticsCoordinator(
 
     @Volatile
     private var lastStatusAtElapsedMs: Long = 0L
+
+    @Volatile
+    private var firstSignalAtElapsedMs: Long = 0L
+
+    @Volatile
+    private var firstEphemerisAtElapsedMs: Long = 0L
+
+    @Volatile
+    private var firstUsedInFixAtElapsedMs: Long = 0L
+
+    @Volatile
+    private var firstFixTtffMs: Int? = null
+
+    @Volatile
+    private var latestAcquisitionState: GnssAcquisitionState = GnssAcquisitionState.NO_RADIO_SIGNAL
 
     private var statusWatchdogJob: Job? = null
     private var statusCallback: GnssStatus.Callback? = null
@@ -105,7 +121,8 @@ internal class GnssDiagnosticsCoordinator(
                 }
 
                 override fun onFirstFix(ttffMillis: Int) {
-                    GnssDiagnostics.recordEvent("first_fix", "ttffMs=$ttffMillis")
+                    firstFixTtffMs = ttffMillis.coerceAtLeast(0)
+                    GnssDiagnostics.recordEvent("first_fix", "ttffMs=${ttffMillis.coerceAtLeast(0)}")
                 }
 
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -128,6 +145,9 @@ internal class GnssDiagnosticsCoordinator(
 
                     val satellites = status.satelliteCount
                     var usedInFix = 0
+                    var signalSatelliteCount = 0
+                    var almanacSatelliteCount = 0
+                    var ephemerisSatelliteCount = 0
                     var cn0Count = 0
                     var cn0Sum = 0f
                     var cn0Max = Float.NEGATIVE_INFINITY
@@ -146,6 +166,12 @@ internal class GnssDiagnosticsCoordinator(
                         if (status.usedInFix(index)) {
                             usedInFix += 1
                         }
+                        if (status.hasAlmanacData(index)) {
+                            almanacSatelliteCount += 1
+                        }
+                        if (status.hasEphemerisData(index)) {
+                            ephemerisSatelliteCount += 1
+                        }
                         when (status.getConstellationType(index)) {
                             GnssStatus.CONSTELLATION_GPS -> gpsCount += 1
                             GnssStatus.CONSTELLATION_GALILEO -> galileoCount += 1
@@ -158,6 +184,7 @@ internal class GnssDiagnosticsCoordinator(
                         val cn0 = status.getCn0DbHz(index)
                         if (cn0.isFinite() && cn0 > 0f) {
                             cn0Count += 1
+                            signalSatelliteCount += 1
                             cn0Sum += cn0
                             if (cn0 > cn0Max) {
                                 cn0Max = cn0
@@ -175,11 +202,28 @@ internal class GnssDiagnosticsCoordinator(
                         }
                     }
 
+                    latestAcquisitionState =
+                        resolveGnssAcquisitionState(
+                            signalSatelliteCount = signalSatelliteCount,
+                            ephemerisSatelliteCount = ephemerisSatelliteCount,
+                            usedInFixCount = usedInFix,
+                        )
+                    recordFirstAcquisitionMilestones(
+                        nowElapsedMs = nowElapsedMs,
+                        signalSatelliteCount = signalSatelliteCount,
+                        ephemerisSatelliteCount = ephemerisSatelliteCount,
+                        usedInFixCount = usedInFix,
+                    )
+
                     val avgCn0 = if (cn0Count > 0) cn0Sum / cn0Count else null
                     val maxCn0 = if (cn0Count > 0 && cn0Max.isFinite()) cn0Max else null
                     GnssDiagnostics.recordStatus(
                         satellites = satellites,
                         usedInFix = usedInFix,
+                        signalSatelliteCount = signalSatelliteCount,
+                        almanacSatelliteCount = almanacSatelliteCount,
+                        ephemerisSatelliteCount = ephemerisSatelliteCount,
+                        acquisitionState = latestAcquisitionState.telemetryValue,
                         cn0AvgDbHz = avgCn0,
                         cn0MaxDbHz = maxCn0,
                         carrierFrequencySatelliteCount = carrierFrequencySatelliteCount,
@@ -216,7 +260,8 @@ internal class GnssDiagnosticsCoordinator(
         GnssDiagnostics.recordEvent(
             "collector_registered",
             "tracking=${trackingEnabled()} bound=${bound()} keepOpen=${keepOpen()} " +
-                "watchOnly=${watchOnly()} sourceMode=${sourceMode()} ambient=${ambientModeActive()} " +
+                "watchOnlyRequested=${watchOnly()} sourceMode=${sourceMode()} " +
+                "watchGpsReason=${watchGpsReason()} ambient=${ambientModeActive()} " +
                 "gpsProviderPresent=${gpsProviderPresent(manager)} gpsProviderEnabled=${gpsProviderEnabled(manager)}",
         )
         scheduleStatusWatchdogIfNeeded()
@@ -252,7 +297,12 @@ internal class GnssDiagnosticsCoordinator(
                 "collector_unregistered",
                 "reason=$reason runtimeMs=${formatAgeMsForTelemetry(runtimeMs)} " +
                     "statusSamples=$statusSampleCount " +
-                    "lastStatusAgeMs=${formatAgeMsForTelemetry(lastStatusAgeMs)}",
+                    "lastStatusAgeMs=${formatAgeMsForTelemetry(lastStatusAgeMs)} " +
+                    "acquisition=${latestAcquisitionState.telemetryValue} " +
+                    "firstSignalDelayMs=${formatMilestoneDelay(firstSignalAtElapsedMs)} " +
+                    "firstEphemerisDelayMs=${formatMilestoneDelay(firstEphemerisAtElapsedMs)} " +
+                    "firstUsedInFixDelayMs=${formatMilestoneDelay(firstUsedInFixAtElapsedMs)} " +
+                    "firstFixTtffMs=${firstFixTtffMs ?: "na"}",
             )
         }
         resetRuntimeState()
@@ -284,6 +334,46 @@ internal class GnssDiagnosticsCoordinator(
         collectorRegisteredAtElapsedMs = 0L
         statusSampleCount = 0
         lastStatusAtElapsedMs = 0L
+        firstSignalAtElapsedMs = 0L
+        firstEphemerisAtElapsedMs = 0L
+        firstUsedInFixAtElapsedMs = 0L
+        firstFixTtffMs = null
+        latestAcquisitionState = GnssAcquisitionState.NO_RADIO_SIGNAL
+    }
+
+    private fun recordFirstAcquisitionMilestones(
+        nowElapsedMs: Long,
+        signalSatelliteCount: Int,
+        ephemerisSatelliteCount: Int,
+        usedInFixCount: Int,
+    ) {
+        if (signalSatelliteCount > 0 && firstSignalAtElapsedMs <= 0L) {
+            firstSignalAtElapsedMs = nowElapsedMs
+            GnssDiagnostics.recordEvent(
+                "acquisition_signal_detected",
+                "afterRegisterMs=${formatMilestoneDelay(firstSignalAtElapsedMs)} signalSats=$signalSatelliteCount",
+            )
+        }
+        if (ephemerisSatelliteCount > 0 && firstEphemerisAtElapsedMs <= 0L) {
+            firstEphemerisAtElapsedMs = nowElapsedMs
+            GnssDiagnostics.recordEvent(
+                "acquisition_ephemeris_available",
+                "afterRegisterMs=${formatMilestoneDelay(firstEphemerisAtElapsedMs)} " +
+                    "ephemerisSats=$ephemerisSatelliteCount",
+            )
+        }
+        if (usedInFixCount > 0 && firstUsedInFixAtElapsedMs <= 0L) {
+            firstUsedInFixAtElapsedMs = nowElapsedMs
+            GnssDiagnostics.recordEvent(
+                "acquisition_satellites_used",
+                "afterRegisterMs=${formatMilestoneDelay(firstUsedInFixAtElapsedMs)} used=$usedInFixCount",
+            )
+        }
+    }
+
+    private fun formatMilestoneDelay(milestoneElapsedMs: Long): String {
+        if (collectorRegisteredAtElapsedMs <= 0L || milestoneElapsedMs <= 0L) return "na"
+        return (milestoneElapsedMs - collectorRegisteredAtElapsedMs).coerceAtLeast(0L).toString()
     }
 
     private fun formatAgeMsForTelemetry(valueMs: Long): String {
@@ -299,6 +389,27 @@ internal class GnssDiagnosticsCoordinator(
         runCatching { manager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true }
             .getOrDefault(false)
 }
+
+internal enum class GnssAcquisitionState(
+    val telemetryValue: String,
+) {
+    NO_RADIO_SIGNAL("no_radio_signal"),
+    SIGNALS_NO_EPHEMERIS("signals_no_ephemeris"),
+    EPHEMERIS_NO_FIX("ephemeris_no_fix"),
+    SATELLITES_USED("satellites_used"),
+}
+
+internal fun resolveGnssAcquisitionState(
+    signalSatelliteCount: Int,
+    ephemerisSatelliteCount: Int,
+    usedInFixCount: Int,
+): GnssAcquisitionState =
+    when {
+        usedInFixCount > 0 -> GnssAcquisitionState.SATELLITES_USED
+        signalSatelliteCount <= 0 -> GnssAcquisitionState.NO_RADIO_SIGNAL
+        ephemerisSatelliteCount <= 0 -> GnssAcquisitionState.SIGNALS_NO_EPHEMERIS
+        else -> GnssAcquisitionState.EPHEMERIS_NO_FIX
+    }
 
 private const val GNSS_STATUS_WATCHDOG_DELAY_MS = 12_000L
 private const val GNSS_L1_MIN_HZ = 1_559_000_000.0

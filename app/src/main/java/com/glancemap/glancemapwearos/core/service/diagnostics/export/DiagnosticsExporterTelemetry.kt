@@ -1987,6 +1987,19 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
     var satellitesMax = 0
     var usedInFixTotal = 0L
     var usedInFixMax = 0
+    var signalSatellitesTotal = 0L
+    var signalSatellitesMax = 0
+    var almanacSatellitesTotal = 0L
+    var almanacSatellitesMax = 0
+    var ephemerisSatellitesTotal = 0L
+    var ephemerisSatellitesMax = 0
+    var noRadioSignalStatusCount = 0
+    var signalsNoEphemerisStatusCount = 0
+    var ephemerisNoFixStatusCount = 0
+    var satellitesUsedStatusCount = 0
+    var acquisitionSignalDetectedCount = 0
+    var acquisitionEphemerisAvailableCount = 0
+    var acquisitionSatellitesUsedCount = 0
 
     var cn0SampleCount = 0
     var cn0Total = 0.0
@@ -2006,6 +2019,9 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
             " event=collector_unregistered" in line -> collectorUnregisteredCount += 1
             " event=collector_inactive" in line -> collectorInactiveCount += 1
             " event=collector_policy_disabled" in line -> collectorPolicyDisabledCount += 1
+            " event=acquisition_signal_detected" in line -> acquisitionSignalDetectedCount += 1
+            " event=acquisition_ephemeris_available" in line -> acquisitionEphemerisAvailableCount += 1
+            " event=acquisition_satellites_used" in line -> acquisitionSatellitesUsedCount += 1
             " event=first_fix" in line -> {
                 firstFixCount += 1
                 val ttffMs = parseIntToken(line, "ttffMs=")
@@ -2023,6 +2039,21 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
                 usedInFixTotal += used.toLong()
                 if (sats > satellitesMax) satellitesMax = sats
                 if (used > usedInFixMax) usedInFixMax = used
+                val signalSatellites = parseIntToken(line, "signal=") ?: 0
+                val almanacSatellites = parseIntToken(line, "almanac=") ?: 0
+                val ephemerisSatellites = parseIntToken(line, "ephemeris=") ?: 0
+                signalSatellitesTotal += signalSatellites.toLong()
+                almanacSatellitesTotal += almanacSatellites.toLong()
+                ephemerisSatellitesTotal += ephemerisSatellites.toLong()
+                if (signalSatellites > signalSatellitesMax) signalSatellitesMax = signalSatellites
+                if (almanacSatellites > almanacSatellitesMax) almanacSatellitesMax = almanacSatellites
+                if (ephemerisSatellites > ephemerisSatellitesMax) ephemerisSatellitesMax = ephemerisSatellites
+                when (extractTokenValue(line, "acquisition=")) {
+                    "no_radio_signal" -> noRadioSignalStatusCount += 1
+                    "signals_no_ephemeris" -> signalsNoEphemerisStatusCount += 1
+                    "ephemeris_no_fix" -> ephemerisNoFixStatusCount += 1
+                    "satellites_used" -> satellitesUsedStatusCount += 1
+                }
 
                 val cn0Avg = parseFloatToken(line, "cn0Avg=")
                 if (cn0Avg != null && cn0Avg.isFinite()) {
@@ -2076,6 +2107,24 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         } else {
             0.0
         }
+    val signalSatellitesAvg =
+        if (statusSampleCount > 0) {
+            signalSatellitesTotal.toDouble() / statusSampleCount.toDouble()
+        } else {
+            0.0
+        }
+    val almanacSatellitesAvg =
+        if (statusSampleCount > 0) {
+            almanacSatellitesTotal.toDouble() / statusSampleCount.toDouble()
+        } else {
+            0.0
+        }
+    val ephemerisSatellitesAvg =
+        if (statusSampleCount > 0) {
+            ephemerisSatellitesTotal.toDouble() / statusSampleCount.toDouble()
+        } else {
+            0.0
+        }
     val cn0AvgDbHz =
         if (cn0SampleCount > 0) {
             cn0Total / cn0SampleCount.toDouble()
@@ -2100,6 +2149,19 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         satellitesMax = satellitesMax,
         usedInFixAvg = usedInFixAvg,
         usedInFixMax = usedInFixMax,
+        signalSatellitesAvg = signalSatellitesAvg,
+        signalSatellitesMax = signalSatellitesMax,
+        almanacSatellitesAvg = almanacSatellitesAvg,
+        almanacSatellitesMax = almanacSatellitesMax,
+        ephemerisSatellitesAvg = ephemerisSatellitesAvg,
+        ephemerisSatellitesMax = ephemerisSatellitesMax,
+        noRadioSignalStatusCount = noRadioSignalStatusCount,
+        signalsNoEphemerisStatusCount = signalsNoEphemerisStatusCount,
+        ephemerisNoFixStatusCount = ephemerisNoFixStatusCount,
+        satellitesUsedStatusCount = satellitesUsedStatusCount,
+        acquisitionSignalDetectedCount = acquisitionSignalDetectedCount,
+        acquisitionEphemerisAvailableCount = acquisitionEphemerisAvailableCount,
+        acquisitionSatellitesUsedCount = acquisitionSatellitesUsedCount,
         cn0AvgDbHz = cn0AvgDbHz,
         cn0MaxDbHz = cn0Max,
         carrierFrequencyStatusCount = carrierFrequencyStatusCount,

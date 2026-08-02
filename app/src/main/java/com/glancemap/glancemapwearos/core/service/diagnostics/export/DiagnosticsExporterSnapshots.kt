@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Debug
 import androidx.core.content.ContextCompat
@@ -52,6 +54,9 @@ internal data class GpsCapabilitySnapshot(
     val allProviders: List<String>,
     val connectedPhoneNodeCount: Int?,
     val connectedPhoneNodeCaptureError: String?,
+    val activeNetworkTransports: List<String>,
+    val activeNetworkValidated: Boolean?,
+    val activeNetworkInternetCapable: Boolean?,
 )
 
 internal data class SensorInventorySnapshot(
@@ -176,6 +181,7 @@ internal fun captureGpsCapabilitySnapshot(context: Context): GpsCapabilitySnapsh
             .orEmpty()
             .sorted()
     val connectedPhoneNodes = captureConnectedPhoneNodeCount(context)
+    val activeNetwork = captureActiveNetworkSnapshot(context)
     return GpsCapabilitySnapshot(
         locationManagerAvailable = locationManager != null,
         systemLocationEnabled = locationManager?.let { manager -> runCatching { manager.isLocationEnabled }.getOrNull() },
@@ -192,8 +198,44 @@ internal fun captureGpsCapabilitySnapshot(context: Context): GpsCapabilitySnapsh
         allProviders = providers,
         connectedPhoneNodeCount = connectedPhoneNodes.count,
         connectedPhoneNodeCaptureError = connectedPhoneNodes.error,
+        activeNetworkTransports = activeNetwork.transports,
+        activeNetworkValidated = activeNetwork.validated,
+        activeNetworkInternetCapable = activeNetwork.internetCapable,
     )
 }
+
+private data class ActiveNetworkSnapshot(
+    val transports: List<String>,
+    val validated: Boolean?,
+    val internetCapable: Boolean?,
+)
+
+private fun captureActiveNetworkSnapshot(context: Context): ActiveNetworkSnapshot {
+    val connectivityManager =
+        context.getSystemService(ConnectivityManager::class.java)
+            ?: return ActiveNetworkSnapshot(emptyList(), null, null)
+    val capabilities =
+        runCatching {
+            connectivityManager.activeNetwork?.let { network ->
+                connectivityManager.getNetworkCapabilities(network)
+            }
+        }.getOrNull() ?: return ActiveNetworkSnapshot(emptyList(), null, null)
+    return ActiveNetworkSnapshot(
+        transports = activeNetworkTransportLabels(capabilities),
+        validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+        internetCapable = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+    )
+}
+
+private fun activeNetworkTransportLabels(capabilities: NetworkCapabilities): List<String> =
+    buildList {
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH)) add("bluetooth")
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) add("wifi")
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) add("cellular")
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) add("ethernet")
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) add("vpn")
+        if (isEmpty()) add("other")
+    }
 
 private fun providerEnabled(
     locationManager: LocationManager?,

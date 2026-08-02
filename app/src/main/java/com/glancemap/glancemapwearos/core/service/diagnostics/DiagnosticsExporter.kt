@@ -443,6 +443,19 @@ object DiagnosticsExporter {
         val satellitesMax: Int = 0,
         val usedInFixAvg: Double = 0.0,
         val usedInFixMax: Int = 0,
+        val signalSatellitesAvg: Double = 0.0,
+        val signalSatellitesMax: Int = 0,
+        val almanacSatellitesAvg: Double = 0.0,
+        val almanacSatellitesMax: Int = 0,
+        val ephemerisSatellitesAvg: Double = 0.0,
+        val ephemerisSatellitesMax: Int = 0,
+        val noRadioSignalStatusCount: Int = 0,
+        val signalsNoEphemerisStatusCount: Int = 0,
+        val ephemerisNoFixStatusCount: Int = 0,
+        val satellitesUsedStatusCount: Int = 0,
+        val acquisitionSignalDetectedCount: Int = 0,
+        val acquisitionEphemerisAvailableCount: Int = 0,
+        val acquisitionSatellitesUsedCount: Int = 0,
         val cn0AvgDbHz: Double? = null,
         val cn0MaxDbHz: Float? = null,
         val carrierFrequencyStatusCount: Int = 0,
@@ -813,6 +826,11 @@ object DiagnosticsExporter {
             writer.appendLine("locationProviders=${formatStringList(gpsCapability.allProviders)}")
             writer.appendLine("connectedPhoneNodeCount=${gpsCapability.connectedPhoneNodeCount?.toString() ?: "na"}")
             writer.appendLine("connectedPhoneNodeCaptureError=${gpsCapability.connectedPhoneNodeCaptureError ?: "none"}")
+            writer.appendLine("activeNetworkTransports=${formatStringList(gpsCapability.activeNetworkTransports)}")
+            writer.appendLine("activeNetworkValidated=${formatNullableBoolean(gpsCapability.activeNetworkValidated)}")
+            writer.appendLine(
+                "activeNetworkInternetCapable=${formatNullableBoolean(gpsCapability.activeNetworkInternetCapable)}",
+            )
             writer.appendLine()
             writer.appendLine("Capture Session")
             writer.appendLine("sessionId=${captureSessionIdText(captureSession.sessionId)}")

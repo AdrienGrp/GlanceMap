@@ -231,6 +231,7 @@ class LocationService : Service() {
             keepOpen = { keepAppOpen.value },
             watchOnly = { latestWatchGpsOnly },
             sourceMode = { currentLocationSourceMode().telemetryValue },
+            watchGpsReason = { currentWatchGpsReason() },
             ambientModeActive = { isNonInteractiveScreenState() },
             debugTelemetryEnabled = { latestGpsDebugTelemetry },
         )
@@ -256,6 +257,7 @@ class LocationService : Service() {
                 locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
                 packageManager = packageManager,
                 callbackExecutor = locationCallbackExecutor,
+                telemetry = telemetry,
             )
         settingsRepository = (application as GlanceMapWearApp).container.settingsRepository
         callbackProcessor =
@@ -858,6 +860,7 @@ class LocationService : Service() {
         ) {
             telemetry.logLocationEnvironmentPreflight(
                 sourceMode = requestSpec.sourceMode.telemetryValue,
+                watchGpsReason = watchGpsReason(requestSpec.sourceMode, state.watchOnlyRequested),
                 locationSettingsSatisfied = locationSettings?.satisfied,
                 locationSettingsStatusCode = locationSettings?.statusCode,
                 phoneConnected = phoneConnected,
@@ -1401,6 +1404,22 @@ class LocationService : Service() {
                 !latestWatchGpsOnly &&
                 !selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps() -> LocationSourceMode.PASSIVE_EXTERNAL
             else -> selfHealFailoverCoordinator.currentLocationSourceMode()
+        }
+
+    private fun currentWatchGpsReason(): String =
+        watchGpsReason(
+            sourceMode = currentLocationSourceMode(),
+            watchOnlyRequested = latestWatchGpsOnly,
+        )
+
+    private fun watchGpsReason(
+        sourceMode: LocationSourceMode,
+        watchOnlyRequested: Boolean,
+    ): String =
+        when {
+            sourceMode != LocationSourceMode.WATCH_GPS -> "not_watch_gps"
+            watchOnlyRequested -> "user_setting"
+            else -> "auto_failover"
         }
 
     private fun currentLocationGateway(): LocationGateway = locationGatewayFor(currentLocationSourceMode())
