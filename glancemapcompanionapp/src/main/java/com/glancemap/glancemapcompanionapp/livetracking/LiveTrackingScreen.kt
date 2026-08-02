@@ -125,6 +125,7 @@ fun LiveTrackingScreen(
     var continueStartAfterExternalSettingsResult by remember {
         mutableStateOf<ExternalSettingsStartStep?>(null)
     }
+    var showLocationDisclosureDialog by remember { mutableStateOf(false) }
     var showNotificationPermissionWarningDialog by remember { mutableStateOf(false) }
     var showBackgroundLocationDialog by remember { mutableStateOf(false) }
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
@@ -767,8 +768,13 @@ fun LiveTrackingScreen(
             hasNotificationPermission = notificationGranted
             val missingPermissions = missingLiveTrackingRuntimePermissions(context)
             if (missingPermissions.isNotEmpty()) {
-                isStartWaitingForPermissionResult = true
-                locationPermissionLauncher.launch(missingPermissions)
+                if (needsLiveTrackingLocationDisclosure(missingPermissions)) {
+                    isStartingSession = false
+                    showLocationDisclosureDialog = true
+                } else {
+                    isStartWaitingForPermissionResult = true
+                    locationPermissionLauncher.launch(missingPermissions)
+                }
             } else {
                 continueStartWithBackgroundLocationProtection()
             }
@@ -1252,6 +1258,49 @@ fun LiveTrackingScreen(
                 },
             )
         }
+        if (showLocationDisclosureDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showLocationDisclosureDialog = false
+                    isStartingSession = false
+                },
+                title = { Text("Location for live tracking") },
+                text = {
+                    Text(
+                        "GlanceMap collects your location during an active live-tracking session " +
+                            "to show your position and send updates to the selected tracking server " +
+                            "and people with your shared tracking link. It is not used for advertising.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showLocationDisclosureDialog = false
+                            val missingPermissions = missingLiveTrackingRuntimePermissions(context)
+                            if (missingPermissions.isEmpty()) {
+                                continueStartWithBackgroundLocationProtection()
+                            } else {
+                                isStartingSession = true
+                                isStartWaitingForPermissionResult = true
+                                locationPermissionLauncher.launch(missingPermissions)
+                            }
+                        },
+                    ) {
+                        Text("Continue")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showLocationDisclosureDialog = false
+                            isStartingSession = false
+                        },
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
         if (showNotificationPermissionWarningDialog) {
             AlertDialog(
                 onDismissRequest = {
@@ -1291,9 +1340,11 @@ fun LiveTrackingScreen(
                 title = { Text("Keep GPS tracking in the background") },
                 text = {
                     Text(
-                        "Allow location all the time so Android can restore live tracking if the app " +
-                            "is no longer visible. On Android 11 and newer, select Location then " +
-                            "Allow all the time in the system settings.",
+                        "GlanceMap collects and transmits your location during an active live-tracking " +
+                            "session, even when the app is closed or not in use. This keeps your shared " +
+                            "live position updated on the selected tracking server. It is not used for " +
+                            "advertising. On Android 11 and newer, select Location then Allow all the " +
+                            "time in the system settings.",
                     )
                 },
                 confirmButton = {
