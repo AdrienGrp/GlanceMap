@@ -322,7 +322,7 @@ internal fun NavigateContent(
         }
     }
 
-    fun applyRotaryZoomStep(step: Int): Boolean {
+    fun applyMapZoomStep(step: Int): Boolean {
         val mv = mapView ?: return false
         val current =
             mv.model.mapViewPosition.zoomLevel
@@ -339,7 +339,7 @@ internal fun NavigateContent(
         return true
     }
 
-    fun canApplyRotaryZoomStep(step: Int): Boolean {
+    fun canApplyMapZoomStep(step: Int): Boolean {
         val mv = mapView ?: return false
         val current =
             mv.model.mapViewPosition.zoomLevel
@@ -565,11 +565,11 @@ internal fun NavigateContent(
                     var consumed = false
 
                     while (rotaryScrollAccumulator >= thresholdPx) {
-                        consumed = applyRotaryZoomStep(step = positiveStep) || consumed
+                        consumed = applyMapZoomStep(step = positiveStep) || consumed
                         rotaryScrollAccumulator -= thresholdPx
                     }
                     while (rotaryScrollAccumulator <= -thresholdPx) {
-                        consumed = applyRotaryZoomStep(step = negativeStep) || consumed
+                        consumed = applyMapZoomStep(step = negativeStep) || consumed
                         rotaryScrollAccumulator += thresholdPx
                     }
 
@@ -582,7 +582,7 @@ internal fun NavigateContent(
                                 rotaryScrollAccumulator < 0f -> negativeStep
                                 else -> 0
                             }
-                        pendingStep != 0 && canApplyRotaryZoomStep(step = pendingStep)
+                        pendingStep != 0 && canApplyMapZoomStep(step = pendingStep)
                     }
                 }.focusRequester(focusRequester)
                 .focusable(),
@@ -845,9 +845,8 @@ internal fun NavigateContent(
                     showZoomPlusButton = showZoomPlusButton,
                     showZoomMinusButton = showZoomMinusButton,
                     currentZoomLevel = currentZoomLevel,
-                    zoomMin = zoomMin,
-                    zoomMax = zoomMax,
                     triggerHaptic = triggerHaptic,
+                    onZoomStep = ::applyMapZoomStep,
                     zoomButtonSize = zoomButtonSize,
                     zoomIconSize = zoomIconSize,
                     scaleIndicator = scaleIndicator,

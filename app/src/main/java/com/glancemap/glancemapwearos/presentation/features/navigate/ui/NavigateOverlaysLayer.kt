@@ -89,9 +89,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     showZoomPlusButton: Boolean,
     showZoomMinusButton: Boolean,
     currentZoomLevel: Int,
-    zoomMin: Int,
-    zoomMax: Int,
     triggerHaptic: () -> Unit,
+    onZoomStep: (Int) -> Boolean,
     zoomButtonSize: Dp,
     zoomIconSize: Dp,
     scaleIndicator: ScaleIndicatorUi?,
@@ -324,16 +323,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                     ),
             ) {
                 IconButton(
-                    onClick = {
-                        val currentZoom =
-                            mapView.model.mapViewPosition.zoomLevel
-                                .toInt()
-                        val newZoom = (currentZoom + 1).coerceAtMost(zoomMax)
-                        if (newZoom != currentZoom) {
-                            mapView.model.mapViewPosition.setZoomLevel(newZoom.toByte(), false)
-                            triggerHaptic()
-                        }
-                    },
+                    onClick = { onZoomStep(1) },
                     modifier = Modifier.size(zoomButtonSize),
                     colors =
                         IconButtonDefaults.iconButtonColors(
@@ -367,16 +357,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                     ),
             ) {
                 IconButton(
-                    onClick = {
-                        val currentZoom =
-                            mapView.model.mapViewPosition.zoomLevel
-                                .toInt()
-                        val newZoom = (currentZoom - 1).coerceAtLeast(zoomMin)
-                        if (newZoom != currentZoom) {
-                            mapView.model.mapViewPosition.setZoomLevel(newZoom.toByte(), false)
-                            triggerHaptic()
-                        }
-                    },
+                    onClick = { onZoomStep(-1) },
                     modifier = Modifier.size(zoomButtonSize),
                     colors =
                         IconButtonDefaults.iconButtonColors(

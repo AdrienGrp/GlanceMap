@@ -37,13 +37,30 @@ object MapLayerMutationCoordinator {
     fun mutateLayers(
         mapView: MapView,
         mutation: (Layers) -> Unit,
+    ) = mutateLayersInternal(mapView, coalescingKey = null, mutation)
+
+    fun mutateLayers(
+        mapView: MapView,
+        coalescingKey: Any,
+        mutation: (Layers) -> Unit,
+    ) = mutateLayersInternal(mapView, coalescingKey, mutation)
+
+    private fun mutateLayersInternal(
+        mapView: MapView,
+        coalescingKey: Any?,
+        mutation: (Layers) -> Unit,
     ) {
         runOnMapThread(mapView) {
             val state = stateFor(mapView)
+            val queuedMutation = { mutation(mapView.layerManager.layers) }
             if (state.gestureActive) {
-                state.pending += { mutation(mapView.layerManager.layers) }
+                if (coalescingKey == null) {
+                    state.pending += queuedMutation
+                } else {
+                    state.coalescedPending[coalescingKey] = queuedMutation
+                }
             } else {
-                mutation(mapView.layerManager.layers)
+                queuedMutation()
             }
         }
     }
@@ -93,10 +110,17 @@ object MapLayerMutationCoordinator {
             state.pending.removeFirst().invoke()
             executedMutation = true
         }
+        while (!state.gestureActive && state.coalescedPending.isNotEmpty()) {
+            val iterator = state.coalescedPending.entries.iterator()
+            val mutation = iterator.next().value
+            iterator.remove()
+            mutation()
+            executedMutation = true
+        }
         if (executedMutation) {
             redrawLayersSafely(mapView)
         }
-        if (state.pending.isEmpty()) {
+        if (state.pending.isEmpty() && state.coalescedPending.isEmpty()) {
             states.remove(mapView)
         }
     }
@@ -115,9 +139,17 @@ object MapLayerMutationCoordinator {
         var gestureActive: Boolean = false
         var flushRunnable: Runnable? = null
         val pending: ArrayDeque<() -> Unit> = ArrayDeque()
+        val coalescedPending: LinkedHashMap<Any, () -> Unit> = LinkedHashMap()
     }
 }
 
 fun MapView.mutateLayers(mutation: (Layers) -> Unit) {
     MapLayerMutationCoordinator.mutateLayers(this, mutation)
+}
+
+fun MapView.mutateLayers(
+    coalescingKey: Any,
+    mutation: (Layers) -> Unit,
+) {
+    MapLayerMutationCoordinator.mutateLayers(this, coalescingKey, mutation)
 }
