@@ -52,6 +52,10 @@ internal object GnssDiagnostics {
     fun recordStatus(
         satellites: Int,
         usedInFix: Int,
+        signalSatelliteCount: Int,
+        almanacSatelliteCount: Int,
+        ephemerisSatelliteCount: Int,
+        acquisitionState: String,
         cn0AvgDbHz: Float?,
         cn0MaxDbHz: Float?,
         carrierFrequencySatelliteCount: Int,
@@ -83,6 +87,10 @@ internal object GnssDiagnostics {
                 append("status")
                 append(" sats=").append(satellites.coerceAtLeast(0))
                 append(" used=").append(usedInFix.coerceAtLeast(0))
+                append(" signal=").append(signalSatelliteCount.coerceAtLeast(0))
+                append(" almanac=").append(almanacSatelliteCount.coerceAtLeast(0))
+                append(" ephemeris=").append(ephemerisSatelliteCount.coerceAtLeast(0))
+                append(" acquisition=").append(acquisitionState)
                 append(" cn0Avg=").append(TelemetryFormatters.decimalOrNa(cn0AvgDbHz, 1))
                 append(" cn0Max=").append(TelemetryFormatters.decimalOrNa(cn0MaxDbHz, 1))
                 append(" carrier=").append(carrierFrequencySatelliteCount.coerceAtLeast(0))

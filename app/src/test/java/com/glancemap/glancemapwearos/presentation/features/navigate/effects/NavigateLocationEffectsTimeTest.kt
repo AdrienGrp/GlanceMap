@@ -186,6 +186,62 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
+    fun indicatorStateWaitsForFreshFixAfterSourceChange() {
+        val state =
+            resolveGpsIndicatorState(
+                isLocationAvailable = true,
+                unavailableSinceElapsedMs = 0L,
+                lastFixAtElapsedMs = 99_000L,
+                accuracyM = 8f,
+                requiresFreshLiveFixAfterSourceChange = true,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+
+        assertEquals(GpsFixIndicatorState.SEARCHING, state)
+    }
+
+    @Test
+    fun indicatorEscalatesFromBlueToYellowToRedWhenFixStaysMissing() {
+        assertEquals(
+            GpsFixIndicatorState.SEARCHING,
+            resolveGpsIndicatorEscalationState(
+                rawState = GpsFixIndicatorState.SEARCHING,
+                abnormalSinceElapsedMs = 10_000L,
+                nowElapsedMs = 21_999L,
+            ),
+        )
+        assertEquals(
+            GpsFixIndicatorState.POOR,
+            resolveGpsIndicatorEscalationState(
+                rawState = GpsFixIndicatorState.SEARCHING,
+                abnormalSinceElapsedMs = 10_000L,
+                nowElapsedMs = 22_000L,
+            ),
+        )
+        assertEquals(
+            GpsFixIndicatorState.LOST,
+            resolveGpsIndicatorEscalationState(
+                rawState = GpsFixIndicatorState.SEARCHING,
+                abnormalSinceElapsedMs = 10_000L,
+                nowElapsedMs = 40_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun indicatorKeepsHardUnavailableAsCrossedGpsState() {
+        assertEquals(
+            GpsFixIndicatorState.UNAVAILABLE,
+            resolveGpsIndicatorEscalationState(
+                rawState = GpsFixIndicatorState.UNAVAILABLE,
+                abnormalSinceElapsedMs = 10_000L,
+                nowElapsedMs = 50_000L,
+            ),
+        )
+    }
+
+    @Test
     fun indicatorStateClassifiesAccuracyBands() {
         val good =
             resolveGpsIndicatorState(

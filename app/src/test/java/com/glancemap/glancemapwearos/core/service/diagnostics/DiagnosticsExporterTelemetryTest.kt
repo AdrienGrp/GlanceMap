@@ -400,6 +400,35 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(1, insights.staleSampleCount)
     }
 
+    @Test
+    fun gnssAcquisitionTelemetryDistinguishesSignalEphemerisAndFixStages() {
+        val insights =
+            deriveGnssInsights(
+                listOf(
+                    "2026-08-02 16:00:00.000 event=acquisition_signal_detected afterRegisterMs=1200 signalSats=3",
+                    "2026-08-02 16:00:01.000 status sats=12 used=0 signal=0 almanac=0 ephemeris=0 acquisition=no_radio_signal cn0Avg=na cn0Max=na carrier=0 l1=0 l5=0 dual=false gps=0 gal=0 glo=0 bds=0 qzss=0 sbas=0 unk=12",
+                    "2026-08-02 16:00:02.000 status sats=12 used=0 signal=3 almanac=3 ephemeris=0 acquisition=signals_no_ephemeris cn0Avg=18.0 cn0Max=21.0 carrier=0 l1=0 l5=0 dual=false gps=0 gal=0 glo=0 bds=0 qzss=0 sbas=0 unk=12",
+                    "2026-08-02 16:00:03.000 event=acquisition_ephemeris_available afterRegisterMs=3200 ephemerisSats=2",
+                    "2026-08-02 16:00:03.000 status sats=12 used=0 signal=4 almanac=4 ephemeris=2 acquisition=ephemeris_no_fix cn0Avg=20.0 cn0Max=23.0 carrier=0 l1=0 l5=0 dual=false gps=0 gal=0 glo=0 bds=0 qzss=0 sbas=0 unk=12",
+                    "2026-08-02 16:00:04.000 event=acquisition_satellites_used afterRegisterMs=4200 used=4",
+                    "2026-08-02 16:00:04.000 status sats=12 used=4 signal=5 almanac=5 ephemeris=4 acquisition=satellites_used cn0Avg=21.0 cn0Max=25.0 carrier=0 l1=0 l5=0 dual=false gps=0 gal=0 glo=0 bds=0 qzss=0 sbas=0 unk=12",
+                ),
+            )
+
+        assertEquals(4, insights.statusSampleCount)
+        assertEquals(3.0, insights.signalSatellitesAvg, 0.001)
+        assertEquals(5, insights.signalSatellitesMax)
+        assertEquals(1.5, insights.ephemerisSatellitesAvg, 0.001)
+        assertEquals(4, insights.ephemerisSatellitesMax)
+        assertEquals(1, insights.noRadioSignalStatusCount)
+        assertEquals(1, insights.signalsNoEphemerisStatusCount)
+        assertEquals(1, insights.ephemerisNoFixStatusCount)
+        assertEquals(1, insights.satellitesUsedStatusCount)
+        assertEquals(1, insights.acquisitionSignalDetectedCount)
+        assertEquals(1, insights.acquisitionEphemerisAvailableCount)
+        assertEquals(1, insights.acquisitionSatellitesUsedCount)
+    }
+
     private fun epochMs(localDateTime: String): Long =
         LocalDateTime
             .parse(localDateTime)

@@ -782,7 +782,7 @@ private fun GpxAndInspectionOverlayEffect(
                     mapView.model.mapViewPosition.zoomLevel
                         .toInt()
                 val newBucket = zoomBucketFor(zoomNow)
-                mapView.mutateLayers { layers ->
+                mapView.mutateLayers(coalescingKey = directionArrowLayer) { layers ->
                     var changed = false
 
                     lodById.forEach { (id, lod) ->

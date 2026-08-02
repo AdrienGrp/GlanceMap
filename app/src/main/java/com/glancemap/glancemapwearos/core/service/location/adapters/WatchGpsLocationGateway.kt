@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.os.CancellationSignal
 import android.os.SystemClock
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
+import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,6 +21,7 @@ internal class WatchGpsLocationGateway(
     private val locationManager: LocationManager,
     private val packageManager: PackageManager,
     private val callbackExecutor: Executor,
+    private val telemetry: LocationServiceTelemetry,
 ) : LocationGateway {
     private data class LocationSignature(
         val elapsedRealtimeNanos: Long,
@@ -40,6 +42,8 @@ internal class WatchGpsLocationGateway(
 
     private val activeListeners = LinkedHashSet<WatchGpsLocationListener>()
     private val requestMutex = Mutex()
+    private val callbackTelemetryLock = Any()
+    private val callbackTelemetrySession = WatchGpsCallbackTelemetrySession()
 
     @Volatile private var registeringListener: WatchGpsLocationListener? = null
     private val recentLocationSignatures = LinkedHashSet<LocationSignature>()
@@ -54,21 +58,27 @@ internal class WatchGpsLocationGateway(
             return cachedLocation
         }
 
-        return withTimeoutOrNull(request.durationMs.coerceAtLeast(1L)) {
-            suspendCancellableCoroutine { continuation ->
-                val cancellationSignal = CancellationSignal()
-                continuation.invokeOnCancellation { cancellationSignal.cancel() }
-                locationManager.getCurrentLocation(
-                    LocationManager.GPS_PROVIDER,
-                    cancellationSignal,
-                    callbackExecutor,
-                ) { location ->
-                    if (continuation.isActive) {
-                        continuation.resume(location)
+        val currentLocation =
+            withTimeoutOrNull(request.durationMs.coerceAtLeast(1L)) {
+                suspendCancellableCoroutine { continuation ->
+                    val cancellationSignal = CancellationSignal()
+                    continuation.invokeOnCancellation { cancellationSignal.cancel() }
+                    locationManager.getCurrentLocation(
+                        LocationManager.GPS_PROVIDER,
+                        cancellationSignal,
+                        callbackExecutor,
+                    ) { location ->
+                        if (continuation.isActive) {
+                            continuation.resume(location)
+                        }
                     }
                 }
             }
-        }
+        telemetry.logWatchGpsCurrentLocationResult(
+            durationMs = (SystemClock.elapsedRealtime() - nowElapsedMs).coerceAtLeast(0L),
+            returnedLocation = currentLocation != null,
+        )
+        return currentLocation
     }
 
     @SuppressLint("MissingPermission")
@@ -84,17 +94,22 @@ internal class WatchGpsLocationGateway(
     ) {
         requestMutex.withLock {
             ensureGpsProviderAvailable()
+            val existingListener = activeListenerOrNull()
             val listener =
-                activeListenerOrNull()?.also { it.sink = sink }
+                existingListener?.also { it.sink = sink }
                     ?: run {
-                        removeLocationUpdatesLocked()
+                        removeLocationUpdatesLocked(reason = "replace_listener")
                         clearRecentLocationSignatures()
                         WatchGpsLocationListener(sink)
                     }
+            val isNewListener = existingListener == null
 
             sink.onLocationAvailability(isGpsProviderEnabled())
             registeringListener = listener
             try {
+                if (isNewListener) {
+                    startRawCallbackTelemetrySession()
+                }
                 locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
                     request.intervalMs,
@@ -111,6 +126,9 @@ internal class WatchGpsLocationGateway(
                 synchronized(activeListeners) {
                     activeListeners.remove(listener)
                 }
+                if (isNewListener) {
+                    finishRawCallbackTelemetrySession(reason = "registration_failed")
+                }
                 throw error
             } finally {
                 if (registeringListener === listener) {
@@ -122,11 +140,11 @@ internal class WatchGpsLocationGateway(
 
     override suspend fun removeLocationUpdates() {
         requestMutex.withLock {
-            removeLocationUpdatesLocked()
+            removeLocationUpdatesLocked(reason = "remove_requested")
         }
     }
 
-    private fun removeLocationUpdatesLocked() {
+    private fun removeLocationUpdatesLocked(reason: String) {
         val listeners = drainListeners(includeRegisteringListener = true)
         clearRecentLocationSignatures()
         var firstError: Exception? = null
@@ -139,6 +157,7 @@ internal class WatchGpsLocationGateway(
                 }
             }
         }
+        finishRawCallbackTelemetrySession(reason = reason)
         firstError?.let { throw it }
     }
 
@@ -156,6 +175,7 @@ internal class WatchGpsLocationGateway(
                 }
             }
         }
+        finishRawCallbackTelemetrySession(reason = "remove_best_effort")
     }
 
     fun availabilityReason(): WatchGpsAvailabilityReason =
@@ -170,6 +190,7 @@ internal class WatchGpsLocationGateway(
     ) : LocationListener {
         override fun onLocationChanged(location: Location) {
             sink.onLocationAvailability(true)
+            recordRawCallback(rawLocationCount = 1)
             emitLocations(
                 sink = sink,
                 rawLocations = listOf(location),
@@ -179,6 +200,7 @@ internal class WatchGpsLocationGateway(
         override fun onLocationChanged(locations: MutableList<Location>) {
             if (locations.isNotEmpty()) {
                 sink.onLocationAvailability(true)
+                recordRawCallback(rawLocationCount = locations.size)
                 emitLocations(
                     sink = sink,
                     rawLocations = locations.toList(),
@@ -204,6 +226,7 @@ internal class WatchGpsLocationGateway(
         rawLocations: List<Location>,
     ) {
         val sanitized = sanitizeLocations(rawLocations)
+        recordDuplicatesDropped(sanitized.duplicateCount)
         if (sanitized.locations.isEmpty()) return
         sink.onLocations(
             LocationUpdateEvent(
@@ -279,6 +302,53 @@ internal class WatchGpsLocationGateway(
         }
     }
 
+    private fun startRawCallbackTelemetrySession() {
+        synchronized(callbackTelemetryLock) {
+            callbackTelemetrySession.start(nowElapsedMs = SystemClock.elapsedRealtime())
+        }
+    }
+
+    private fun recordRawCallback(rawLocationCount: Int) {
+        val firstCallbackDelayMs =
+            synchronized(callbackTelemetryLock) {
+                callbackTelemetrySession.recordRawCallback(
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                    rawLocationCount = rawLocationCount,
+                )
+            }
+        if (firstCallbackDelayMs != null) {
+            telemetry.logWatchGpsFirstRawCallback(
+                delayMs = firstCallbackDelayMs,
+                rawLocationCount = rawLocationCount,
+            )
+        }
+    }
+
+    private fun recordDuplicatesDropped(duplicateCount: Int) {
+        if (duplicateCount <= 0) return
+        synchronized(callbackTelemetryLock) {
+            callbackTelemetrySession.recordDuplicatesDropped(duplicateCount)
+        }
+    }
+
+    private fun finishRawCallbackTelemetrySession(reason: String) {
+        val summary =
+            synchronized(callbackTelemetryLock) {
+                callbackTelemetrySession.finish(
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                    reason = reason,
+                )
+            } ?: return
+        telemetry.logWatchGpsRawCallbackSummary(
+            reason = summary.reason,
+            runtimeMs = summary.runtimeMs,
+            rawCallbackCount = summary.rawCallbackCount,
+            rawLocationCount = summary.rawLocationCount,
+            duplicatesDropped = summary.duplicatesDropped,
+            firstRawCallbackDelayMs = summary.firstRawCallbackDelayMs,
+        )
+    }
+
     private fun ensureGpsProviderAvailable() {
         val availabilityReason =
             resolveWatchGpsAvailabilityReason(
@@ -320,4 +390,64 @@ internal class WatchGpsLocationGateway(
             longitudeE7 = (longitude * 1e7).toInt(),
             accuracyDeciMeters = (accuracy * 10f).toInt(),
         )
+}
+
+internal data class WatchGpsRawCallbackSummary(
+    val reason: String,
+    val runtimeMs: Long,
+    val rawCallbackCount: Int,
+    val rawLocationCount: Int,
+    val duplicatesDropped: Int,
+    val firstRawCallbackDelayMs: Long?,
+)
+
+internal class WatchGpsCallbackTelemetrySession {
+    private var startedAtElapsedMs: Long? = null
+    private var rawCallbackCount: Int = 0
+    private var rawLocationCount: Int = 0
+    private var duplicatesDropped: Int = 0
+    private var firstRawCallbackDelayMs: Long? = null
+
+    fun start(nowElapsedMs: Long) {
+        startedAtElapsedMs = nowElapsedMs
+        rawCallbackCount = 0
+        rawLocationCount = 0
+        duplicatesDropped = 0
+        firstRawCallbackDelayMs = null
+    }
+
+    fun recordRawCallback(
+        nowElapsedMs: Long,
+        rawLocationCount: Int,
+    ): Long? {
+        val startedAt = startedAtElapsedMs ?: return null
+        rawCallbackCount += 1
+        this.rawLocationCount += rawLocationCount.coerceAtLeast(0)
+        if (firstRawCallbackDelayMs != null) return null
+        return (nowElapsedMs - startedAt).coerceAtLeast(0L).also { delayMs ->
+            firstRawCallbackDelayMs = delayMs
+        }
+    }
+
+    fun recordDuplicatesDropped(count: Int) {
+        duplicatesDropped += count.coerceAtLeast(0)
+    }
+
+    fun finish(
+        nowElapsedMs: Long,
+        reason: String,
+    ): WatchGpsRawCallbackSummary? {
+        val startedAt = startedAtElapsedMs ?: return null
+        val summary =
+            WatchGpsRawCallbackSummary(
+                reason = reason,
+                runtimeMs = (nowElapsedMs - startedAt).coerceAtLeast(0L),
+                rawCallbackCount = rawCallbackCount,
+                rawLocationCount = rawLocationCount,
+                duplicatesDropped = duplicatesDropped,
+                firstRawCallbackDelayMs = firstRawCallbackDelayMs,
+            )
+        startedAtElapsedMs = null
+        return summary
+    }
 }

@@ -14,4 +14,8 @@ data class GpsSignalSnapshot(
     val watchGpsDegradedSinceElapsedMs: Long = 0L,
     val environmentWarning: GpsEnvironmentWarning = GpsEnvironmentWarning.NONE,
     val environmentWarningSinceElapsedMs: Long = 0L,
+    val activeSourceModeValue: String? = null,
+    val sourceAcquisitionStartedElapsedMs: Long = 0L,
+    val sourceEpoch: Long = 0L,
+    val requiresFreshLiveFixAfterSourceChange: Boolean = false,
 )

@@ -322,24 +322,30 @@ internal fun NavigateContent(
         }
     }
 
-    fun applyRotaryZoomStep(step: Int): Boolean {
-        val mv = mapView ?: return false
-        val current =
-            mv.model.mapViewPosition.zoomLevel
-                .toInt()
-        val next = (current + step).coerceIn(zoomMin, zoomMax)
-        if (next == current) return false
-        MapLayerMutationCoordinator.setGestureActive(mv, true)
-        try {
-            mv.model.mapViewPosition.setZoomLevel(next.toByte(), false)
-        } finally {
-            MapLayerMutationCoordinator.setGestureActive(mv, false)
-        }
-        triggerHaptic()
-        return true
+    fun applyMapZoomStep(step: Int): Boolean {
+        val zoomApplied =
+            mapView?.let { currentMapView ->
+                val current =
+                    currentMapView.model.mapViewPosition.zoomLevel
+                        .toInt()
+                val next = (current + step).coerceIn(zoomMin, zoomMax)
+                if (next == current) {
+                    false
+                } else {
+                    MapLayerMutationCoordinator.setGestureActive(currentMapView, true)
+                    try {
+                        currentMapView.model.mapViewPosition.setZoomLevel(next.toByte(), false)
+                    } finally {
+                        MapLayerMutationCoordinator.setGestureActive(currentMapView, false)
+                    }
+                    true
+                }
+            } ?: false
+        if (zoomApplied) triggerHaptic()
+        return zoomApplied
     }
 
-    fun canApplyRotaryZoomStep(step: Int): Boolean {
+    fun canApplyMapZoomStep(step: Int): Boolean {
         val mv = mapView ?: return false
         val current =
             mv.model.mapViewPosition.zoomLevel
@@ -565,11 +571,11 @@ internal fun NavigateContent(
                     var consumed = false
 
                     while (rotaryScrollAccumulator >= thresholdPx) {
-                        consumed = applyRotaryZoomStep(step = positiveStep) || consumed
+                        consumed = applyMapZoomStep(step = positiveStep) || consumed
                         rotaryScrollAccumulator -= thresholdPx
                     }
                     while (rotaryScrollAccumulator <= -thresholdPx) {
-                        consumed = applyRotaryZoomStep(step = negativeStep) || consumed
+                        consumed = applyMapZoomStep(step = negativeStep) || consumed
                         rotaryScrollAccumulator += thresholdPx
                     }
 
@@ -582,7 +588,7 @@ internal fun NavigateContent(
                                 rotaryScrollAccumulator < 0f -> negativeStep
                                 else -> 0
                             }
-                        pendingStep != 0 && canApplyRotaryZoomStep(step = pendingStep)
+                        pendingStep != 0 && canApplyMapZoomStep(step = pendingStep)
                     }
                 }.focusRequester(focusRequester)
                 .focusable(),
@@ -845,9 +851,8 @@ internal fun NavigateContent(
                     showZoomPlusButton = showZoomPlusButton,
                     showZoomMinusButton = showZoomMinusButton,
                     currentZoomLevel = currentZoomLevel,
-                    zoomMin = zoomMin,
-                    zoomMax = zoomMax,
                     triggerHaptic = triggerHaptic,
+                    onZoomStep = ::applyMapZoomStep,
                     zoomButtonSize = zoomButtonSize,
                     zoomIconSize = zoomIconSize,
                     scaleIndicator = scaleIndicator,

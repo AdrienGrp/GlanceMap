@@ -74,6 +74,7 @@ internal class LocationRequestCoordinator(
     private val onNoPermissions: (nowElapsedMs: Long) -> Unit,
     private val onNoRequestSpec: (keepOpen: Boolean, tracking: Boolean) -> Unit,
     private val onRequestApplied: (nowElapsedMs: Long, intervalMs: Long) -> Unit,
+    private val onSourceModeChanged: (LocationSourceMode) -> Unit = {},
     private val onRequestFailed: () -> Unit,
     private val maybeTriggerInteractiveSelfHealNow: (nowElapsedMs: Long, interactiveTracking: Boolean, expectedIntervalMs: Long) -> Unit,
     private val recordEnergySample: (reason: String, detail: String) -> Unit,
@@ -201,7 +202,13 @@ internal class LocationRequestCoordinator(
                     )
                     if (isSuperseded(generation)) return@launch
 
-                    engine.markRequestApplied(requestSpec)
+                    engine.markRequestApplied(
+                        spec = requestSpec,
+                        nowElapsedMs = nowElapsedMs,
+                    )
+                    if (previousSourceMode != null && previousSourceMode != requestSpec.sourceMode) {
+                        onSourceModeChanged(requestSpec.sourceMode)
+                    }
                     resetRetryState()
                     onRequestApplied(nowElapsedMs, requestSpec.intervalMs)
                     telemetry.logRequestUpdatesApplied(

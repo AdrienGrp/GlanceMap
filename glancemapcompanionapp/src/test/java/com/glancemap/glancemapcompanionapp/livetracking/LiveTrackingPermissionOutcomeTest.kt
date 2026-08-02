@@ -1,5 +1,6 @@
 package com.glancemap.glancemapcompanionapp.livetracking
 
+import android.Manifest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -68,6 +69,25 @@ class LiveTrackingPermissionOutcomeTest {
                 supportsBackgroundLocation = false,
                 foregroundLocationGranted = true,
                 backgroundLocationGranted = false,
+            ),
+        )
+    }
+
+    @Test
+    fun locationDisclosureIsRequiredBeforeAnyMissingLocationPrompt() {
+        assertEquals(
+            true,
+            needsLiveTrackingLocationDisclosure(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ),
+            ),
+        )
+        assertEquals(
+            false,
+            needsLiveTrackingLocationDisclosure(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
             ),
         )
     }

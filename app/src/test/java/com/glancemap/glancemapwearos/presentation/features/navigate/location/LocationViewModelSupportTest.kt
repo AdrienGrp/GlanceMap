@@ -21,6 +21,13 @@ class LocationViewModelSupportTest {
     }
 
     @Test
+    fun locationServiceStartRequiresAnActiveUiOrExistingConnection() {
+        assertTrue(shouldAttemptLocationServiceStart(appResumed = true, hasActiveConnection = false))
+        assertTrue(shouldAttemptLocationServiceStart(appResumed = false, hasActiveConnection = true))
+        assertFalse(shouldAttemptLocationServiceStart(appResumed = false, hasActiveConnection = false))
+    }
+
+    @Test
     fun wakeBurstSkipsOnlyForARecentAccurateFixAfterAShortScreenOff() {
         val decision =
             evaluateWakeBurstSkipCandidate(

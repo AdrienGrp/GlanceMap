@@ -121,6 +121,7 @@ internal class LocationEngine(
                 accuracyM = accuracyM,
                 freshnessMaxAgeMs = freshnessMaxAgeMs,
                 sourceMode = sourceMode,
+                accepted = accepted,
             )
         telemetry.logGpsSignalSample(
             ageMs = sample.ageMs,
@@ -241,7 +242,10 @@ internal class LocationEngine(
             effectiveIntervalMs == spec.intervalMs
     }
 
-    fun markRequestApplied(spec: RequestSpec) {
+    fun markRequestApplied(
+        spec: RequestSpec,
+        nowElapsedMs: Long = 0L,
+    ) {
         val previousSourceMode =
             synchronized(requestStateLock) {
                 previousSourceModeBeforeRefresh ?: appliedRequestState?.sourceMode
@@ -260,7 +264,10 @@ internal class LocationEngine(
                 )
             previousSourceModeBeforeRefresh = null
         }
-        gpsSignalTracker.onSourceModeChanged(spec.sourceMode)
+        gpsSignalTracker.onSourceModeChanged(
+            sourceMode = spec.sourceMode,
+            nowElapsedMs = nowElapsedMs,
+        )
     }
 
     fun hasAppliedRequest(): Boolean = synchronized(requestStateLock) { appliedRequestState != null }

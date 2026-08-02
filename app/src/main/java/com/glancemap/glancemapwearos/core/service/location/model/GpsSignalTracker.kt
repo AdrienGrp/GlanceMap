@@ -16,19 +16,44 @@ internal class GpsSignalTracker {
     private var watchGpsDegradedFixStreak: Int = 0
     private var watchGpsDegradedSinceMs: Long = 0L
     private var environmentWarningSinceMs: Long = 0L
+    private var sourceEpoch: Long = 0L
+    private var activeSourceMode: LocationSourceMode? = null
 
-    fun onSourceModeChanged(sourceMode: LocationSourceMode?) {
+    fun onSourceModeChanged(
+        sourceMode: LocationSourceMode?,
+        nowElapsedMs: Long = 0L,
+    ) {
+        val previousSourceMode = activeSourceMode
+        val sourceChanged = previousSourceMode != sourceMode
         val watchGpsOnlyActive = sourceMode == LocationSourceMode.WATCH_GPS
         if (!watchGpsOnlyActive) {
             watchGpsDegradedFixStreak = 0
             watchGpsDegradedSinceMs = 0L
         }
+        if (sourceChanged) {
+            sourceEpoch += 1L
+        }
+        activeSourceMode = sourceMode
+        val needsFreshLiveFix =
+            sourceChanged && previousSourceMode != null && sourceMode != null
         snapshot =
             snapshot.copy(
                 watchGpsOnlyActive = watchGpsOnlyActive,
                 watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L,
                 watchGpsDegradedFixStreak = if (watchGpsOnlyActive) watchGpsDegradedFixStreak else 0,
                 watchGpsDegradedSinceElapsedMs = if (watchGpsOnlyActive) watchGpsDegradedSinceMs else 0L,
+                activeSourceModeValue = sourceMode?.telemetryValue,
+                sourceAcquisitionStartedElapsedMs =
+                    if (sourceChanged && sourceMode != null) {
+                        nowElapsedMs
+                    } else if (sourceMode == null) {
+                        0L
+                    } else {
+                        snapshot.sourceAcquisitionStartedElapsedMs
+                    },
+                sourceEpoch = sourceEpoch,
+                requiresFreshLiveFixAfterSourceChange =
+                    if (sourceChanged) needsFreshLiveFix else snapshot.requiresFreshLiveFixAfterSourceChange,
             )
     }
 
@@ -90,6 +115,7 @@ internal class GpsSignalTracker {
         accuracyM: Float,
         freshnessMaxAgeMs: Long,
         sourceMode: LocationSourceMode?,
+        accepted: Boolean? = null,
     ): GpsSignalSample {
         locationUnavailableSinceMs = 0L
         val fixElapsedMs =
@@ -120,6 +146,11 @@ internal class GpsSignalTracker {
         val watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L
         val environmentWarning = snapshot.environmentWarning
         val environmentWarningSinceElapsedMs = snapshot.environmentWarningSinceElapsedMs
+        val freshLiveFixFromActiveSource =
+            accepted == true &&
+                fixFresh &&
+                sourceMode != null &&
+                sourceMode == activeSourceMode
         snapshot =
             GpsSignalSnapshot(
                 lastFixElapsedRealtimeMs = fixElapsedMs,
@@ -135,6 +166,11 @@ internal class GpsSignalTracker {
                 watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs,
                 environmentWarning = environmentWarning,
                 environmentWarningSinceElapsedMs = environmentWarningSinceElapsedMs,
+                activeSourceModeValue = activeSourceMode?.telemetryValue,
+                sourceAcquisitionStartedElapsedMs = snapshot.sourceAcquisitionStartedElapsedMs,
+                sourceEpoch = sourceEpoch,
+                requiresFreshLiveFixAfterSourceChange =
+                    snapshot.requiresFreshLiveFixAfterSourceChange && !freshLiveFixFromActiveSource,
             )
         return GpsSignalSample(
             ageMs = ageMs,
@@ -153,6 +189,8 @@ internal class GpsSignalTracker {
         watchGpsDegradedFixStreak = 0
         watchGpsDegradedSinceMs = 0L
         environmentWarningSinceMs = 0L
+        sourceEpoch = 0L
+        activeSourceMode = null
         snapshot =
             GpsSignalSnapshot(
                 isLocationAvailable = false,
@@ -166,6 +204,8 @@ internal class GpsSignalTracker {
         watchGpsDegradedFixStreak = 0
         watchGpsDegradedSinceMs = 0L
         environmentWarningSinceMs = 0L
+        sourceEpoch = 0L
+        activeSourceMode = null
         snapshot = GpsSignalSnapshot()
     }
 

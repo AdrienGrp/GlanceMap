@@ -328,6 +328,12 @@ internal fun missingLiveTrackingRuntimePermissions(context: Context): Array<Stri
         }
     }.toTypedArray()
 
+internal fun needsLiveTrackingLocationDisclosure(missingPermissions: Array<String>): Boolean =
+    missingPermissions.any { permission ->
+        permission == Manifest.permission.ACCESS_FINE_LOCATION ||
+            permission == Manifest.permission.ACCESS_COARSE_LOCATION
+    }
+
 internal fun sessionStatusText(state: LiveTrackingUiState): String {
     val lastUpdate = state.lastSuccessfulUpdateEpochMs
     val lastUpdateText =
