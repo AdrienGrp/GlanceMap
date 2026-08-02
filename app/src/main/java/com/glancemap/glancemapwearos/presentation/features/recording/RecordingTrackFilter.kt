@@ -38,7 +38,6 @@ internal enum class RecordingFixQualityReason {
 internal data class RecordingFixQualityResult(
     val status: RecordingFixQualityStatus,
     val reason: RecordingFixQualityReason,
-    val startsNewSegment: Boolean = false,
 ) {
     val accepted: Boolean get() = status == RecordingFixQualityStatus.ACCEPTED
 }
@@ -46,8 +45,7 @@ internal data class RecordingFixQualityResult(
 /**
  * Rejects fixes that cannot safely become part of the canonical recording. A single
  * implausible jump is held until the next sampled fix either disproves it or confirms that
- * GPS has genuinely reacquired in a different location. Confirmed reacquisition starts a new
- * segment so the missing interval never becomes artificial distance.
+ * GPS has genuinely reacquired in a different location.
  */
 internal class RecordingFixQualityGate {
     private var lastSeenElapsedRealtimeMillis = Long.MIN_VALUE
@@ -122,14 +120,12 @@ internal class RecordingFixQualityGate {
     private fun accept(
         candidate: RecordingFixSample,
         reason: RecordingFixQualityReason,
-        startsNewSegment: Boolean = false,
     ): RecordingFixQualityResult {
         lastAccepted = candidate
         pendingImplausible = null
         return RecordingFixQualityResult(
             status = RecordingFixQualityStatus.ACCEPTED,
             reason = reason,
-            startsNewSegment = startsNewSegment,
         )
     }
 
@@ -158,7 +154,6 @@ internal class RecordingFixQualityGate {
             return accept(
                 candidate = candidate,
                 reason = RecordingFixQualityReason.CONFIRMED_RELOCATION,
-                startsNewSegment = true,
             )
         }
         pendingImplausible = candidate

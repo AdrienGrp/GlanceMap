@@ -21,7 +21,9 @@ fun RecordingSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
+    val autoPauseMode by viewModel.recordingAutoPauseMode.collectAsState()
     val trackSmoothingMode by viewModel.recordingTrackSmoothingMode.collectAsState()
+    val autoPauseEnabled = autoPauseMode == SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -35,6 +37,22 @@ fun RecordingSettingsScreen(
             GeneralSettingsShortcutChip(
                 onClick = onOpenGeneralSettings,
                 applyTopPadding = false,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = autoPauseEnabled,
+                onCheckedChanged = { enabled ->
+                    viewModel.setRecordingAutoPauseMode(
+                        if (enabled) {
+                            SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+                        } else {
+                            SettingsRepository.RECORDING_AUTO_PAUSE_OFF
+                        },
+                    )
+                },
+                label = "Auto-pause",
+                secondaryLabel = if (autoPauseEnabled) "Pause REC when still" else "Keep REC running",
             )
         }
         item {
