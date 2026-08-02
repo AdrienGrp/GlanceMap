@@ -323,20 +323,26 @@ internal fun NavigateContent(
     }
 
     fun applyMapZoomStep(step: Int): Boolean {
-        val mv = mapView ?: return false
-        val current =
-            mv.model.mapViewPosition.zoomLevel
-                .toInt()
-        val next = (current + step).coerceIn(zoomMin, zoomMax)
-        if (next == current) return false
-        MapLayerMutationCoordinator.setGestureActive(mv, true)
-        try {
-            mv.model.mapViewPosition.setZoomLevel(next.toByte(), false)
-        } finally {
-            MapLayerMutationCoordinator.setGestureActive(mv, false)
-        }
-        triggerHaptic()
-        return true
+        val zoomApplied =
+            mapView?.let { currentMapView ->
+                val current =
+                    currentMapView.model.mapViewPosition.zoomLevel
+                        .toInt()
+                val next = (current + step).coerceIn(zoomMin, zoomMax)
+                if (next == current) {
+                    false
+                } else {
+                    MapLayerMutationCoordinator.setGestureActive(currentMapView, true)
+                    try {
+                        currentMapView.model.mapViewPosition.setZoomLevel(next.toByte(), false)
+                    } finally {
+                        MapLayerMutationCoordinator.setGestureActive(currentMapView, false)
+                    }
+                    true
+                }
+            } ?: false
+        if (zoomApplied) triggerHaptic()
+        return zoomApplied
     }
 
     fun canApplyMapZoomStep(step: Int): Boolean {
