@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.presentation.features.recording
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -66,7 +65,6 @@ class RecordingTrackFilterTest {
 
         assertEquals(RecordingFixQualityStatus.HELD, jump.status)
         assertTrue(recovered.accepted)
-        assertFalse(recovered.startsNewSegment)
     }
 
     @Test
@@ -81,7 +79,7 @@ class RecordingTrackFilterTest {
     }
 
     @Test
-    fun twoConsistentFixesAfterJumpStartNewSegment() {
+    fun twoConsistentFixesAfterJumpConfirmRelocation() {
         val gate = RecordingFixQualityGate()
         assertTrue(gate.evaluate(sample(x = 0.0, elapsedMillis = 1_000L), HIKE).accepted)
         assertEquals(
@@ -92,7 +90,6 @@ class RecordingTrackFilterTest {
         val confirmed = gate.evaluate(sample(x = 504.0, elapsedMillis = 7_000L), HIKE)
 
         assertTrue(confirmed.accepted)
-        assertTrue(confirmed.startsNewSegment)
         assertEquals(RecordingFixQualityReason.CONFIRMED_RELOCATION, confirmed.reason)
     }
 
@@ -125,13 +122,11 @@ class RecordingTrackFilterTest {
 
         assertEquals(RecordingFixQualityStatus.HELD, firstFastFix.status)
         assertTrue(confirmedFastFix.accepted)
-        assertFalse(confirmedFastFix.startsNewSegment)
         assertEquals(
             RecordingFixQualityReason.CONFIRMED_SUSTAINED_MOVEMENT,
             confirmedFastFix.reason,
         )
         assertTrue(followingFastFix.accepted)
-        assertFalse(followingFastFix.startsNewSegment)
     }
 
     @Test
@@ -160,33 +155,7 @@ class RecordingTrackFilterTest {
             )
 
         assertTrue(result.accepted)
-        assertTrue(result.startsNewSegment)
         assertEquals(RecordingFixQualityReason.CONFIRMED_RELOCATION, result.reason)
-    }
-
-    @Test
-    fun gpsLossGapStartsANewSegmentOnlyAfterTheThreshold() {
-        assertFalse(
-            recordingGapRequiresNewSegment(
-                elapsedSinceAcceptedMs = 14_999L,
-                gapThresholdMillis = 15_000L,
-                hasRecordedPoints = true,
-            ),
-        )
-        assertTrue(
-            recordingGapRequiresNewSegment(
-                elapsedSinceAcceptedMs = 15_000L,
-                gapThresholdMillis = 15_000L,
-                hasRecordedPoints = true,
-            ),
-        )
-        assertFalse(
-            recordingGapRequiresNewSegment(
-                elapsedSinceAcceptedMs = 30_000L,
-                gapThresholdMillis = 15_000L,
-                hasRecordedPoints = false,
-            ),
-        )
     }
 
     @Test

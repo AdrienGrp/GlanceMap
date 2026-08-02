@@ -16,6 +16,8 @@ import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.b
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorConnectionStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorMetrics
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,6 +123,8 @@ class TraceRecordingViewModel(
     private var maxSmoothedAdjustmentMeters = 0.0
     private var latestRecordingStartLocation: Location? = null
     private var latestGpsSignalSnapshot = GpsSignalSnapshot()
+    private var pendingRecordingStartSource: String? = null
+    private var pendingRecordingStartTimeout: Job? = null
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
@@ -225,15 +229,19 @@ class TraceRecordingViewModel(
 
     fun startRecording() {
         if (isRecordingStartBlocked()) return
-        if (ensureLocationReadyForRecordingStart(source = "rec_tap")) {
+        if (isLocationReadyForRecordingStart()) {
             startRecordingAfterLocationPreflight()
+        } else {
+            waitForFreshLocationBeforeStartingRecording(source = "rec_tap")
         }
     }
 
     private fun isRecordingStartBlocked(): Boolean {
         val state = _uiState.value
         if (state.active || state.saving) return true
-        return _startWarning.value != null || _locationStartWarning.value != null
+        return _startWarning.value != null ||
+            _locationStartWarning.value != null ||
+            pendingRecordingStartSource != null
     }
 
     private fun startRecordingAfterLocationPreflight() {
@@ -340,6 +348,7 @@ class TraceRecordingViewModel(
 
     fun onGpsSignalSnapshot(snapshot: GpsSignalSnapshot) {
         latestGpsSignalSnapshot = snapshot
+        startPendingRecordingWhenLocationReady()
     }
 
     private fun startRecordingNow() {
@@ -375,6 +384,7 @@ class TraceRecordingViewModel(
 
     fun onLocation(location: Location?) {
         latestRecordingStartLocation = location
+        startPendingRecordingWhenLocationReady()
         if (location == null) return
         val state = _uiState.value
         if (!state.active || state.saving) return
@@ -512,23 +522,16 @@ class TraceRecordingViewModel(
             }
             return
         }
-        val startsNewSegmentAfterGpsGap =
-            recordingGapRequiresNewSegment(
-                elapsedSinceAcceptedMs = elapsedSinceAcceptedMs,
-                gapThresholdMillis = recordingGapThresholdMillis(),
-                hasRecordedPoints = state.points.isNotEmpty(),
-            )
-        val startsNewSegmentForPoint =
-            startNewSegmentOnNextPoint ||
-                fixQualityResult.startsNewSegment ||
-                startsNewSegmentAfterGpsGap
+        // A REC session stays continuous despite transient GPS gaps or fix reacquisition.
+        // Only a user-initiated pause/resume creates an explicit GPX segment boundary.
+        val startsNewSegmentForPoint = startNewSegmentOnNextPoint
         startNewSegmentOnNextPoint = false
         if (fixQualityResult.reason == RecordingFixQualityReason.CONFIRMED_RELOCATION) {
             qualityRelocationCount += 1
             DebugTelemetry.log(
                 "TraceRecording",
                 "event=fix_quality_confirmed_relocation count=$qualityRelocationCount " +
-                    "action=new_segment accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
+                    "action=continue_track accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
             )
         }
         if (fixQualityResult.reason == RecordingFixQualityReason.CONFIRMED_SUSTAINED_MOVEMENT) {
@@ -539,23 +542,16 @@ class TraceRecordingViewModel(
                     "accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
             )
         }
-        if (forceAcceptReason == null && elapsedSinceAcceptedMs >= recordingGapThresholdMillis()) {
+        if (forceAcceptReason == null && elapsedSinceAcceptedMs >= recordingGapTelemetryThresholdMillis()) {
             gapRecoveryAcceptCount += 1
             DebugTelemetry.log(
                 "TraceRecording",
                 "event=gap_recovery_accept gapRecoveryAcceptCount=$gapRecoveryAcceptCount " +
                     "elapsedSinceAcceptedMs=$elapsedSinceAcceptedMs " +
-                    "thresholdMs=${recordingGapThresholdMillis()} " +
+                    "thresholdMs=${recordingGapTelemetryThresholdMillis()} " +
                     "sampleIntervalSeconds=$sampleIntervalSeconds " +
                     "provider=${sanitizeTelemetryValue(location.provider ?: "na")} " +
                     "accuracyMeters=${livePoint.accuracyMeters?.toInt() ?: -1}",
-            )
-        }
-        if (startsNewSegmentAfterGpsGap) {
-            DebugTelemetry.log(
-                "TraceRecording",
-                "event=gps_loss_segment elapsedSinceAcceptedMs=$elapsedSinceAcceptedMs " +
-                    "thresholdMs=${recordingGapThresholdMillis()} action=new_segment",
             )
         }
         if (forceAcceptReason != null) {
@@ -736,11 +732,9 @@ class TraceRecordingViewModel(
     }
 
     private fun ensureLocationReadyForRecordingStart(source: String): Boolean {
+        if (isLocationReadyForRecordingStart()) return true
         val location = latestRecordingStartLocation
         val hasUsableLocation = location?.let(::isUsableLocation) == true
-        if (isRecordingStartLocationReady(hasUsableLocation, latestGpsSignalSnapshot)) {
-            return true
-        }
         _locationStartWarning.value =
             RecordingLocationStartWarning
         DebugTelemetry.log(
@@ -752,6 +746,47 @@ class TraceRecordingViewModel(
                 "lastFixAgeMs=${latestGpsSignalSnapshot.lastFixAgeMs}",
         )
         return false
+    }
+
+    private fun isLocationReadyForRecordingStart(): Boolean =
+        isRecordingStartLocationReady(
+            hasUsableLocation = latestRecordingStartLocation?.let(::isUsableLocation) == true,
+            gpsSignalSnapshot = latestGpsSignalSnapshot,
+        )
+
+    private fun waitForFreshLocationBeforeStartingRecording(source: String) {
+        pendingRecordingStartSource = source
+        _uiState.value = _uiState.value.copy(message = "Starting REC…")
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=start_waiting_for_fresh_location source=$source " +
+                "timeoutMs=$RECORDING_START_FRESH_FIX_TIMEOUT_MS",
+        )
+        pendingRecordingStartTimeout =
+            viewModelScope.launch {
+                delay(RECORDING_START_FRESH_FIX_TIMEOUT_MS)
+                if (pendingRecordingStartSource != source) return@launch
+                pendingRecordingStartSource = null
+                pendingRecordingStartTimeout = null
+                _uiState.value = _uiState.value.copy(message = null)
+                ensureLocationReadyForRecordingStart(source = "${source}_timeout")
+            }
+    }
+
+    private fun startPendingRecordingWhenLocationReady() {
+        val source = pendingRecordingStartSource ?: return
+        if (!isLocationReadyForRecordingStart()) return
+
+        pendingRecordingStartSource = null
+        pendingRecordingStartTimeout?.cancel()
+        pendingRecordingStartTimeout = null
+        _uiState.value = _uiState.value.copy(message = null)
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=start_pending_location_ready source=$source " +
+                "lastFixAgeMs=${latestGpsSignalSnapshot.lastFixAgeMs}",
+        )
+        startRecordingAfterLocationPreflight()
     }
 
     fun onSensorMetrics(metrics: RecordingSensorMetrics) {
@@ -1295,7 +1330,7 @@ class TraceRecordingViewModel(
         val addedPausedMillis = state.pausedAtMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: 0L
         lastAcceptedElapsedMs = Long.MIN_VALUE
         lastAcceptedPointTimeMillis = null
-        startNewSegmentOnNextPoint = state.points.isNotEmpty()
+        startNewSegmentOnNextPoint = false
         recordingFixQualityGate.reset()
         resetAutoPauseMotionState()
         autoResumeTriggerCount += 1
@@ -1466,7 +1501,7 @@ class TraceRecordingViewModel(
             val gapMillis = (point.timeMillis - previousPointTimeMillis).coerceAtLeast(0L)
             val expectedActiveGapMillis = expectedActivePointGapMillis()
             gpsActiveDurationMillis += minOf(gapMillis, expectedActiveGapMillis)
-            val thresholdMillis = recordingGapThresholdMillis()
+            val thresholdMillis = recordingGapTelemetryThresholdMillis()
             if (gapMillis > thresholdMillis) {
                 recordingGapCount += 1
                 recordingMaxGapMillis = maxOf(recordingMaxGapMillis, gapMillis)
@@ -1544,7 +1579,11 @@ class TraceRecordingViewModel(
         return (durationMillis / intervalMillis + 1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
-    private fun recordingGapThresholdMillis(): Long = maxOf(effectiveSampleIntervalSeconds() * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
+    private fun recordingGapTelemetryThresholdMillis(): Long =
+        maxOf(
+            effectiveSampleIntervalSeconds() * 2_000L,
+            RECORDING_GAP_TELEMETRY_MIN_THRESHOLD_MS,
+        )
 
     private fun updateAccuracyTelemetry(accuracyMeters: Float?) {
         val accuracy = accuracyMeters ?: return
@@ -1782,7 +1821,7 @@ private fun sensorAgeMillis(
     updatedAtMillis: Long,
 ): Long = updatedAtMillis.takeIf { it > 0L }?.let { (nowMillis - it).coerceAtLeast(0L) } ?: -1L
 
-private const val RECORDING_GAP_MIN_THRESHOLD_MS = 15_000L
+private const val RECORDING_GAP_TELEMETRY_MIN_THRESHOLD_MS = 15_000L
 private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
 private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
 private const val RECORDING_FORCE_ACCEPT_MIN_AGE_MS = 2_000L
@@ -1870,15 +1909,6 @@ internal fun recordingJitterDistanceToSuppress(
     return distanceMeters.takeIf { it <= deadbandMeters }
 }
 
-internal fun recordingGapRequiresNewSegment(
-    elapsedSinceAcceptedMs: Long,
-    gapThresholdMillis: Long,
-    hasRecordedPoints: Boolean,
-): Boolean =
-    hasRecordedPoints &&
-        gapThresholdMillis > 0L &&
-        elapsedSinceAcceptedMs >= gapThresholdMillis
-
 private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Double, Double> {
     var gain = 0.0
     var loss = 0.0
@@ -1927,6 +1957,7 @@ private fun Float.formatTelemetry(decimalPlaces: Int): String = toDouble().forma
 
 private const val RECORDING_TELEMETRY_POINT_INTERVAL = 10
 private const val RECORDING_LIVE_TELEMETRY_SKIP_INTERVAL = 20
+private const val RECORDING_START_FRESH_FIX_TIMEOUT_MS = 6_000L
 private const val RECORDING_JITTER_TELEMETRY_INTERVAL = 10
 private const val RECORDING_JITTER_KEEPALIVE_MS = 30_000L
 private const val RECORDING_JITTER_MAX_SPEED_MPS = 0.5f
