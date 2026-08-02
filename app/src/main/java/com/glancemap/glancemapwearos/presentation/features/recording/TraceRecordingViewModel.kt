@@ -1579,7 +1579,11 @@ class TraceRecordingViewModel(
         return (durationMillis / intervalMillis + 1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
-    private fun recordingGapTelemetryThresholdMillis(): Long = maxOf(effectiveSampleIntervalSeconds() * 2_000L, RECORDING_GAP_TELEMETRY_MIN_THRESHOLD_MS)
+    private fun recordingGapTelemetryThresholdMillis(): Long =
+        maxOf(
+            effectiveSampleIntervalSeconds() * 2_000L,
+            RECORDING_GAP_TELEMETRY_MIN_THRESHOLD_MS,
+        )
 
     private fun updateAccuracyTelemetry(accuracyMeters: Float?) {
         val accuracy = accuracyMeters ?: return
