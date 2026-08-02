@@ -692,6 +692,7 @@ private enum class NavButtonTrustState {
     GOOD,
     SEARCHING,
     CAUTION,
+    LOST,
     UNAVAILABLE,
 }
 
@@ -754,6 +755,7 @@ internal fun BoxScope.NavModeButtonOverlay(
                     Color(0xFF81D4FA).copy(alpha = 0.32f)
                 }
             NavButtonTrustState.CAUTION -> Color(0xFFFFB74D).copy(alpha = 0.92f)
+            NavButtonTrustState.LOST -> Color(0xFFEF5350).copy(alpha = 0.95f)
             NavButtonTrustState.UNAVAILABLE -> Color(0xFFEF5350).copy(alpha = 0.95f)
             NavButtonTrustState.GOOD -> Color.Transparent
         }
@@ -766,6 +768,7 @@ internal fun BoxScope.NavModeButtonOverlay(
                     Color(0xFF29B6F6).copy(alpha = 0.08f)
                 }
             NavButtonTrustState.CAUTION -> Color(0xFFFFA726).copy(alpha = 0.16f)
+            NavButtonTrustState.LOST -> Color(0xFFE53935).copy(alpha = 0.18f)
             NavButtonTrustState.UNAVAILABLE -> Color(0xFFE53935).copy(alpha = 0.18f)
             NavButtonTrustState.GOOD -> Color.Transparent
         }
@@ -855,6 +858,7 @@ private fun resolveNavButtonTrustState(
     return when {
         gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE -> NavButtonTrustState.UNAVAILABLE
         gpsIndicatorState == GpsFixIndicatorState.SEARCHING -> NavButtonTrustState.SEARCHING
+        gpsIndicatorState == GpsFixIndicatorState.LOST -> NavButtonTrustState.LOST
         watchGpsDegradedWarning || gpsIndicatorState == GpsFixIndicatorState.POOR -> NavButtonTrustState.CAUTION
         else -> NavButtonTrustState.GOOD
     }

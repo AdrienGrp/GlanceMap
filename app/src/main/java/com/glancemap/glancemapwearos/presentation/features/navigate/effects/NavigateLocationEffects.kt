@@ -127,6 +127,10 @@ internal fun rememberNavigateLocationUiState(
     var indicatorWatchGpsOnlyActive by remember { mutableStateOf(false) }
     var indicatorWatchGpsDegraded by remember { mutableStateOf(false) }
     var indicatorEnvironmentWarning by remember { mutableStateOf(GpsEnvironmentWarning.NONE) }
+    var indicatorSourceAcquisitionStartedAtElapsedMs by remember { mutableLongStateOf(0L) }
+    var indicatorSourceEpoch by remember { mutableLongStateOf(0L) }
+    var indicatorRequiresFreshLiveFixAfterSourceChange by remember { mutableStateOf(false) }
+    var gpsIndicatorAbnormalSinceElapsedMs by remember { mutableLongStateOf(0L) }
     var holdMarkerUntilFreshFix by
         remember(shouldTrackLocation, screenState) {
             mutableStateOf(shouldTrackLocation && !screenState.isNonInteractive)
@@ -390,6 +394,9 @@ internal fun rememberNavigateLocationUiState(
             indicatorWatchGpsOnlyActive = signal.watchGpsOnlyActive
             indicatorWatchGpsDegraded = signal.watchGpsOnlyActive && signal.watchGpsDegraded
             indicatorEnvironmentWarning = signal.environmentWarning
+            indicatorSourceAcquisitionStartedAtElapsedMs = signal.sourceAcquisitionStartedElapsedMs
+            indicatorSourceEpoch = signal.sourceEpoch
+            indicatorRequiresFreshLiveFixAfterSourceChange = signal.requiresFreshLiveFixAfterSourceChange
             markerMotionSignal.trySend(Unit)
         }
     }
@@ -402,12 +409,38 @@ internal fun rememberNavigateLocationUiState(
             lastFixAtElapsedMs = indicatorFixAtElapsedMs,
             accuracyM = indicatorFixAccuracyM,
             watchGpsOnlyActive = indicatorWatchGpsOnlyActive,
+            requiresFreshLiveFixAfterSourceChange = indicatorRequiresFreshLiveFixAfterSourceChange,
             nowElapsedMs = gpsIndicatorClockMs,
             staleThresholdMs = gpsStaleIndicatorThresholdMs,
         )
+    val gpsIndicatorWarningCondition =
+        shouldTrackLocation &&
+            gpsIndicatorRawState != GpsFixIndicatorState.GOOD &&
+            gpsIndicatorRawState != GpsFixIndicatorState.UNAVAILABLE
+    LaunchedEffect(
+        gpsIndicatorWarningCondition,
+        indicatorSourceEpoch,
+        indicatorSourceAcquisitionStartedAtElapsedMs,
+    ) {
+        gpsIndicatorAbnormalSinceElapsedMs =
+            when {
+                !gpsIndicatorWarningCondition -> 0L
+                indicatorRequiresFreshLiveFixAfterSourceChange &&
+                    indicatorSourceAcquisitionStartedAtElapsedMs > 0L ->
+                    indicatorSourceAcquisitionStartedAtElapsedMs
+                gpsIndicatorAbnormalSinceElapsedMs <= 0L -> android.os.SystemClock.elapsedRealtime()
+                else -> gpsIndicatorAbnormalSinceElapsedMs
+            }
+    }
+    val gpsIndicatorEscalatedState =
+        resolveGpsIndicatorEscalationState(
+            rawState = gpsIndicatorRawState,
+            abnormalSinceElapsedMs = gpsIndicatorAbnormalSinceElapsedMs,
+            nowElapsedMs = gpsIndicatorClockMs,
+        )
     val gpsIndicatorDisplayRawState =
         resolveGpsIndicatorDisplayState(
-            rawState = gpsIndicatorRawState,
+            rawState = gpsIndicatorEscalatedState,
         )
     val activeEnvironmentWarning =
         if (shouldTrackLocation) {
@@ -422,15 +455,34 @@ internal fun rememberNavigateLocationUiState(
         )
     val watchGpsDegradedWarning =
         shouldTrackLocation &&
-            (
-                indicatorWatchGpsDegraded ||
-                    activeEnvironmentWarning == GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS
-            )
+            indicatorWatchGpsDegraded
     val showGpsIndicatorUnpinned =
         shouldShowGpsIndicatorUnpinned(
             gpsIndicatorState = gpsIndicatorState,
             watchGpsDegradedWarning = watchGpsDegradedWarning,
         )
+
+    LaunchedEffect(indicatorSourceEpoch) {
+        // The first source application has no old marker to invalidate. Every later source epoch
+        // replaces Phone/Watch data, so a retained marker would otherwise look live but be wrong.
+        if (indicatorSourceEpoch <= 1L) return@LaunchedEffect
+        locationMarker?.let { marker ->
+            mapView.mutateLayers { layers -> layers.remove(marker) }
+        }
+        locationMarker = null
+        lastRenderedMarkerLatLong = null
+        lastAcceptedLocationFixElapsedMs = 0L
+        latestAcceptedFixSpeedMps = 0f
+        latestAcceptedFixBearingDeg = null
+        lastMarkerVisualUpdateAtElapsedMs = 0L
+        lastMarkerMotionAdvanceAtElapsedMs = 0L
+        markerMotionController.reset(
+            reason = "location_source_changed",
+            nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
+        )
+        markerMotionController.requireFreshFixForPrediction(reason = "location_source_changed")
+        mapView.requestLayerRedrawSafely()
+    }
 
     LaunchedEffect(mapView, navigationMarkerBitmap) {
         if (latestSuppressLocationMarker.value) {
@@ -1422,6 +1474,7 @@ internal fun resolveGpsIndicatorState(
     lastFixAtElapsedMs: Long,
     accuracyM: Float,
     watchGpsOnlyActive: Boolean = false,
+    requiresFreshLiveFixAfterSourceChange: Boolean = false,
     nowElapsedMs: Long,
     staleThresholdMs: Long,
 ): GpsFixIndicatorState {
@@ -1434,7 +1487,8 @@ internal fun resolveGpsIndicatorState(
     val hasFreshUsableFix =
         lastFixAtElapsedMs > 0L &&
             ageMs <= staleThresholdMs &&
-            accuracyM.isFinite()
+            accuracyM.isFinite() &&
+            !requiresFreshLiveFixAfterSourceChange
 
     return when {
         hasFreshUsableFix -> {
@@ -1490,6 +1544,24 @@ internal fun resolveGpsIndicatorDisplayState(
     rawState: GpsFixIndicatorState,
 ): GpsFixIndicatorState = rawState
 
+internal fun resolveGpsIndicatorEscalationState(
+    rawState: GpsFixIndicatorState,
+    abnormalSinceElapsedMs: Long,
+    nowElapsedMs: Long,
+): GpsFixIndicatorState {
+    if (rawState == GpsFixIndicatorState.GOOD || rawState == GpsFixIndicatorState.UNAVAILABLE) {
+        return rawState
+    }
+    if (abnormalSinceElapsedMs <= 0L) return GpsFixIndicatorState.SEARCHING
+
+    val abnormalDurationMs = (nowElapsedMs - abnormalSinceElapsedMs).coerceAtLeast(0L)
+    return when {
+        abnormalDurationMs < GPS_INDICATOR_CAUTION_AFTER_MS -> GpsFixIndicatorState.SEARCHING
+        abnormalDurationMs < GPS_INDICATOR_LOST_AFTER_MS -> GpsFixIndicatorState.POOR
+        else -> GpsFixIndicatorState.LOST
+    }
+}
+
 internal fun resolveGpsIndicatorStateForEnvironment(
     rawState: GpsFixIndicatorState,
     environmentWarning: GpsEnvironmentWarning,
@@ -1508,8 +1580,12 @@ internal fun shouldShowGpsIndicatorUnpinned(
     watchGpsDegradedWarning: Boolean,
 ): Boolean =
     gpsIndicatorState == GpsFixIndicatorState.SEARCHING ||
+        gpsIndicatorState == GpsFixIndicatorState.LOST ||
         gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE ||
         watchGpsDegradedWarning
+
+private const val GPS_INDICATOR_CAUTION_AFTER_MS = 12_000L
+private const val GPS_INDICATOR_LOST_AFTER_MS = 30_000L
 
 private fun computeGpsFixStaleThresholdMs(expectedGpsIntervalMs: Long): Long = resolveLocationTimingProfile(expectedGpsIntervalMs).indicatorStaleThresholdMs
 

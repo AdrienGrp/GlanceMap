@@ -92,4 +92,51 @@ class GpsSignalTrackerTest {
         )
         assertEquals(15_000L, tracker.snapshot.environmentWarningSinceElapsedMs)
     }
+
+    @Test
+    fun sourceChangeRequiresFreshAcceptedFixFromNewSource() {
+        val tracker = GpsSignalTracker()
+        tracker.onSourceModeChanged(
+            sourceMode = LocationSourceMode.AUTO_FUSED,
+            nowElapsedMs = 1_000L,
+        )
+        tracker.onGpsSignalSample(
+            nowElapsedMs = 1_100L,
+            ageMs = 100L,
+            accuracyM = 8f,
+            freshnessMaxAgeMs = 6_000L,
+            sourceMode = LocationSourceMode.AUTO_FUSED,
+            accepted = true,
+        )
+
+        tracker.onSourceModeChanged(
+            sourceMode = LocationSourceMode.WATCH_GPS,
+            nowElapsedMs = 2_000L,
+        )
+
+        assertTrue(tracker.snapshot.requiresFreshLiveFixAfterSourceChange)
+        assertEquals(LocationSourceMode.WATCH_GPS.telemetryValue, tracker.snapshot.activeSourceModeValue)
+        assertEquals(2_000L, tracker.snapshot.sourceAcquisitionStartedElapsedMs)
+
+        tracker.onGpsSignalSample(
+            nowElapsedMs = 2_100L,
+            ageMs = 100L,
+            accuracyM = 12f,
+            freshnessMaxAgeMs = 6_000L,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+            accepted = false,
+        )
+        assertTrue(tracker.snapshot.requiresFreshLiveFixAfterSourceChange)
+
+        tracker.onGpsSignalSample(
+            nowElapsedMs = 2_200L,
+            ageMs = 100L,
+            accuracyM = 12f,
+            freshnessMaxAgeMs = 6_000L,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+            accepted = true,
+        )
+
+        assertFalse(tracker.snapshot.requiresFreshLiveFixAfterSourceChange)
+    }
 }

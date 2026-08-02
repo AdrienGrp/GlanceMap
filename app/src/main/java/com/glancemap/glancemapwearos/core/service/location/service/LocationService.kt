@@ -390,6 +390,15 @@ class LocationService : Service() {
                     _effectiveUpdateIntervalMs.value = intervalMs
                     updateTelemetryFixContext()
                 },
+                onSourceModeChanged = {
+                    // A location from the previous backend is not a live position for the newly
+                    // selected source. Keep it out of the UI and routing inputs until a fresh
+                    // callback from that source has been accepted.
+                    _currentLocation.value = null
+                    lastAnyAcceptedFixAtElapsedMs = 0L
+                    lastCallbackAcceptedFixAtElapsedMs = 0L
+                    _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
+                },
                 onRequestFailed = {
                     _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
                     updateTelemetryFixContext()
