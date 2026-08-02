@@ -113,6 +113,7 @@ private fun NavigateRuntimeEffects(
 
     LaunchedEffect(
         screenState,
+        isScreenResumed,
         runtimeDemand.trackingEnabled,
         runtimeDemand.backgroundGpsEnabled,
         runtimeDemand.reason,

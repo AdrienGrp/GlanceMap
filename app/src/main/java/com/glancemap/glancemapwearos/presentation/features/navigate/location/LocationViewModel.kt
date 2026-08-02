@@ -5,11 +5,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
@@ -153,7 +153,17 @@ class LocationViewModel(
         val trackingChanged = isTrackingEnabled != trackingEnabled
         val backgroundGpsChanged = desiredBackgroundGpsEnabled != backgroundGpsEnabled
         val runtimeReasonChanged = desiredRuntimeReason != runtimeReason
-        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged && !runtimeReasonChanged) return
+        val needsServiceRecovery =
+            (trackingEnabled || desiredKeepAppOpen) && !isBound && !isBindingInProgress
+        if (
+            !screenStateChanged &&
+            !trackingChanged &&
+            !backgroundGpsChanged &&
+            !runtimeReasonChanged &&
+            !needsServiceRecovery
+        ) {
+            return
+        }
 
         if (screenStateChanged) {
             updateScreenOffTelemetryState(
@@ -174,14 +184,28 @@ class LocationViewModel(
                 backgroundGpsEnabled = backgroundGpsEnabled,
                 runtimeReason = desiredRuntimeReason,
             )
+            if (
+                needsServiceRecovery &&
+                startService(
+                    keepAppOpen = desiredKeepAppOpen,
+                    trackingEnabled = trackingEnabled,
+                )
+            ) {
+                if (trackingEnabled) {
+                    bindService()
+                    ensureConnectionWatchdog()
+                }
+            }
             return
         }
 
         isTrackingEnabled = trackingEnabled
 
         if (trackingEnabled) {
-            startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = true)
-            bindService()
+            val serviceStarted = startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = true)
+            if (serviceStarted) {
+                bindService()
+            }
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = true,
@@ -189,7 +213,9 @@ class LocationViewModel(
                 runtimeReason = desiredRuntimeReason,
             )
             dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix = "after_tracking_enable")
-            ensureConnectionWatchdog()
+            if (serviceStarted) {
+                ensureConnectionWatchdog()
+            }
         } else {
             locationService?.setRuntimeState(
                 screenState = screenState,
@@ -224,19 +250,23 @@ class LocationViewModel(
 
         if (enabled) {
             // Start the service shell so it can keep the app pinned if needed.
-            startService(keepAppOpen = true, trackingEnabled = isTrackingEnabled)
-            if (isTrackingEnabled) {
+            val serviceStarted = startService(keepAppOpen = true, trackingEnabled = isTrackingEnabled)
+            if (isTrackingEnabled && serviceStarted) {
                 bindService()
             } else {
                 stopConnectionRecovery()
                 unbindService()
             }
         } else if (wasInitialized && wasEnabled) {
-            // Deliver the explicit disable before stopping an unbound service. This removes the
-            // ongoing Wear activity even when GPS is inactive and no binder is connected.
-            startService(keepAppOpen = false, trackingEnabled = isTrackingEnabled)
             if (isTrackingEnabled) {
-                bindService()
+                val serviceStarted = startService(keepAppOpen = false, trackingEnabled = true)
+                if (serviceStarted) {
+                    bindService()
+                }
+            } else {
+                // A stopped tracking session does not need a new service start merely to remove
+                // the pinned notification; stopping the existing service performs that cleanup.
+                stopService()
             }
         }
 
@@ -439,46 +469,48 @@ class LocationViewModel(
     private fun startService(
         keepAppOpen: Boolean,
         trackingEnabled: Boolean,
-    ) {
-        val app = getApplication<Application>()
-        Intent(app, LocationService::class.java).also { intent ->
-            intent.putExtra(LocationService.EXTRA_KEEP_APP_OPEN, keepAppOpen)
-            intent.putExtra(LocationService.EXTRA_TRACKING_ENABLED, trackingEnabled)
-            intent.putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
-            intent.putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
-            intent.putExtra(LocationService.EXTRA_RUNTIME_REASON, desiredRuntimeReason)
-            val shouldUseForegroundStart = trackingEnabled && (keepAppOpen || desiredBackgroundGpsEnabled)
-            val startResult =
-                runCatching {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
-                        ContextCompat.startForegroundService(app, intent)
-                    } else {
-                        app.startService(intent)
-                    }
-                }
-            if (startResult.isFailure) {
-                val error = startResult.exceptionOrNull()
-                DebugTelemetry.log(
-                    CONNECTION_TELEMETRY_TAG,
-                    "serviceStartFailed foreground=$shouldUseForegroundStart tracking=$trackingEnabled " +
-                        "keepOpen=$keepAppOpen backgroundGps=$desiredBackgroundGpsEnabled " +
-                        "error=${error?.javaClass?.simpleName ?: "unknown"} " +
-                        "message=${error?.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
-                )
-                if (shouldUseForegroundStart) {
-                    runCatching { app.startService(intent) }
-                        .onFailure { fallbackError ->
-                            DebugTelemetry.log(
-                                CONNECTION_TELEMETRY_TAG,
-                                "serviceStartFallbackFailed tracking=$trackingEnabled " +
-                                    "error=${fallbackError.javaClass.simpleName} " +
-                                    "message=${fallbackError.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
-                            )
-                        }
-                }
-            }
+    ): Boolean {
+        val hasActiveConnection = isBound || isBindingInProgress
+        val appResumed = isApplicationResumed()
+        if (!shouldAttemptLocationServiceStart(appResumed, hasActiveConnection)) {
+            DebugTelemetry.log(
+                CONNECTION_TELEMETRY_TAG,
+                "serviceStartSkipped appResumed=$appResumed tracking=$trackingEnabled " +
+                    "keepOpen=$keepAppOpen backgroundGps=$desiredBackgroundGpsEnabled",
+            )
+            return false
         }
+        if (hasActiveConnection) return true
+
+        val app = getApplication<Application>()
+        val intent =
+            Intent(app, LocationService::class.java).apply {
+                putExtra(LocationService.EXTRA_KEEP_APP_OPEN, keepAppOpen)
+                putExtra(LocationService.EXTRA_TRACKING_ENABLED, trackingEnabled)
+                putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
+                putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
+                putExtra(LocationService.EXTRA_RUNTIME_REASON, desiredRuntimeReason)
+            }
+        val startResult = runCatching { app.startService(intent) }
+        if (startResult.isFailure) {
+            val error = startResult.exceptionOrNull()
+            DebugTelemetry.log(
+                CONNECTION_TELEMETRY_TAG,
+                "serviceStartFailed tracking=$trackingEnabled keepOpen=$keepAppOpen " +
+                    "backgroundGps=$desiredBackgroundGpsEnabled " +
+                    "error=${error?.javaClass?.simpleName ?: "unknown"} " +
+                    "message=${error?.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+            )
+        }
+        return startResult.isSuccess
     }
+
+    private fun isApplicationResumed(): Boolean =
+        ProcessLifecycleOwner
+            .get()
+            .lifecycle
+            .currentState
+            .isAtLeast(Lifecycle.State.RESUMED)
 
     private fun stopService() {
         Intent(getApplication(), LocationService::class.java).also { intent ->
@@ -535,6 +567,10 @@ class LocationViewModel(
         if (!shouldMaintainConnection()) return
         if (isBound) return
         if (reconnectJob?.isActive == true) return
+        if (!isApplicationResumed()) {
+            logConnection("reconnect deferred: app not resumed reason=$reason")
+            return
+        }
 
         reconnectAttempt += 1
         val attempt = reconnectAttempt
@@ -551,8 +587,9 @@ class LocationViewModel(
                 logConnection(
                     "reconnect attempt=$attempt reason=$reason keepOpen=$desiredKeepAppOpen",
                 )
-                startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = isTrackingEnabled)
-                bindService()
+                if (startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = isTrackingEnabled)) {
+                    bindService()
+                }
                 reconnectJob = null
             }
     }
@@ -585,6 +622,11 @@ internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
     source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
         source == UI_RECORDING_WAKE_REFRESH_SOURCE ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
+
+internal fun shouldAttemptLocationServiceStart(
+    appResumed: Boolean,
+    hasActiveConnection: Boolean,
+): Boolean = appResumed || hasActiveConnection
 
 internal enum class ImmediateLocationRequestResult {
     REQUESTED,
