@@ -607,7 +607,9 @@ class LiveTrackingService : Service() {
             PendingIntent.getActivity(
                 this,
                 REQ_OPEN_APP,
-                Intent(this, MainActivityMobile::class.java),
+                Intent(this, MainActivityMobile::class.java)
+                    .setAction(LiveTrackingOpenIntentContract.ACTION_OPEN_LIVE_TRACKING)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         val stopIntent =

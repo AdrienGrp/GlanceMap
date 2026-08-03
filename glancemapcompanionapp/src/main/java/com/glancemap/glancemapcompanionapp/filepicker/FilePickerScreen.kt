@@ -69,6 +69,7 @@ private enum class CompanionHomeArea {
 fun FilePickerScreen(
     viewModel: FileTransferViewModel,
     openSendToWatchToken: Long = 0L,
+    openLiveTrackingToken: Long = 0L,
     watchGpxSaveToken: Long = 0L,
     watchGpxSaveFiles: List<GeneratedPhoneFile> = emptyList(),
 ) {
@@ -110,10 +111,10 @@ fun FilePickerScreen(
     var showDebugDialog by remember { mutableStateOf(false) }
     var activeHomeArea by remember {
         mutableStateOf(
-            if (openSendToWatchToken != 0L) {
-                CompanionHomeArea.SEND_TO_WATCH
-            } else {
-                CompanionHomeArea.HOME
+            when {
+                openLiveTrackingToken != 0L -> CompanionHomeArea.LIVE_TRACKING
+                openSendToWatchToken != 0L -> CompanionHomeArea.SEND_TO_WATCH
+                else -> CompanionHomeArea.HOME
             },
         )
     }
@@ -139,6 +140,12 @@ fun FilePickerScreen(
     LaunchedEffect(openSendToWatchToken) {
         if (openSendToWatchToken != 0L) {
             activeHomeArea = CompanionHomeArea.SEND_TO_WATCH
+        }
+    }
+
+    LaunchedEffect(openLiveTrackingToken) {
+        if (openLiveTrackingToken != 0L) {
+            activeHomeArea = CompanionHomeArea.LIVE_TRACKING
         }
     }
 
