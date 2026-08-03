@@ -781,6 +781,11 @@ fun LiveTrackingScreen(
         }
 
         fun startLiveTracking() {
+            if (group.isBlank()) {
+                validationMessage = null
+                page = LiveTrackingPage.SETUP
+                return
+            }
             validationMessage =
                 validateStartSettings(
                     group = group,
