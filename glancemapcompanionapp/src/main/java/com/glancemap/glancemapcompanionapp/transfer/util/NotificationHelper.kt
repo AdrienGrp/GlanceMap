@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
@@ -37,9 +36,6 @@ class NotificationHelper(
 
     private val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val smallNotificationIconRes = R.mipmap.ic_launcher_companionapp_foreground
-    private val largeNotificationIcon by lazy {
-        BitmapFactory.decodeResource(service.resources, R.mipmap.ic_launcher_companionapp)
-    }
 
     private var lastUpdateTimeMs: Long = 0L
     private var lastProgress: Int = -999
@@ -139,7 +135,6 @@ class NotificationHelper(
                 .setContentTitle("Transfer Complete")
                 .setContentText("Sent $fileName to $targetName")
                 .setSmallIcon(smallNotificationIconRes)
-                .setLargeIcon(largeNotificationIcon)
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
@@ -165,7 +160,6 @@ class NotificationHelper(
                 .setContentTitle(title)
                 .setContentText(message)
                 .setSmallIcon(smallNotificationIconRes)
-                .setLargeIcon(largeNotificationIcon)
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
@@ -245,7 +239,6 @@ class NotificationHelper(
                 .setContentTitle(title)
                 .setContentText(bodyText)
                 .setSmallIcon(smallNotificationIconRes)
-                .setLargeIcon(largeNotificationIcon)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)

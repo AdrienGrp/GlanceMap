@@ -383,6 +383,7 @@ internal abstract class BaseMapLibrePickerView(
                     .createFromAttributes(context)
                     .textureMode(true)
                     .translucentTextureSurface(false)
+                    .setPrefetchZoomDelta(0)
                     .foregroundLoadColor(MAP_PICKER_FALLBACK_COLOR),
             )
         mapView.setBackgroundColor(MAP_PICKER_FALLBACK_COLOR)
